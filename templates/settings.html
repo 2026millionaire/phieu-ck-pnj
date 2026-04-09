@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Cài đặt{% endblock %}
+{% block page_title %}Cài đặt hệ thống{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-people"></i> Nhân sự cửa hàng
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="form-label">Cửa hàng trưởng (CHT)</label>
+                        <input type="text" class="form-control form-control-sm" id="s_cht_name"
+                               value="{{ settings.get('cht_name', '') }}" style="text-transform:uppercase;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Kế toán 1</label>
+                        <input type="text" class="form-control form-control-sm" id="s_kt1_name"
+                               value="{{ settings.get('kt1_name', '') }}" style="text-transform:uppercase;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Kế toán 2</label>
+                        <input type="text" class="form-control form-control-sm" id="s_kt2_name"
+                               value="{{ settings.get('kt2_name', '') }}" style="text-transform:uppercase;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-clock"></i> Thời gian thanh toán
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Thời hạn CK (giờ)</label>
+                        <input type="number" class="form-control form-control-sm" id="s_thoi_gian_ck"
+                               value="{{ settings.get('thoi_gian_ck', '48') }}" min="1" max="168">
+                        <small class="text-muted">Mặc định 48 giờ (2 ngày) từ giờ BK gần nhất</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Mã cửa hàng (Plant)</label>
+                        <input type="text" class="form-control form-control-sm" id="s_plant"
+                               value="{{ settings.get('plant', '1305') }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-bank2"></i> MBBank (tra cứu tài khoản liên ngân hàng)
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Số điện thoại MBBank</label>
+                        <input type="text" class="form-control form-control-sm" id="s_mb_username"
+                               value="{{ settings.get('mb_username', '') }}" placeholder="09xxxxxxxx">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Mật khẩu MBBank</label>
+                        <input type="password" class="form-control form-control-sm" id="s_mb_password"
+                               value="{{ settings.get('mb_password', '') }}" placeholder="Mật khẩu app MBBank">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Số TK MBBank</label>
+                        <input type="text" class="form-control form-control-sm" id="s_mb_account"
+                               value="{{ settings.get('mb_account', '') }}" placeholder="Số tài khoản MBBank (xem trong app)">
+                    </div>
+                </div>
+                <small class="text-muted">Dùng để tra cứu tên chủ TK liên ngân hàng. Miễn phí, không giới hạn. Dữ liệu chỉ lưu local.</small>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnSaveSettings">
+            <i class="bi bi-check-lg"></i> Lưu cài đặt
+        </button>
+        <span id="saveMsg" class="ms-2 text-success d-none">Đã lưu!</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('btnSaveSettings').addEventListener('click', function() {
+    const payload = {
+        cht_name: document.getElementById('s_cht_name').value.trim().toUpperCase(),
+        kt1_name: document.getElementById('s_kt1_name').value.trim().toUpperCase(),
+        kt2_name: document.getElementById('s_kt2_name').value.trim().toUpperCase(),
+        thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
+        plant: document.getElementById('s_plant').value.trim(),
+        mb_username: document.getElementById('s_mb_username').value.trim(),
+        mb_password: document.getElementById('s_mb_password').value.trim(),
+        mb_account: document.getElementById('s_mb_account').value.trim(),
+    };
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            const msg = document.getElementById('saveMsg');
+            msg.classList.remove('d-none');
+            setTimeout(() => msg.classList.add('d-none'), 2000);
+        }
+    });
+});
+</script>
+{% endblock %}

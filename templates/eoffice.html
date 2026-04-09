@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}eOffice QT82{% endblock %}
+{% block nav_eoffice %}active{% endblock %}
+{% block page_title %}eOffice QT82{% endblock %}
+
+{% block extra_css %}
+.copy-field {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    transition: border-color 0.15s;
+}
+.copy-field:hover { border-color: #0ea5e9; }
+.copy-field .field-label {
+    font-size: 0.7rem; font-weight: 600; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px;
+}
+.copy-field .field-value {
+    font-size: 0.9rem; font-weight: 600; color: #1e293b; word-break: break-all;
+}
+.copy-field .field-value.mono { font-family: "Courier New", monospace; font-size: 0.85rem; }
+.btn-copy {
+    flex-shrink: 0; padding: 4px 10px; font-size: 0.75rem; font-weight: 600;
+    border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc;
+    color: #475569; cursor: pointer; transition: all 0.15s;
+}
+.btn-copy:hover { background: #e0f2fe; border-color: #0ea5e9; color: #0369a1; }
+.btn-copy.copied { background: #dcfce7; border-color: #22c55e; color: #166534; }
+
+.history-mini th { font-size: 0.72rem; background: #f8fafc; }
+.history-mini td { font-size: 0.8rem; vertical-align: middle; }
+.history-mini .active-row { background: #eff6ff !important; }
+.history-mini .amount { text-align: right; font-weight: 600; color: #0369a1; white-space: nowrap; }
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <!-- LEFT: Copy fields -->
+    <div class="col-lg-4">
+        {% if phieu %}
+        <div class="card">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-data"></i> <strong>{{ phieu.ten_kh }}</strong></span>
+                <span class="badge bg-primary">{{ "{:,.0f}".format(phieu.tong_ck | float) }}đ</span>
+            </div>
+            <div class="card-body p-2">
+                <div id="copyFields">
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã KH</div><div class="field-value mono" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Nội dung</div><div class="field-value" id="val_noi_dung" style="font-size:0.8rem;">{{ phieu.eo_noi_dung }}</div></div><button class="btn-copy" onclick="copyField('noi_dung')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Tên TK</div><div class="field-value" id="val_ten_tk">{{ phieu.eo_ten_tk }}</div></div><button class="btn-copy" onclick="copyField('ten_tk')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Số TK</div><div class="field-value mono" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã NH</div><div class="field-value mono" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">CCCD</div><div class="field-value mono" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Tên file</div><div class="field-value mono" id="val_ten_file">{{ phieu.eo_ten_file }}</div></div><button class="btn-copy" onclick="copyField('ten_file')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Số tiền</div><div class="field-value mono" id="val_so_tien">{{ phieu.tong_ck | int }}</div></div><button class="btn-copy" onclick="copyField('so_tien')"><i class="bi bi-clipboard"></i></button></div>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <a href="/api/print/{{ phieu.id }}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer"></i> In</a>
+                    <a href="/api/template-tt/{{ phieu.id }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Template TT</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-arrow-right" style="font-size:2rem;"></i>
+                <p class="mt-2">Chọn phiếu từ danh sách bên phải</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT: History mini -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header py-2">
+                <i class="bi bi-clock-history"></i> Lịch sử phiếu CK
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm history-mini mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Tên KH</th>
+                                <th>TVV</th>
+                                <th class="text-end">Số tiền</th>
+                                <th class="text-center" style="width:55px;">Trình</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="histBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const currentId = {{ phieu.id if phieu else 0 }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/history').then(r => r.json()).then(json => {
+        if (!json.ok || !json.data) return;
+        const tbody = document.getElementById('histBody');
+        json.data.forEach(function(p) {
+            const active = p.id === currentId ? 'active-row' : '';
+            const checked = p.da_trinh ? 'checked' : '';
+            const amt = p.tong_ck ? Math.round(p.tong_ck).toLocaleString('vi-VN') : '0';
+            const date = p.created_at ? p.created_at.substring(5, 16) : '';
+            const tr = document.createElement('tr');
+            tr.className = active;
+            tr.innerHTML =
+                '<td style="white-space:nowrap;font-size:0.75rem;">' + date + '</td>' +
+                '<td><strong style="font-size:0.8rem;">' + (p.ten_kh || '') + '</strong></td>' +
+                '<td style="font-size:0.75rem;">' + (p.tvv_name || '') + '</td>' +
+                '<td class="amount">' + amt + '</td>' +
+                '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh" data-id="' + p.id + '" ' + checked + '></td>' +
+                '<td><a href="/eoffice/' + p.id + '" class="btn btn-sm btn-outline-primary py-0 px-1" title="Chọn"><i class="bi bi-arrow-right-short"></i></a></td>';
+            tbody.appendChild(tr);
+        });
+
+        // Checkbox Đã Trình
+        tbody.addEventListener('change', function(e) {
+            if (!e.target.classList.contains('da-trinh')) return;
+            fetch('/api/da-trinh/' + e.target.dataset.id, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({da_trinh: e.target.checked})
+            });
+        });
+    });
+});
+
+function copyField(fieldName) {
+    const el = document.getElementById('val_' + fieldName);
+    if (!el) return;
+    navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+        const btn = el.closest('.copy-field').querySelector('.btn-copy');
+        btn.classList.add('copied');
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        setTimeout(function() {
+            btn.classList.remove('copied');
+            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+        }, 1200);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1030 @@
+{% extends "base.html" %}
+
+{% block title %}Tạo phiếu{% endblock %}
+{% block nav_home %}active{% endblock %}
+{% block page_title %}Tạo phiếu xác nhận chuyển khoản{% endblock %}
+
+{% block extra_css %}
+.preview-panel {
+    position: sticky;
+    top: 1rem;
+}
+
+.preview-phieu {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 0.55rem;
+    line-height: 1.4;
+    min-height: 400px;
+    font-family: "Times New Roman", serif;
+}
+
+.preview-phieu .header-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.preview-phieu .doc-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.65rem;
+    margin: 8px 0;
+}
+
+.preview-phieu table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.5rem;
+}
+
+.preview-phieu table th,
+.preview-phieu table td {
+    border: 1px solid #999;
+    padding: 2px 4px;
+}
+
+.sap-table th {
+    background: #f0f0f0;
+    font-size: 0.8rem;
+}
+
+.sap-table td {
+    font-size: 0.85rem;
+}
+
+textarea#sap_data {
+    font-family: "Courier New", monospace;
+    font-size: 0.8rem;
+}
+
+.form-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.summary-box {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.summary-box .row > div {
+    margin-bottom: 4px;
+}
+
+.summary-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.summary-value {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #0369a1;
+}
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <!-- LEFT: Form -->
+    <div class="col-lg-7">
+        <form id="phieuForm" method="POST" action="{{ url_for('api_save') }}">
+            <!-- Customer info -->
+            <div class="card mb-3">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-person"></i> 1. Thông tin Khách Hàng</span>
+                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" id="btnOcrClip" title="Quét ảnh BK từ clipboard (Ctrl+V)">
+                        <i class="bi bi-clipboard-pulse"></i> Quét BK
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Mã KH (Vendor)</label>
+                            <input type="text" class="form-control form-control-sm" id="ma_kh" name="ma_kh"
+                                   value="" placeholder="VD: 0001234567">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Tên KH</label>
+                            <input type="text" class="form-control form-control-sm" id="ten_kh" name="ten_kh"
+                                   value="" placeholder="NGUYỄN VĂN A"
+                                   style="text-transform: uppercase;">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">SĐT</label>
+                            <input type="text" class="form-control form-control-sm" id="sdt" name="sdt"
+                                   value="" placeholder="0901234567">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Số CCCD</label>
+                            <input type="text" class="form-control form-control-sm" id="cccd" name="cccd"
+                                   value="" placeholder="046xxx">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Số BK</label>
+                            <input type="text" class="form-control form-control-sm" id="so_bk" name="so_bk"
+                                   value="" placeholder="Số bảng kê">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment info -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-bank"></i> 2. Thông tin thanh toán / Ủy Quyền chuyển khoản
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <!-- Tên chủ TK (kết quả tra cứu + cảnh báo) -->
+                        <div class="col-12">
+                            <label class="form-label mb-1">Tên tài khoản thụ hưởng</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="text" class="form-control form-control-sm flex-grow-1" id="ten_chu_tk" name="ten_tk"
+                                       placeholder="Nhấn Kiểm tra TK hoặc tick Dùng tên KH" style="font-weight:700; color:#0369a1;" readonly>
+                                <button type="button" class="btn btn-outline-info btn-sm text-nowrap" id="btnLookup">
+                                    <i class="bi bi-search"></i> Kiểm tra TK
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input" type="checkbox" id="cbUseTenKH">
+                                    <label class="form-check-label small" for="cbUseTenKH">Dùng tên KH</label>
+                                </div>
+                                <div id="lookupError" class="text-danger small d-none"></div>
+                                <div id="nameWarning" class="small d-none" style="color:#dc2626; font-weight:600;">
+                                    <i class="bi bi-exclamation-triangle"></i> Tên TK không khớp tên KH!
+                                </div>
+                                <div id="nameMatch" class="small d-none" style="color:#16a34a; font-weight:600;">
+                                    <i class="bi bi-check-circle-fill"></i> Tên TK khớp tên KH!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Số tài khoản</label>
+                            <input type="text" class="form-control form-control-sm" id="so_tk" name="so_tk"
+                                   value="" placeholder="Số TK thụ hưởng">
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">Ngân hàng</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control form-control-sm" id="bank_search"
+                                       autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
+                                <div id="bankDropdown" class="dropdown-menu w-100" style="max-height:250px;overflow-y:auto;font-size:0.8rem;"></div>
+                            </div>
+                            <input type="hidden" id="ngan_hang" name="ngan_hang" value="">
+                            <input type="hidden" id="bank_bin" name="bank_bin" value="">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Mã eOffice NH</label>
+                            <input type="text" class="form-control form-control-sm bg-light" id="bank_eoffice" readonly
+                                   placeholder="Tự động">
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">TVV - Tư vấn viên</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control form-control-sm" id="tvv_search"
+                                       autocomplete="off" placeholder="Gõ mã TVV (E01...)">
+                                <div id="tvvDropdown" class="dropdown-menu w-100" style="max-height:200px;overflow-y:auto;font-size:0.8rem;"></div>
+                            </div>
+                            <input type="hidden" id="tvv_code" name="tvv_code" value="">
+                            <input type="hidden" id="tvv_name" name="tvv_name" value="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SAP Data -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-table"></i> 3. Dữ liệu SAP (ZFIE0029)
+                </div>
+                <div class="card-body">
+                    <label class="form-label">Dán dữ liệu SAP</label>
+                    <textarea class="form-control" id="sap_data" rows="5"
+                              placeholder="Dán các dòng từ SAP ZFIE0029 vào đây (tab-separated)..."></textarea>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnParseSap">
+                        <i class="bi bi-gear"></i> Xử lý SAP
+                    </button>
+
+                    <!-- Parsed result table -->
+                    <div id="sapResult" class="mt-3 d-none">
+                        <div class="d-flex justify-content-end mb-1">
+                            <button type="button" class="btn btn-sm btn-outline-success" id="btnAddRow" title="Thêm dòng">
+                                <i class="bi bi-plus-circle"></i> Thêm dòng
+                            </button>
+                        </div>
+                        <table class="table table-bordered table-sm sap-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:22%;">Loại</th>
+                                    <th style="width:25%;">Số CT</th>
+                                    <th class="text-end" style="width:22%;">Giá trị</th>
+                                    <th style="width:22%;">Giờ</th>
+                                    <th style="width:9%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="sapTableBody"></tbody>
+                        </table>
+
+                        <div class="summary-box mt-2">
+                            <div class="row">
+                                <div class="col-6">
+                                    <span class="summary-label">Tổng BK:</span>
+                                    <span class="summary-value" id="sumBK">0</span>
+                                </div>
+                                <div class="col-6">
+                                    <span class="summary-label">Tổng HĐ:</span>
+                                    <span class="summary-value" id="sumHD">0</span>
+                                </div>
+                                <div class="col-6 mt-1">
+                                    <span class="summary-label">Số tiền CK:</span>
+                                    <span class="summary-value text-danger" id="sumCK">0</span>
+                                </div>
+                                <div class="col-12 mt-1">
+                                    <span class="summary-label">Bằng chữ:</span>
+                                    <span id="sumText" class="fst-italic"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden fields for chung_tu JSON -->
+                    <input type="hidden" id="chung_tu_json" name="chung_tu_json" value="">
+                    <input type="hidden" id="tong_bk" name="tong_bk" value="0">
+                    <input type="hidden" id="tong_hd" name="tong_hd" value="0">
+                    <input type="hidden" id="tong_ck" name="tong_ck" value="0">
+                    <input type="hidden" id="bang_chu" name="bang_chu" value="">
+                </div>
+            </div>
+
+            <!-- Người ký -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-pen"></i> Người ký xác nhận (phía cửa hàng)
+                </div>
+                <div class="card-body py-2">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_tvv" value="tvv" checked>
+                            <label class="form-check-label" for="nk_tvv">TVV</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_cht" value="cht">
+                            <label class="form-check-label" for="nk_cht">CHT - {{ settings.get('cht_name', 'HỒ THỊ HÀ MY') }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_kt1" value="kt1">
+                            <label class="form-check-label" for="nk_kt1">KT - {{ settings.get('kt1_name', 'CHÂU ĐĂNG KHOA') }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_kt2" value="kt2">
+                            <label class="form-check-label" for="nk_kt2">KT - {{ settings.get('kt2_name', 'LÊ THỊ MỸ TUYỀN') }}</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary" id="btnSavePrint">
+                    <i class="bi bi-printer"></i> Lưu & In phiếu
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClear">
+                    <i class="bi bi-x-lg"></i> Xóa
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- RIGHT: Preview -->
+    <div class="col-lg-5">
+        <div class="preview-panel">
+            <div class="card">
+                <div class="card-header py-2">
+                    <i class="bi bi-eye"></i> Xem trước phiếu
+                </div>
+                <div class="card-body p-2">
+                    <div class="preview-phieu" id="previewArea">
+                        <!-- Header giống print -->
+                        <div class="header-row">
+                            <div style="width:48%; display:flex; align-items:center; gap:3px;">
+                                <img src="{{ url_for('static', filename='logo_pnj.webp') }}" style="height:20px;" alt="PNJ">
+                                <strong style="font-size:0.48rem; line-height:1.2;">CÔNG TY CP VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN</strong>
+                            </div>
+                            <div style="width:50%; text-align:center;">
+                                <strong style="font-size:0.46rem;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br>
+                                <em style="font-size:0.43rem; border-bottom:1px solid #000;">Độc lập - Tự do - Hạnh phúc</em>
+                            </div>
+                        </div>
+                        <div style="font-size:0.42rem; color:#666; margin:1px 0;">
+                            Số: CH PNJ NEXT 27 Hà Nội, Huế - 1305_<span class="pv-date">--/--/----</span>_<span class="pv-time">--:--</span>
+                        </div>
+                        <div class="doc-title" style="font-size:0.58rem; margin:4px 0;">PHIẾU XÁC NHẬN THÔNG TIN THANH TOÁN CHUYỂN KHOẢN</div>
+
+                        <!-- 1. KH -->
+                        <div style="margin-bottom:2px;">
+                            <strong style="font-size:0.5rem;">1. Thông tin Khách Hàng</strong>
+                            <div style="display:flex; justify-content:space-between; font-size:0.48rem;">
+                                <span>Họ & Tên: <strong class="pv-ten_kh">___</strong></span>
+                                <span>Mã KH (Vendor)*: <strong class="pv-ma_kh">___</strong></span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:0.48rem;">
+                                <span>Số điện thoại: <strong class="pv-sdt">___</strong></span>
+                                <span>Số CCCD: <strong class="pv-cccd">___</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- 2. TT + QR -->
+                        <div style="margin-bottom:0;">
+                            <strong style="font-size:0.5rem;">2. Thông tin thanh toán / Ủy Quyền chuyển khoản</strong>
+                            <div style="display:flex; gap:4px;">
+                                <div style="flex:1; font-size:0.46rem;">
+                                    <div style="display:flex;"><span style="width:52%;">Tên tài khoản thụ hưởng:</span><strong class="pv-ten_kh">___</strong></div>
+                                    <div style="display:flex;"><span style="width:52%;">Số tài khoản thụ hưởng:</span><strong class="pv-so_tk">___</strong></div>
+                                    <div style="display:flex;"><span style="width:52%;">Ngân hàng thụ hưởng:</span><strong class="pv-ngan_hang">___</strong></div>
+                                    <div style="display:flex;"><span style="width:52%;">Số tiền chuyển khoản:</span><strong><span class="pv-tong_ck">0</span> đồng</strong></div>
+                                    <div style="font-style:italic; font-size:0.43rem;" class="pv-bang_chu">(Bằng chữ: ___)</div>
+                                </div>
+                                <div id="previewQR" style="width:48px;height:48px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:0.35rem;color:#999;flex-shrink:0;">QR</div>
+                            </div>
+                        </div>
+
+                        <!-- Chứng từ -->
+                        <div style="font-size:0.48rem; font-weight:600; margin:3px 0 1px;">Thông tin chứng từ:</div>
+                        <table>
+                            <thead><tr style="background:#FFFF00;"><th>Loại</th><th>Số CT</th><th>Giá trị</th><th>Giờ</th></tr></thead>
+                            <tbody id="previewCTBody">
+                                <tr><td colspan="4" style="text-align:center;color:#999;">Chưa có dữ liệu</td></tr>
+                            </tbody>
+                            <tfoot>
+                                <tr style="background:#FFFF00; font-weight:700;">
+                                    <td colspan="2"><strong>TỔNG THANH TOÁN (BK+CỌC+HBTL-HĐ)</strong></td>
+                                    <td class="pv-tong_ck" style="text-align:right;">0</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- Hiệu lực + TT + Lưu ý -->
+                        <div style="font-size:0.42rem; margin-top:2px;">
+                            Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.
+                        </div>
+                        <div style="font-size:0.42rem;">
+                            <strong>Thời gian thanh toán:</strong> <span class="pv-ngay_tt">--/--/---- --:--</span>
+                        </div>
+                        <div style="font-size:0.4rem;">
+                            <strong>Lưu ý:</strong><br>
+                            1. T2-T6 trước 16h30: TT trong ngày (T)<br>
+                            2. T2-T6 sau 16h30, T7; CN, Lễ, Tết: T+1<br>
+                            * Liên hệ: <strong>0234 3847 588</strong>
+                        </div>
+
+                        <!-- Ngày ký -->
+                        <div style="text-align:right; font-style:italic; font-size:0.42rem; margin:3px 0 1px;">
+                            Huế, ngày <span class="pv-ngay">--</span> tháng <span class="pv-thang">--</span> năm <span class="pv-nam">----</span>
+                        </div>
+
+                        <!-- Chữ ký -->
+                        <div style="display:flex; justify-content:space-between; margin-top:1px; font-size:0.46rem;">
+                            <div style="text-align:center; width:45%;">
+                                <strong>Khách Hàng xác nhận</strong><br>
+                                <em style="font-size:0.38rem;">(Ký, ghi rõ họ tên)</em><br>
+                                <br>
+                                <strong class="pv-ten_kh">___</strong>
+                            </div>
+                            <div style="text-align:center; width:45%;">
+                                <strong>Cửa Hàng xác nhận</strong><br>
+                                <em style="font-size:0.38rem;">(Ký, ghi rõ họ tên)</em><br>
+                                <br>
+                                <strong class="pv-nguoi_ki">___</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_bk', 'so_tk', 'ngan_hang'];
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+    const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    document.querySelectorAll('.pv-date').forEach(el => el.textContent = dateStr);
+    document.querySelectorAll('.pv-time').forEach(el => el.textContent = timeStr);
+    document.querySelectorAll('.pv-ngay').forEach(el => el.textContent = String(now.getDate()).padStart(2,'0'));
+    document.querySelectorAll('.pv-thang').forEach(el => el.textContent = String(now.getMonth()+1).padStart(2,'0'));
+    document.querySelectorAll('.pv-nam').forEach(el => el.textContent = now.getFullYear());
+
+    // Live preview binding
+    fields.forEach(function(f) {
+        const el = document.getElementById(f);
+        if (!el) return;
+        el.addEventListener('input', function() {
+            let val = this.value || '___';
+            if (f === 'ten_kh') val = val.toUpperCase();
+            document.querySelectorAll('.pv-' + f).forEach(function(pv) {
+                pv.textContent = val;
+            });
+        });
+        el.dispatchEvent(new Event('input'));
+    });
+
+    // Auto uppercase ten_kh
+    document.getElementById('ten_kh').addEventListener('blur', function() {
+        this.value = this.value.toUpperCase();
+    });
+
+    // ===== QUÉT BK TỪ CLIPBOARD =====
+    document.getElementById('btnOcrClip').addEventListener('click', async function() {
+        const btn = this;
+        try {
+            const items = await navigator.clipboard.read();
+            let blob = null;
+            for (const item of items) {
+                for (const type of item.types) {
+                    if (type.startsWith('image/')) {
+                        blob = await item.getType(type);
+                        break;
+                    }
+                }
+                if (blob) break;
+            }
+            if (!blob) { alert('Clipboard không có ảnh. Hãy chụp/copy ảnh BK trước.'); return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang quét...';
+
+            const formData = new FormData();
+            formData.append('image', blob, 'clipboard.png');
+
+            const resp = await fetch('/api/ocr-bk', { method: 'POST', body: formData });
+            const data = await resp.json();
+
+            if (data.ok) {
+                if (data.so_bk) document.getElementById('so_bk').value = data.so_bk;
+                if (data.ma_kh) document.getElementById('ma_kh').value = data.ma_kh;
+                if (data.cccd) document.getElementById('cccd').value = data.cccd;
+                if (data.sdt) document.getElementById('sdt').value = data.sdt;
+                if (data.ten_kh) document.getElementById('ten_kh').value = data.ten_kh.toUpperCase();
+                // Trigger preview update
+                ['so_bk','ma_kh','cccd','sdt','ten_kh'].forEach(f => {
+                    document.getElementById(f).dispatchEvent(new Event('input'));
+                });
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Đã quét!';
+                btn.classList.replace('btn-outline-success', 'btn-success');
+                setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard-pulse"></i> Quét BK'; btn.classList.replace('btn-success', 'btn-outline-success'); }, 2000);
+                // Debug: log raw OCR text vào console
+                if (data.raw_text) console.log('OCR raw_text:', data.raw_text);
+            } else {
+                alert('Lỗi OCR: ' + (data.error || 'Không đọc được'));
+            }
+        } catch (err) {
+            if (err.name === 'NotAllowedError') {
+                alert('Trình duyệt chặn đọc clipboard. Hãy cho phép quyền clipboard.');
+            } else {
+                alert('Lỗi: ' + err.message);
+            }
+        } finally {
+            btn.disabled = false;
+            if (!btn.innerHTML.includes('check')) btn.innerHTML = '<i class="bi bi-clipboard-pulse"></i> Quét BK';
+        }
+    });
+
+    // ===== BANK DROPDOWN SEARCHABLE =====
+    let allBanks = [];
+    fetch('/api/banks').then(r => r.json()).then(d => { allBanks = d.data || []; });
+
+    const bankSearch = document.getElementById('bank_search');
+    const bankDropdown = document.getElementById('bankDropdown');
+    const bankEoffice = document.getElementById('bank_eoffice');
+
+    bankSearch.addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        if (!q) { bankDropdown.classList.remove('show'); return; }
+        const matches = allBanks.filter(b =>
+            b.ten_gd.toLowerCase().includes(q) ||
+            b.code.toLowerCase().includes(q) ||
+            b.ten_tra_cuu.toLowerCase().includes(q) ||
+            b.bin.includes(q)
+        ).slice(0, 12);
+        if (!matches.length) { bankDropdown.classList.remove('show'); return; }
+        bankDropdown.innerHTML = matches.map(b =>
+            `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-eoffice="${b.eoffice}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}">
+                <strong>${b.ten_gd}</strong> <small class="text-muted">(${b.code})</small><br>
+                <small class="text-secondary">${b.eoffice}</small>
+            </a>`
+        ).join('');
+        bankDropdown.classList.add('show');
+    });
+
+    bankDropdown.addEventListener('click', function(e) {
+        e.preventDefault();
+        const item = e.target.closest('.dropdown-item');
+        if (!item) return;
+        bankSearch.value = item.dataset.ten;
+        document.getElementById('ngan_hang').value = item.dataset.ten;
+        document.getElementById('bank_bin').value = item.dataset.bin;
+        bankEoffice.value = item.dataset.eoffice;
+        document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = item.dataset.ten);
+        bankDropdown.classList.remove('show');
+        updateQR();
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!bankSearch.contains(e.target) && !bankDropdown.contains(e.target))
+            bankDropdown.classList.remove('show');
+        if (!tvvSearch.contains(e.target) && !tvvDropdown.contains(e.target))
+            tvvDropdown.classList.remove('show');
+    });
+
+    // ===== TVV DROPDOWN SEARCHABLE =====
+    let allTvv = [];
+    fetch('/api/tvv').then(r => r.json()).then(d => { allTvv = d.data || []; });
+
+    const tvvSearch = document.getElementById('tvv_search');
+    const tvvDropdown = document.getElementById('tvvDropdown');
+
+    tvvSearch.addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        if (!q) { tvvDropdown.classList.remove('show'); return; }
+        const matches = allTvv.filter(t =>
+            ('e01' + t.ma).toLowerCase().includes(q) ||
+            t.ma.toLowerCase().includes(q) ||
+            t.ten.toLowerCase().includes(q)
+        ).slice(0, 10);
+        if (!matches.length) { tvvDropdown.classList.remove('show'); return; }
+        tvvDropdown.innerHTML = matches.map(t =>
+            `<a class="dropdown-item py-1" href="#" data-ma="${t.ma}" data-ten="${t.ten}">
+                <strong>E01${t.ma}</strong> - ${t.ten}
+            </a>`
+        ).join('');
+        tvvDropdown.classList.add('show');
+    });
+
+    tvvDropdown.addEventListener('click', function(e) {
+        e.preventDefault();
+        const item = e.target.closest('.dropdown-item');
+        if (!item) return;
+        tvvSearch.value = `E01${item.dataset.ma} - ${item.dataset.ten}`;
+        document.getElementById('tvv_code').value = 'E01' + item.dataset.ma;
+        document.getElementById('tvv_name').value = item.dataset.ten;
+        // Update preview người ký nếu radio = tvv
+        if (document.querySelector('input[name="nguoi_ki"]:checked').value === 'tvv') {
+            document.querySelectorAll('.pv-nguoi_ki').forEach(el => el.textContent = item.dataset.ten);
+        }
+        tvvDropdown.classList.remove('show');
+    });
+
+    // ===== PARSE SAP DATA =====
+    document.getElementById('btnParseSap').addEventListener('click', parseSapData);
+
+    function parseSapData() {
+        const raw = document.getElementById('sap_data').value.trim();
+        if (!raw) { alert('Vui lòng dán dữ liệu SAP trước.'); return; }
+
+        const lines = raw.split('\n').filter(l => l.trim());
+        const items = [];
+
+        lines.forEach(function(line) {
+            const cols = line.split('\t');
+            if (cols.length < 3) return;
+
+            const docNum = cols[0].trim();
+            const ref = cols[1] ? cols[1].trim() : '';
+            const amtStr = cols[2] ? cols[2].trim() : '0';
+            const salesDoc = cols[4] ? cols[4].trim() : '';
+
+            // Parse amount: remove separators, detect trailing '-'
+            const isNeg = amtStr.endsWith('-');
+            const cleaned = amtStr.replace(/[.,\s\-]/g, '');
+            const amount = parseFloat(cleaned) || 0;
+
+            let loai, so_ct;
+            if (!isNeg) {
+                // Positive = Hóa đơn (phải thu)
+                loai = 'Hóa đơn';
+                so_ct = salesDoc || docNum;
+            } else if (/^25\d{8}$/.test(docNum)) {
+                loai = 'Bảng kê';
+                so_ct = docNum;
+            } else if (/^16\d{8}$/.test(docNum)) {
+                loai = 'Biên nhận cọc';
+                so_ct = docNum;
+            } else if (/^15\d{8}$/.test(docNum)) {
+                loai = 'HBTL';
+                so_ct = docNum;
+            } else if (/^26\d{8}$/.test(docNum)) {
+                loai = 'Cấn trừ công nợ';
+                so_ct = docNum;
+            } else {
+                loai = 'Khác';
+                so_ct = docNum;
+            }
+
+            const sign = isNeg ? '-' : '+';
+            items.push({ loai, so_ct, gia_tri: amount, gio: '', sign });
+        });
+
+        if (!items.length) { alert('Không nhận diện được chứng từ.'); return; }
+        renderSapTable(items);
+    }
+
+    // Global items array for editing
+    let sapItems = [];
+    const loaiOptions = ['Hóa đơn', 'Bảng kê', 'Biên nhận cọc', 'HBTL', 'Cấn trừ công nợ', 'Khác'];
+
+    // Loại → dấu mặc định: HĐ = +, còn lại = -
+    const loaiSign = {'Hóa đơn': '+', 'Bảng kê': '-', 'Biên nhận cọc': '-', 'HBTL': '-', 'Cấn trừ công nợ': '-', 'Khác': '-'};
+
+    function renderSapTable(items) {
+        sapItems = items;
+        const tbody = document.getElementById('sapTableBody');
+        tbody.innerHTML = '';
+
+        const now = new Date();
+        const defaultTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+        const todayStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+
+        items.forEach(function(item, idx) {
+            if (!item.gio) item.gio = todayStr + ' ' + defaultTime;
+            const timeVal = item.gio.includes(' ') ? item.gio.split(' ')[1] : (item.gio || defaultTime);
+
+            // Auto-assign sign if not set
+            if (!item.sign) item.sign = loaiSign[item.loai] || '-';
+
+            let loaiSelect = '<select class="form-select form-select-sm sap-edit" data-idx="' + idx + '" data-field="loai" style="font-size:0.78rem;padding:2px 4px;">';
+            loaiOptions.forEach(function(opt) {
+                loaiSelect += '<option' + (item.loai === opt ? ' selected' : '') + '>' + opt + '</option>';
+            });
+            loaiSelect += '</select>';
+
+            const signColor = item.sign === '+' ? '#dc2626' : '#16a34a';
+            const signSel = '<select class="form-select form-select-sm sap-edit" data-idx="' + idx + '" data-field="sign" style="width:58px;font-size:0.85rem;padding:2px 4px;font-weight:700;color:' + signColor + ';text-align:center;">' +
+                '<option value="-"' + (item.sign === '-' ? ' selected' : '') + '>− CK</option>' +
+                '<option value="+"' + (item.sign === '+' ? ' selected' : '') + '>+ Thu</option></select>';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + loaiSelect + '</td>' +
+                '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit" data-idx="' + idx + '" data-field="so_ct" value="' + (item.so_ct || '') + '" style="font-size:0.8rem;"></td>' +
+                '<td><div class="d-flex gap-1">' + signSel + '<input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + formatNum(item.gia_tri) + '" style="font-size:0.8rem;"></div></td>' +
+                '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" style="font-size:0.8rem;"></td>' +
+                '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
+            tbody.appendChild(tr);
+        });
+
+        // Edit handlers
+        tbody.querySelectorAll('.sap-edit').forEach(function(el) {
+            el.addEventListener('change', function() {
+                const idx = parseInt(this.dataset.idx);
+                const field = this.dataset.field;
+                if (field === 'gia_tri') {
+                    sapItems[idx].gia_tri = parseFloat(this.value.replace(/[.,\s]/g, '')) || 0;
+                } else if (field === 'gio') {
+                    sapItems[idx].gio = todayStr + ' ' + this.value;
+                } else if (field === 'loai') {
+                    sapItems[idx].loai = this.value;
+                    // Auto-switch sign
+                    sapItems[idx].sign = loaiSign[this.value] || '-';
+                    renderSapTable(sapItems); // re-render to update sign dropdown
+                    return;
+                } else if (field === 'sign') {
+                    sapItems[idx].sign = this.value;
+                    this.style.color = this.value === '+' ? '#dc2626' : '#16a34a';
+                } else {
+                    sapItems[idx][field] = this.value;
+                }
+                updateSummary();
+            });
+        });
+
+        // Delete handlers
+        tbody.querySelectorAll('.sap-del').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                sapItems.splice(parseInt(this.dataset.idx), 1);
+                renderSapTable(sapItems);
+            });
+        });
+
+        updateSummary();
+    }
+
+    function updateSummary() {
+        let totalBK = 0, totalHD = 0;
+
+        // Update preview
+        const previewTbody = document.getElementById('previewCTBody');
+        previewTbody.innerHTML = '';
+
+        sapItems.forEach(function(item) {
+            // Sign determines add or subtract
+            if (item.sign === '+') {
+                totalHD += item.gia_tri; // phải thu (HĐ)
+            } else {
+                totalBK += item.gia_tri; // phải CK
+            }
+            // Preview row
+            const ptr = document.createElement('tr');
+            ptr.innerHTML = '<td>' + item.loai + '</td><td>' + item.so_ct + '</td>' +
+                '<td>' + formatNum(item.gia_tri) + '</td><td>' + (item.gio || '') + '</td>';
+            previewTbody.appendChild(ptr);
+        });
+
+        const totalCK = totalBK - totalHD;
+
+        document.getElementById('sumBK').textContent = formatNum(totalBK);
+        document.getElementById('sumHD').textContent = formatNum(totalHD);
+        document.getElementById('sumCK').textContent = formatNum(totalCK);
+        document.getElementById('sumText').textContent = numberToVietnamese(totalCK) + ' đồng';
+
+        document.getElementById('chung_tu_json').value = JSON.stringify(sapItems);
+        document.getElementById('tong_bk').value = totalBK;
+        document.getElementById('tong_hd').value = totalHD;
+        document.getElementById('tong_ck').value = totalCK;
+
+        document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = formatNum(totalCK));
+        document.querySelectorAll('.pv-bang_chu').forEach(el => el.textContent = '(Bằng chữ: ' + numberToVietnamese(totalCK) + ' đồng)');
+
+        document.getElementById('sapResult').classList.remove('d-none');
+        updateQR();
+    }
+
+    function updateQR() {
+        const soTk = document.getElementById('so_tk').value.replace(/\D/g, '');
+        const bankBin = document.getElementById('bank_bin').value;
+        if (soTk && bankBin) {
+            const qrUrl = 'https://img.vietqr.io/image/' + bankBin + '-' + soTk + '-compact.png';
+            document.getElementById('previewQR').innerHTML = '<img src="' + qrUrl + '" style="width:56px;height:56px;object-fit:contain;" alt="QR">';
+        }
+    }
+
+    // Update QR when so_tk changes
+    document.getElementById('so_tk').addEventListener('blur', updateQR);
+
+    // Auto lookup khi đủ STK + NH (chỉ lần đầu)
+    let autoLookupDone = false;
+    function tryAutoLookup() {
+        if (autoLookupDone) return;
+        const soTk = document.getElementById('so_tk').value.replace(/\D/g, '');
+        const bankBin = document.getElementById('bank_bin').value;
+        if (soTk.length >= 6 && bankBin) {
+            autoLookupDone = true;
+            document.getElementById('btnLookup').click();
+        }
+    }
+    document.getElementById('so_tk').addEventListener('blur', tryAutoLookup);
+    // Khi chọn NH xong, cũng thử auto lookup
+    const origBankClick = bankDropdown.onclick;
+    bankDropdown.addEventListener('click', function() { setTimeout(tryAutoLookup, 100); });
+
+    function formatNum(n) {
+        return Math.round(n).toLocaleString('vi-VN');
+    }
+
+    // Vietnamese number to words
+    function numberToVietnamese(n) {
+        if (n === 0) return 'không';
+        n = Math.abs(Math.round(n));
+
+        const ones = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+        const units = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
+
+        function readThree(num) {
+            let h = Math.floor(num / 100);
+            let t = Math.floor((num % 100) / 10);
+            let u = num % 10;
+            let result = '';
+
+            if (h > 0) result += ones[h] + ' trăm';
+            if (t > 1) result += ' ' + ones[t] + ' mươi';
+            else if (t === 1) result += ' mười';
+            else if (t === 0 && h > 0 && u > 0) result += ' lẻ';
+
+            if (u === 5 && t >= 1) result += ' lăm';
+            else if (u === 1 && t > 1) result += ' mốt';
+            else if (u > 0) result += ' ' + ones[u];
+
+            return result.trim();
+        }
+
+        let groups = [];
+        while (n > 0) {
+            groups.push(n % 1000);
+            n = Math.floor(n / 1000);
+        }
+
+        let parts = [];
+        for (let i = groups.length - 1; i >= 0; i--) {
+            if (groups[i] > 0) {
+                parts.push(readThree(groups[i]) + (units[i] ? ' ' + units[i] : ''));
+            }
+        }
+
+        let result = parts.join(' ').replace(/\s+/g, ' ').trim();
+        return result.charAt(0).toUpperCase() + result.slice(1);
+    }
+
+    // ===== THÊM DÒNG THỦ CÔNG =====
+    document.getElementById('btnAddRow').addEventListener('click', function() {
+        sapItems.push({ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' });
+        document.getElementById('sapResult').classList.remove('d-none');
+        renderSapTable(sapItems);
+    });
+
+    // ===== KIỂM TRA TÀI KHOẢN (MBBank Lookup) =====
+    function removeDiacritics(str) {
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
+    function checkNameMatch() {
+        const nameEl = document.getElementById('ten_chu_tk');
+        const warnEl = document.getElementById('nameWarning');
+        const matchEl = document.getElementById('nameMatch');
+        const tenKh = document.getElementById('ten_kh').value.trim().toUpperCase();
+        const tenTk = nameEl.value.trim().toUpperCase();
+
+        warnEl.classList.add('d-none');
+        matchEl.classList.add('d-none');
+        nameEl.classList.remove('bg-danger-subtle', 'bg-success-subtle');
+
+        if (!tenTk || !tenKh) return;
+
+        const khNorm = removeDiacritics(tenKh);
+        const tkNorm = removeDiacritics(tenTk);
+
+        if (khNorm === tkNorm) {
+            matchEl.classList.remove('d-none');
+            nameEl.classList.add('bg-success-subtle');
+        } else {
+            warnEl.classList.remove('d-none');
+            nameEl.classList.add('bg-danger-subtle');
+        }
+    }
+
+    document.getElementById('btnLookup').addEventListener('click', function() {
+        const soTk = document.getElementById('so_tk').value.replace(/\D/g, '');
+        const bankBin = document.getElementById('bank_bin').value;
+        const errEl = document.getElementById('lookupError');
+        const nameEl = document.getElementById('ten_chu_tk');
+        const warnEl = document.getElementById('nameWarning');
+
+        errEl.classList.add('d-none');
+        warnEl.classList.add('d-none');
+        nameEl.value = '';
+        nameEl.classList.remove('bg-danger-subtle');
+
+        if (!soTk) { errEl.textContent = 'Nhập số tài khoản trước.'; errEl.classList.remove('d-none'); return; }
+        if (!bankBin) { errEl.textContent = 'Chọn ngân hàng trước.'; errEl.classList.remove('d-none'); return; }
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        fetch('/api/lookup-account', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({bin: bankBin, accountNumber: soTk})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                nameEl.value = data.accountName;
+                nameEl.style.color = '#0369a1';
+                // Uncheck "Dùng tên KH" vì đã tra được
+                document.getElementById('cbUseTenKH').checked = false;
+                nameEl.readOnly = true;
+                checkNameMatch();
+            } else {
+                errEl.textContent = data.error || 'Không tìm thấy tài khoản';
+                errEl.classList.remove('d-none');
+            }
+        })
+        .catch(err => { errEl.textContent = 'Lỗi kết nối: ' + err; errEl.classList.remove('d-none'); })
+        .finally(() => { this.disabled = false; this.innerHTML = '<i class="bi bi-search"></i> Kiểm tra TK'; });
+    });
+
+    // Checkbox "Dùng tên KH" → chỉ ảnh hưởng bản in (ten_tk), không thay đổi ô tra cứu
+
+    // Khi thay đổi tên KH → recheck match nếu đã tra cứu
+    document.getElementById('ten_kh').addEventListener('input', function() {
+        checkNameMatch();
+    });
+
+    // ===== RADIO NGƯỜI KÝ → UPDATE PREVIEW =====
+    const nguoiKiLabels = {
+        'tvv': '',
+        'cht': '{{ settings.get("cht_name", "HỒ THỊ HÀ MY") }}',
+        'kt1': '{{ settings.get("kt1_name", "CHÂU ĐĂNG KHOA") }}',
+        'kt2': '{{ settings.get("kt2_name", "LÊ THỊ MỸ TUYỀN") }}'
+    };
+    document.querySelectorAll('input[name="nguoi_ki"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            let name = nguoiKiLabels[this.value];
+            if (this.value === 'tvv') name = document.getElementById('tvv_name').value || '___';
+            document.querySelectorAll('.pv-nguoi_ki').forEach(el => el.textContent = name);
+        });
+    });
+
+    // ===== LƯU & IN PHIẾU =====
+    document.getElementById('btnSavePrint').addEventListener('click', function() {
+        const checks = [
+            ['ma_kh',  'Mã KH (Vendor)'],
+            ['ten_kh', 'Tên KH'],
+            ['sdt',    'SĐT'],
+            ['cccd',   'Số CCCD'],
+            ['so_bk',  'Số BK'],
+        ];
+        for (const [id, label] of checks) {
+            if (!document.getElementById(id).value.trim()) {
+                alert('Vui lòng nhập ' + label + '.');
+                document.getElementById(id).focus();
+                return;
+            }
+        }
+        const ten_kh = document.getElementById('ten_kh').value.trim().toUpperCase();
+        if (!document.getElementById('tvv_name').value) { alert('Vui lòng chọn mã TVV.'); document.getElementById('tvv_search').focus(); return; }
+
+        const chungTuJson = document.getElementById('chung_tu_json').value;
+        let chungTu = [];
+        try { chungTu = JSON.parse(chungTuJson); } catch(e) {}
+
+        // Resolve người ký
+        const nguoiKi = document.querySelector('input[name="nguoi_ki"]:checked').value;
+        const nguoiKiMap = {
+            'tvv': document.getElementById('tvv_name').value,
+            'cht': '{{ settings.get("cht_name", "HỒ THỊ HÀ MY") }}',
+            'kt1': '{{ settings.get("kt1_name", "CHÂU ĐĂNG KHOA") }}',
+            'kt2': '{{ settings.get("kt2_name", "LÊ THỊ MỸ TUYỀN") }}'
+        };
+
+        const payload = {
+            ma_kh: document.getElementById('ma_kh').value.trim(),
+            ten_kh: ten_kh,
+            sdt: document.getElementById('sdt').value.trim(),
+            cccd: document.getElementById('cccd').value.trim(),
+            so_tk: document.getElementById('so_tk').value.trim(),
+            ten_tk: document.getElementById('cbUseTenKH').checked
+                ? ten_kh
+                : (document.getElementById('ten_chu_tk').value.trim() || ten_kh),
+            ngan_hang: document.getElementById('ngan_hang').value,
+            so_bk: document.getElementById('so_bk').value.trim(),
+            tvv_code: document.getElementById('tvv_code').value,
+            tvv_name_real: document.getElementById('tvv_name').value,
+            tvv_name: document.getElementById('tvv_name').value,
+            cht_name: '{{ settings.get("cht_name", "HỒ THỊ HÀ MY") }}',
+            chung_tu: chungTu,
+            tong_ck: parseFloat(document.getElementById('tong_ck').value) || 0,
+            nguoi_ki: nguoiKi,
+        };
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+
+        fetch('/api/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                window.open('/api/print/' + data.id + '?print=1', '_blank');
+            } else {
+                alert('Lỗi: ' + (data.error || 'Không rõ'));
+            }
+        })
+        .catch(err => alert('Lỗi kết nối: ' + err))
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-printer"></i> Lưu & In phiếu';
+        });
+    });
+
+    // Clear form
+    document.getElementById('btnClear').addEventListener('click', function() {
+        if (confirm('Xóa toàn bộ dữ liệu trên form?')) {
+            document.getElementById('phieuForm').reset();
+            document.getElementById('sapResult').classList.add('d-none');
+            document.querySelectorAll('[class^="pv-"]').forEach(el => el.textContent = '___');
+            document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = '0');
+            document.getElementById('previewCTBody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Chưa có dữ liệu</td></tr>';
+            document.getElementById('previewQR').innerHTML = '<div style="width:56px;height:56px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:0.4rem;color:#999;">QR Code</div>';
+            document.getElementById('bank_search').value = '';
+            document.getElementById('bank_eoffice').value = '';
+            document.getElementById('tvv_search').value = '';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Lịch sử{% endblock %}
+{% block nav_history %}active{% endblock %}
+{% block page_title %}Lịch sử phiếu xác nhận CK{% endblock %}
+
+{% block extra_css %}
+.table-history th {
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.table-history td {
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+.table-history .amount {
+    font-weight: 600;
+    color: #0369a1;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.badge-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.search-bar {
+    max-width: 350px;
+}
+
+.action-btn {
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.action-btn:hover {
+    background: #f1f5f9;
+}
+
+.action-btn.view { color: #0ea5e9; }
+.action-btn.print { color: #10b981; }
+.action-btn.delete { color: #ef4444; }
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+{% endblock %}
+
+{% block topbar_right %}
+<div class="d-flex search-bar">
+    <input type="text" class="form-control form-control-sm me-2" id="searchInput"
+           placeholder="Tìm theo tên KH hoặc mã KH...">
+    <button class="btn btn-sm btn-outline-primary" type="button" id="btnSearch">
+        <i class="bi bi-search"></i>
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-0">
+        <!-- Loading state -->
+        <div id="loadingState" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Đang tải dữ liệu...</p>
+        </div>
+
+        <!-- Data table (hidden until loaded) -->
+        <div id="dataState" class="d-none">
+            <div class="table-responsive">
+                <table class="table table-hover table-history mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width:40px;">STT</th>
+                            <th>Ngày tạo</th>
+                            <th>Mã KH</th>
+                            <th>Tên KH</th>
+                            <th>TVV</th>
+                            <th>Số BK</th>
+                            <th class="text-end">Số tiền CK</th>
+                            <th class="text-center">Trạng thái</th>
+                            <th class="text-center" style="width:60px;">Đã Trình</th>
+                            <th class="text-center" style="width:100px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Empty state (hidden until loaded) -->
+        <div id="emptyState" class="d-none">
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <h5>Chưa có phiếu nào</h5>
+                <p id="emptyMsg">Tạo phiếu xác nhận CK đầu tiên ngay bây giờ.</p>
+                <a href="{{ url_for('index') }}" class="btn btn-sm btn-primary mt-2">
+                    <i class="bi bi-plus-circle"></i> Tạo phiếu mới
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var allData = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadHistory();
+
+    document.getElementById('btnSearch').addEventListener('click', filterData);
+    document.getElementById('searchInput').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') filterData();
+    });
+});
+
+function loadHistory() {
+    fetch('/api/history')
+        .then(function(res) { return res.json(); })
+        .then(function(json) {
+            document.getElementById('loadingState').classList.add('d-none');
+            if (json.ok && json.data && json.data.length > 0) {
+                allData = json.data;
+                renderTable(allData);
+            } else {
+                document.getElementById('emptyState').classList.remove('d-none');
+            }
+        })
+        .catch(function() {
+            document.getElementById('loadingState').innerHTML =
+                '<p class="text-danger py-4">Lỗi tải dữ liệu. Vui lòng thử lại.</p>';
+        });
+}
+
+function filterData() {
+    var q = document.getElementById('searchInput').value.trim().toUpperCase();
+    if (!q) {
+        renderTable(allData);
+        return;
+    }
+    var filtered = allData.filter(function(p) {
+        return (p.ten_kh && p.ten_kh.toUpperCase().indexOf(q) >= 0) ||
+               (p.ma_kh && p.ma_kh.toUpperCase().indexOf(q) >= 0);
+    });
+    renderTable(filtered);
+}
+
+function renderTable(data) {
+    var tbody = document.getElementById('historyBody');
+    tbody.innerHTML = '';
+
+    if (data.length === 0) {
+        document.getElementById('dataState').classList.add('d-none');
+        document.getElementById('emptyState').classList.remove('d-none');
+        document.getElementById('emptyMsg').textContent = 'Không tìm thấy kết quả.';
+        return;
+    }
+
+    document.getElementById('dataState').classList.remove('d-none');
+    document.getElementById('emptyState').classList.add('d-none');
+
+    // Remove old da-trinh listeners
+    tbody.removeEventListener('change', handleDaTrinh);
+    tbody.addEventListener('change', handleDaTrinh);
+
+    data.forEach(function(p, idx) {
+        var statusBadge = '';
+        if (p.status === 'printed') {
+            statusBadge = '<span class="badge bg-success badge-status">Đã in</span>';
+        } else if (p.status === 'sent') {
+            statusBadge = '<span class="badge bg-info badge-status">Đã gửi</span>';
+        } else if (p.status === 'cancelled') {
+            statusBadge = '<span class="badge bg-danger badge-status">Đã hủy</span>';
+        } else {
+            statusBadge = '<span class="badge bg-warning text-dark badge-status">Nháp</span>';
+        }
+
+        var tongCk = p.tong_ck ? Math.round(p.tong_ck).toLocaleString('vi-VN') : '0';
+
+        var checked = p.da_trinh ? 'checked' : '';
+
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
+            '<td style="white-space:nowrap;">' + (p.created_at || '') + '</td>' +
+            '<td><code>' + (p.ma_kh || '') + '</code></td>' +
+            '<td><strong>' + (p.ten_kh || '') + '</strong></td>' +
+            '<td style="font-size:0.8rem;">' + (p.tvv_name || '') + '</td>' +
+            '<td>' + (p.so_bk || '') + '</td>' +
+            '<td class="amount">' + tongCk + '</td>' +
+            '<td class="text-center">' + statusBadge + '</td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + '></td>' +
+            '<td class="text-center">' +
+                '<a href="/eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a> ' +
+                '<a href="/api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a> ' +
+                '<a href="/api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a> ' +
+                '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', \'' + (p.ten_kh || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>' +
+            '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function handleDaTrinh(e) {
+    if (!e.target.classList.contains('da-trinh-cb')) return;
+    var id = e.target.dataset.id;
+    var checked = e.target.checked;
+    fetch('/api/da-trinh/' + id, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({da_trinh: checked})
+    });
+}
+
+function deletePhieu(id, name) {
+    if (confirm('Xác nhận xóa phiếu của "' + name + '"?')) {
+        fetch('/api/delete/' + id, { method: 'DELETE' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    loadHistory();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể xóa.'));
+                }
+            })
+            .catch(function() {
+                alert('Lỗi kết nối. Vui lòng thử lại.');
+            });
+    }
+}
+</script>
+{% endblock %}
