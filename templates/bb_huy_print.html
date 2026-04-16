@@ -6,34 +6,31 @@
     <style>
         @page {
             size: A5 landscape;
-            margin: 6mm 10mm 6mm 10mm;
+            margin: 8mm 12mm 8mm 12mm;
         }
 
         * {
             margin: 0; padding: 0; box-sizing: border-box;
             font-family: "Times New Roman", Times, serif;
-            font-size: 13px;
             color: #000;
         }
 
         body {
-            width: 202mm; /* A5 landscape width */
+            font-size: 14.5px;
+            width: 202mm;
             margin: 0 auto;
-            padding: 8mm;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
         @media screen {
-            body {
-                background: #e5e7eb;
-                padding: 12mm;
-            }
+            body { background: #d1d5db; padding: 15mm; }
             .page {
                 background: #fff;
-                padding: 8mm;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                padding: 10mm 14mm;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.18);
                 border-radius: 4px;
+                min-height: 140mm;
             }
         }
 
@@ -41,140 +38,151 @@
             body { padding: 0; background: #fff; }
             .page { padding: 0; }
             .no-print { display: none !important; }
+            /* Ẩn icon Claude Desktop */
+            div[style*="position: fixed"] { display: none !important; }
         }
 
-        /* Header */
+        /* ── Header ── */
         .header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 4px;
+            align-items: flex-start;
+            margin-bottom: 6px;
         }
-        .header-left {
-            font-size: 12px;
+        .header-left { width: 48%; }
+        .header-left .chi-nhanh {
+            font-size: 13.5px;
             font-weight: bold;
         }
-        .header-left .chi_nhanh {
-            border: 1.5px solid #000;
-            padding: 2px 10px;
-            display: inline-block;
-            margin-bottom: 2px;
-        }
-        .header-left .cua_hang {
+        .header-left .cua-hang {
+            font-size: 13.5px;
             font-weight: bold;
-            font-size: 12px;
+            margin-top: 3px;
         }
         .header-right {
+            width: 48%;
             text-align: center;
-            font-size: 12px;
         }
-        .header-right .quoc_hieu {
+        .header-right .quoc-hieu {
+            font-size: 14px;
             font-weight: bold;
-            font-size: 13px;
         }
-        .header-right .tieu_ngu {
+        .header-right .tieu-ngu {
+            font-size: 14px;
             font-weight: bold;
-            font-size: 12px;
+            font-style: italic;
         }
-        .header-right .gach_ngang {
+        .header-right .gach-ngang {
             display: block;
-            width: 50%;
-            margin: 1px auto;
-            border-bottom: 1px solid #000;
+            width: 40%;
+            margin: 2px auto 0;
+            border-bottom: 1.5px solid #000;
         }
 
-        /* Title */
+        /* ── Title ── */
         .title {
             text-align: center;
-            font-size: 18px;
+            font-size: 22px;
             font-weight: bold;
-            margin: 12px 0 8px;
+            margin: 18px 0 12px;
         }
 
-        /* Ngay */
+        /* ── Ngày ── */
         .ngay {
-            font-style: italic;
-            margin-bottom: 8px;
-            font-size: 13px;
+            font-size: 14.5px;
+            margin-bottom: 10px;
         }
 
-        /* Body content */
-        .content { line-height: 1.7; }
-        .content .label { font-style: italic; }
-        .content .indent { padding-left: 30px; }
-        .content .name { font-weight: normal; }
+        /* ── Body content ── */
+        .content {
+            line-height: 2;
+            font-size: 14.5px;
+        }
 
-        .row-3 {
+        .chung-toi { font-weight: bold; }
+
+        .person-row {
             display: flex;
+            padding-left: 40px;
         }
-        .row-3 .num { min-width: 24px; }
-        .row-3 .role { min-width: 140px; }
-        .row-3 .name { flex: 1; }
+        .person-row .num {
+            min-width: 22px;
+        }
+        .person-row .role {
+            min-width: 170px;
+        }
+        .person-row .pname {
+            font-weight: normal;
+        }
 
-        .noi_dung { margin-top: 6px; }
-        .noi_dung .label-bold { font-weight: bold; font-style: italic; }
+        .field-row {
+            margin-top: 2px;
+        }
+        .field-label {
+            font-weight: bold;
+            font-style: italic;
+        }
+        .field-value {
+            font-weight: normal;
+            font-style: normal;
+        }
 
-        .ket_qua { margin-top: 4px; }
-        .ket_qua .label-bold { font-weight: bold; font-style: italic; }
-
-        /* Signature */
+        /* ── Signatures ── */
         .signatures {
             display: flex;
             justify-content: space-between;
-            margin-top: 30px;
+            margin-top: 28px;
             text-align: center;
         }
-        .sig-col {
-            width: 30%;
-        }
-        .sig-col .sig-title {
+        .sig-col { width: 32%; }
+        .sig-title {
             font-weight: bold;
-            font-size: 13px;
-            margin-bottom: 40px;
+            font-style: italic;
+            font-size: 14.5px;
+            margin-bottom: 50px;
         }
-        .sig-col .sig-name {
+        .sig-name {
             font-weight: bold;
-            font-size: 13px;
+            font-size: 14.5px;
         }
 
-        /* Action buttons (screen only) */
+        /* ── Action bar (screen) ── */
         .action-bar {
             text-align: center;
             margin-bottom: 12px;
+            font-family: "Segoe UI", sans-serif;
         }
         .action-bar .btn {
-            padding: 8px 20px;
+            padding: 8px 24px;
             border: none;
             border-radius: 6px;
-            font-size: 13px;
-            font-family: sans-serif;
+            font-size: 14px;
             cursor: pointer;
             color: #fff;
             text-decoration: none;
             display: inline-block;
+            background: #0ea5e9;
         }
-        .btn-print-action { background: #0ea5e9; }
-        .btn-print-action:hover { background: #0369a1; }
+        .action-bar .btn:hover { background: #0369a1; }
     </style>
 </head>
 <body>
-    <!-- Action buttons (screen only) -->
+    <!-- Action bar (screen only) -->
     <div class="action-bar no-print">
-        <button class="btn btn-print-action" onclick="window.print()">
-            &#128424; In biên bản
-        </button>
+        <button class="btn" onclick="window.print()">&#128424; In biên bản</button>
     </div>
 
     <div class="page">
         <!-- Header -->
         <div class="header">
             <div class="header-left">
-                <div class="chi_nhanh">CHI NHÁNH PNJ HUẾ</div><br>
-                <div class="cua_hang">CỬA HÀNG PNJ NEXT 27 HÀ NỘI</div>
+                <div class="chi-nhanh">CHI NHÁNH PNJ HUẾ</div>
+                <div class="cua-hang">CỬA HÀNG PNJ NEXT 27 HÀ NỘI</div>
             </div>
             <div class="header-right">
-                <div class="quoc_hieu">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-                <div class="tieu_ngu">Độc lập - Tự do - Hạnh phúc</div>
-                <span class="gach_ngang"></span>
+                <div class="quoc-hieu">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div class="tieu-ngu">Độc lập - Tự do - Hạnh phúc</div>
+                <span class="gach-ngang"></span>
             </div>
         </div>
 
@@ -186,37 +194,37 @@
 
         <!-- Content -->
         <div class="content">
-            <div>Chúng tôi gồm:</div>
+            <div class="chung-toi">Chúng tôi gồm:</div>
 
-            <div class="row-3 indent">
+            <div class="person-row">
                 <span class="num">1.</span>
                 <span class="role">Cửa Hàng Trưởng:</span>
-                <span class="name">{{ cht_name }}</span>
+                <span class="pname">{{ cht_name }}</span>
             </div>
-            <div class="row-3 indent">
+            <div class="person-row">
                 <span class="num">2.</span>
                 <span class="role">NV Kế Toán CH:</span>
-                <span class="name">{{ kt_name }}</span>
+                <span class="pname">{{ kt_name }}</span>
             </div>
-            <div class="row-3 indent">
+            <div class="person-row">
                 <span class="num">3.</span>
                 <span class="role">Tư Vấn Viên:</span>
-                <span class="name">{{ tvv_name }}</span>
+                <span class="pname">{{ tvv_name }}</span>
             </div>
 
-            <div class="noi_dung">
-                <span class="label-bold">Nội dung ghi nhận:</span>
-                &nbsp;&nbsp;Hủy bảng kê số {{ so_bk }}.
+            <div class="field-row">
+                <span class="field-label">Nội dung ghi nhận:</span>&nbsp;&nbsp;
+                <span class="field-value">Hủy bảng kê số {{ so_bk }}.</span>
             </div>
 
-            <div>
-                <span class="label-bold">Lý do:</span>
-                &nbsp;&nbsp;{{ ly_do }}
+            <div class="field-row">
+                <span class="field-label">Lý do:</span>&nbsp;&nbsp;
+                <span class="field-value">{{ ly_do }}</span>
             </div>
 
-            <div class="ket_qua">
-                <span class="label-bold">Kết quả buổi làm việc:</span>
-                &nbsp;&nbsp;&nbsp;Cửa hàng tiến hành hủy bảng kê (kèm biên bản hủy).
+            <div class="field-row">
+                <span class="field-label">Kết quả buổi làm việc:</span>&nbsp;&nbsp;&nbsp;
+                <span class="field-value">Cửa hàng tiến hành hủy bảng kê (kèm biên bản hủy).</span>
             </div>
         </div>
 
@@ -238,7 +246,6 @@
     </div>
 
     <script>
-        // Auto-print when opened
         window.addEventListener('load', function() {
             if (new URLSearchParams(window.location.search).get('so_bk')) {
                 setTimeout(function() { window.print(); }, 500);
