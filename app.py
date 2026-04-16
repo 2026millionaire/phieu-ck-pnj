@@ -421,11 +421,11 @@ def parse_sap_paste(raw_text):
             so_ct = doc_num
             gia_tri = amount
         elif re.match(r"^26\d{8}$", doc_num):
-            loai = "Cấn trừ công nợ"
+            loai = "Phải CK khác"
             so_ct = doc_num
             gia_tri = amount
         else:
-            loai = "Khác"
+            loai = "Phải CK khác" if is_negative else "Phải thu khác"
             so_ct = doc_num
             gia_tri = amount
 
@@ -446,10 +446,10 @@ def calc_tong_ck(chung_tu_list):
     """
     total = 0
     for r in chung_tu_list:
-        if r["loai"] in ("Bảng kê", "Biên nhận cọc", "HBTL", "Cấn trừ công nợ"):
-            total += r["gia_tri"]
-        elif r["loai"] == "Hóa đơn":
+        if r["loai"] in ("Hóa đơn", "Phải thu khác"):
             total -= r["gia_tri"]
+        else:
+            total += r["gia_tri"]
     return total
 
 

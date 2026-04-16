@@ -217,34 +217,25 @@ textarea#sap_data {
                     <table class="table table-bordered table-sm sap-table mb-0">
                         <thead>
                             <tr>
-                                <th style="width:22%;">Loại</th>
-                                <th style="width:25%;">Số CT</th>
-                                <th class="text-end" style="width:22%;">Giá trị</th>
-                                <th style="width:22%;">Giờ</th>
-                                <th style="width:9%;"></th>
+                                <th style="width:18%;">Loại</th>
+                                <th style="width:28%;">Số CT</th>
+                                <th class="text-end" style="width:28%;">Giá trị</th>
+                                <th style="width:18%;">Giờ</th>
+                                <th style="width:8%;"></th>
                             </tr>
                         </thead>
                         <tbody id="sapTableBody"></tbody>
                     </table>
 
                     <div class="summary-box mt-2" id="summaryBox" style="display:none;">
-                        <div class="row">
-                            <div class="col-6">
-                                <span class="summary-label">Tổng BK:</span>
-                                <span class="summary-value" id="sumBK">0</span>
-                            </div>
-                            <div class="col-6">
-                                <span class="summary-label">Tổng HĐ:</span>
-                                <span class="summary-value" id="sumHD">0</span>
-                            </div>
-                            <div class="col-6 mt-1">
-                                <span class="summary-label">Số tiền CK:</span>
-                                <span class="summary-value text-danger" id="sumCK">0</span>
-                            </div>
-                            <div class="col-12 mt-1">
-                                <span class="summary-label">Bằng chữ:</span>
-                                <span id="sumText" class="fst-italic"></span>
-                            </div>
+                        <div id="summaryContent"></div>
+                        <div class="mt-1">
+                            <span class="summary-label">Số tiền CK:</span>
+                            <span class="summary-value text-danger" id="sumCK">0</span>
+                        </div>
+                        <div class="mt-1">
+                            <span class="summary-label">Bằng chữ:</span>
+                            <span id="sumText" class="fst-italic"></span>
                         </div>
                     </div>
 
@@ -629,9 +620,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (/^15\d{8}$/.test(docNum)) {
                 loai = 'HBTL';
             } else if (/^26\d{8}$/.test(docNum)) {
-                loai = 'Cấn trừ công nợ';
+                loai = 'Phải CK khác';
             } else {
-                loai = 'Khác';
+                loai = isNeg ? 'Phải CK khác' : 'Phải thu khác';
             }
 
             const sign = isNeg ? '-' : '+';
@@ -679,10 +670,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Global items array for editing
     let sapItems = [];
-    const loaiOptions = ['Hóa đơn', 'Bảng kê', 'Biên nhận cọc', 'HBTL', 'Cấn trừ công nợ', 'Khác'];
 
-    // Loại → dấu mặc định: HĐ = +, còn lại = -
-    const loaiSign = {'Hóa đơn': '+', 'Bảng kê': '-', 'Biên nhận cọc': '-', 'HBTL': '-', 'Cấn trừ công nợ': '-', 'Khác': '-'};
+    // Loại: value (saved/printed) → display label (dropdown)
+    const loaiMap = [
+        { value: 'Bảng kê',        label: 'BK - Bảng kê',         sign: '-' },
+        { value: 'Hóa đơn',        label: 'HĐ - Hóa đơn',        sign: '+' },
+        { value: 'Biên nhận cọc',  label: 'Cọc - Biên nhận cọc',  sign: '-' },
+        { value: 'HBTL',           label: 'HBTL - Hàng bán trả lại', sign: '-' },
+        { value: 'Phải CK khác',   label: 'CK khác - Phải CK khác', sign: '-' },
+        { value: 'Phải thu khác',  label: 'Thu khác - Phải thu khác', sign: '+' },
+    ];
+    const loaiSignMap = {};
+    loaiMap.forEach(l => loaiSignMap[l.value] = l.sign);
 
     function renderSapTable(items) {
         sapItems = items;
@@ -697,26 +696,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!item.gio) item.gio = todayStr + ' ' + defaultTime;
             const timeVal = item.gio.includes(' ') ? item.gio.split(' ')[1] : (item.gio || defaultTime);
 
-            // Auto-assign sign if not set
-            if (!item.sign) item.sign = loaiSign[item.loai] || '-';
+            // Auto-assign sign from loai
+            item.sign = loaiSignMap[item.loai] || '-';
 
             let loaiSelect = '<select class="form-select form-select-sm sap-edit" data-idx="' + idx + '" data-field="loai" style="font-size:0.78rem;padding:2px 4px;">';
-            loaiOptions.forEach(function(opt) {
-                loaiSelect += '<option' + (item.loai === opt ? ' selected' : '') + '>' + opt + '</option>';
+            loaiMap.forEach(function(opt) {
+                loaiSelect += '<option value="' + opt.value + '"' + (item.loai === opt.value ? ' selected' : '') + '>' + opt.label + '</option>';
             });
             loaiSelect += '</select>';
-
-            const signColor = item.sign === '+' ? '#dc2626' : '#16a34a';
-            const signSel = '<select class="form-select form-select-sm sap-edit" data-idx="' + idx + '" data-field="sign" style="width:58px;font-size:0.85rem;padding:2px 4px;font-weight:700;color:' + signColor + ';text-align:center;">' +
-                '<option value="-"' + (item.sign === '-' ? ' selected' : '') + '>− CK</option>' +
-                '<option value="+"' + (item.sign === '+' ? ' selected' : '') + '>+ Thu</option></select>';
 
             const tr = document.createElement('tr');
             tr.innerHTML =
                 '<td>' + loaiSelect + '</td>' +
                 '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit" data-idx="' + idx + '" data-field="so_ct" value="' + (item.so_ct || '') + '" style="font-size:0.8rem;"></td>' +
-                '<td><div class="d-flex gap-1">' + signSel + '<input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + formatNum(item.gia_tri) + '" style="font-size:0.8rem;"></div></td>' +
-                '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" style="font-size:0.8rem;"></td>' +
+                '<td><input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + formatNum(item.gia_tri) + '" style="font-size:0.8rem;"></td>' +
+                '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" style="font-size:0.75rem;padding:2px 4px;"></td>' +
                 '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
             tbody.appendChild(tr);
         });
@@ -732,13 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     sapItems[idx].gio = todayStr + ' ' + this.value;
                 } else if (field === 'loai') {
                     sapItems[idx].loai = this.value;
-                    // Auto-switch sign
-                    sapItems[idx].sign = loaiSign[this.value] || '-';
-                    renderSapTable(sapItems); // re-render to update sign dropdown
-                    return;
-                } else if (field === 'sign') {
-                    sapItems[idx].sign = this.value;
-                    this.style.color = this.value === '+' ? '#dc2626' : '#16a34a';
+                    sapItems[idx].sign = loaiSignMap[this.value] || '-';
                 } else {
                     sapItems[idx][field] = this.value;
                 }
@@ -758,18 +746,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateSummary() {
-        let totalBK = 0, totalHD = 0;
+        // Group totals by loai
+        const totals = {};
+        let totalChi = 0, totalThu = 0;
 
         // Update preview
         const previewTbody = document.getElementById('previewCTBody');
         previewTbody.innerHTML = '';
 
         sapItems.forEach(function(item) {
-            // Sign determines add or subtract
-            if (item.sign === '+') {
-                totalHD += item.gia_tri; // phải thu (HĐ)
+            const sign = loaiSignMap[item.loai] || '-';
+            if (!totals[item.loai]) totals[item.loai] = 0;
+            totals[item.loai] += item.gia_tri;
+
+            if (sign === '+') {
+                totalThu += item.gia_tri;
             } else {
-                totalBK += item.gia_tri; // phải CK
+                totalChi += item.gia_tri;
             }
             // Preview row
             const ptr = document.createElement('tr');
@@ -778,16 +771,29 @@ document.addEventListener('DOMContentLoaded', function() {
             previewTbody.appendChild(ptr);
         });
 
-        const totalCK = totalBK - totalHD;
+        const totalCK = totalChi - totalThu;
 
-        document.getElementById('sumBK').textContent = formatNum(totalBK);
-        document.getElementById('sumHD').textContent = formatNum(totalHD);
+        // Build dynamic summary rows — only show types that have values
+        const summaryEl = document.getElementById('summaryContent');
+        const summaryLabels = {
+            'Bảng kê': 'Tổng BK', 'Biên nhận cọc': 'Tổng Cọc', 'HBTL': 'Tổng HBTL',
+            'Hóa đơn': 'Tổng HĐ', 'Phải CK khác': 'Tổng CK khác', 'Phải thu khác': 'Tổng Thu khác'
+        };
+        let html = '<div class="row">';
+        for (const [loai, label] of Object.entries(summaryLabels)) {
+            if (totals[loai] && totals[loai] > 0) {
+                html += '<div class="col-6"><span class="summary-label">' + label + ':</span> <span class="summary-value">' + formatNum(totals[loai]) + '</span></div>';
+            }
+        }
+        html += '</div>';
+        summaryEl.innerHTML = html;
+
         document.getElementById('sumCK').textContent = formatNum(totalCK);
         document.getElementById('sumText').textContent = numberToVietnamese(totalCK) + ' đồng';
 
         document.getElementById('chung_tu_json').value = JSON.stringify(sapItems);
-        document.getElementById('tong_bk').value = totalBK;
-        document.getElementById('tong_hd').value = totalHD;
+        document.getElementById('tong_bk').value = totalChi;
+        document.getElementById('tong_hd').value = totalThu;
         document.getElementById('tong_ck').value = totalCK;
 
         document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = formatNum(totalCK));
