@@ -62,6 +62,7 @@
             </div>
         </div>
 
+        {% if admin %}
         <div class="card mb-3">
             <div class="card-header py-2">
                 <i class="bi bi-bank2"></i> MBBank (tra cứu tài khoản liên ngân hàng)
@@ -87,6 +88,7 @@
                 <small class="text-muted">Dùng để tra cứu tên chủ TK liên ngân hàng. Miễn phí, không giới hạn. Dữ liệu chỉ lưu local.</small>
             </div>
         </div>
+        {% endif %}
 
         <button class="btn btn-primary" id="btnSaveSettings">
             <i class="bi bi-check-lg"></i> Lưu cài đặt
@@ -181,11 +183,14 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         kt2_name: document.getElementById('s_kt2_name').value.trim().toUpperCase(),
         thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
         plant: document.getElementById('s_plant').value.trim(),
-        mb_username: document.getElementById('s_mb_username').value.trim(),
-        mb_password: document.getElementById('s_mb_password').value.trim(),
-        mb_account: document.getElementById('s_mb_account').value.trim(),
     };
-    // BK prefix (admin only)
+    // Admin-only fields
+    const mbU = document.getElementById('s_mb_username');
+    if (mbU) {
+        payload.mb_username = mbU.value.trim();
+        payload.mb_password = document.getElementById('s_mb_password').value.trim();
+        payload.mb_account = document.getElementById('s_mb_account').value.trim();
+    }
     const bkEl = document.getElementById('s_bk_prefix');
     if (bkEl) payload.bk_prefix = bkEl.value.trim();
 

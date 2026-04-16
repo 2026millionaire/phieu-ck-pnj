@@ -88,6 +88,11 @@ textarea#sap_data {
     font-size: 1rem;
     color: #0369a1;
 }
+
+/* Mobile: hide preview */
+@media (max-width: 991px) {
+    .preview-col { display: none !important; }
+}
 {% endblock %}
 
 {% block content %}
@@ -200,57 +205,45 @@ textarea#sap_data {
                 </div>
             </div>
 
-            <!-- SAP Data -->
+            <!-- 3. Thông tin giao dịch -->
             <div class="card mb-3">
-                <div class="card-header py-2">
-                    <i class="bi bi-table"></i> 3. Dữ liệu SAP (ZFIE0029)
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-receipt"></i> 3. Thông tin giao dịch</span>
+                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" id="btnAddRow" title="Thêm dòng">
+                        <i class="bi bi-plus-circle"></i> Thêm dòng
+                    </button>
                 </div>
                 <div class="card-body">
-                    <label class="form-label">Dán dữ liệu SAP</label>
-                    <textarea class="form-control" id="sap_data" rows="5"
-                              placeholder="Dán các dòng từ SAP ZFIE0029 vào đây (tab-separated)..."></textarea>
-                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnParseSap">
-                        <i class="bi bi-gear"></i> Xử lý SAP
-                    </button>
+                    <table class="table table-bordered table-sm sap-table mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:22%;">Loại</th>
+                                <th style="width:25%;">Số CT</th>
+                                <th class="text-end" style="width:22%;">Giá trị</th>
+                                <th style="width:22%;">Giờ</th>
+                                <th style="width:9%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="sapTableBody"></tbody>
+                    </table>
 
-                    <!-- Parsed result table -->
-                    <div id="sapResult" class="mt-3 d-none">
-                        <div class="d-flex justify-content-end mb-1">
-                            <button type="button" class="btn btn-sm btn-outline-success" id="btnAddRow" title="Thêm dòng">
-                                <i class="bi bi-plus-circle"></i> Thêm dòng
-                            </button>
-                        </div>
-                        <table class="table table-bordered table-sm sap-table">
-                            <thead>
-                                <tr>
-                                    <th style="width:22%;">Loại</th>
-                                    <th style="width:25%;">Số CT</th>
-                                    <th class="text-end" style="width:22%;">Giá trị</th>
-                                    <th style="width:22%;">Giờ</th>
-                                    <th style="width:9%;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="sapTableBody"></tbody>
-                        </table>
-
-                        <div class="summary-box mt-2">
-                            <div class="row">
-                                <div class="col-6">
-                                    <span class="summary-label">Tổng BK:</span>
-                                    <span class="summary-value" id="sumBK">0</span>
-                                </div>
-                                <div class="col-6">
-                                    <span class="summary-label">Tổng HĐ:</span>
-                                    <span class="summary-value" id="sumHD">0</span>
-                                </div>
-                                <div class="col-6 mt-1">
-                                    <span class="summary-label">Số tiền CK:</span>
-                                    <span class="summary-value text-danger" id="sumCK">0</span>
-                                </div>
-                                <div class="col-12 mt-1">
-                                    <span class="summary-label">Bằng chữ:</span>
-                                    <span id="sumText" class="fst-italic"></span>
-                                </div>
+                    <div class="summary-box mt-2" id="summaryBox" style="display:none;">
+                        <div class="row">
+                            <div class="col-6">
+                                <span class="summary-label">Tổng BK:</span>
+                                <span class="summary-value" id="sumBK">0</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="summary-label">Tổng HĐ:</span>
+                                <span class="summary-value" id="sumHD">0</span>
+                            </div>
+                            <div class="col-6 mt-1">
+                                <span class="summary-label">Số tiền CK:</span>
+                                <span class="summary-value text-danger" id="sumCK">0</span>
+                            </div>
+                            <div class="col-12 mt-1">
+                                <span class="summary-label">Bằng chữ:</span>
+                                <span id="sumText" class="fst-italic"></span>
                             </div>
                         </div>
                     </div>
@@ -261,6 +254,21 @@ textarea#sap_data {
                     <input type="hidden" id="tong_hd" name="tong_hd" value="0">
                     <input type="hidden" id="tong_ck" name="tong_ck" value="0">
                     <input type="hidden" id="bang_chu" name="bang_chu" value="">
+                </div>
+            </div>
+
+            <!-- 4. Dữ liệu SAP -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-table"></i> 4. Dữ liệu SAP (ZFIE0029)
+                </div>
+                <div class="card-body">
+                    <label class="form-label">Dán dữ liệu SAP</label>
+                    <textarea class="form-control" id="sap_data" rows="5"
+                              placeholder="Dán các dòng từ SAP ZFIE0029 vào đây (tab-separated)..."></textarea>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnParseSap">
+                        <i class="bi bi-gear"></i> Xử lý SAP
+                    </button>
                 </div>
             </div>
 
@@ -303,8 +311,8 @@ textarea#sap_data {
         </form>
     </div>
 
-    <!-- RIGHT: Preview -->
-    <div class="col-lg-5">
+    <!-- RIGHT: Preview (hidden on mobile) -->
+    <div class="col-lg-5 preview-col">
         <div class="preview-panel">
             <div class="card">
                 <div class="card-header py-2">
@@ -597,6 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const lines = raw.split('\n').filter(l => l.trim());
         const items = [];
 
+        // Parse tất cả dòng trước
         lines.forEach(function(line) {
             const cols = line.split('\t');
             if (cols.length < 3) return;
@@ -606,35 +615,62 @@ document.addEventListener('DOMContentLoaded', function() {
             const amtStr = cols[2] ? cols[2].trim() : '0';
             const salesDoc = cols[4] ? cols[4].trim() : '';
 
-            // Parse amount: remove separators, detect trailing '-'
             const isNeg = amtStr.endsWith('-');
             const cleaned = amtStr.replace(/[.,\s\-]/g, '');
             const amount = parseFloat(cleaned) || 0;
 
-            let loai, so_ct;
+            let loai;
             if (!isNeg) {
-                // Positive = Hóa đơn (phải thu)
                 loai = 'Hóa đơn';
-                so_ct = salesDoc || docNum;
             } else if (/^25\d{8}$/.test(docNum)) {
                 loai = 'Bảng kê';
-                so_ct = docNum;
             } else if (/^16\d{8}$/.test(docNum)) {
                 loai = 'Biên nhận cọc';
-                so_ct = docNum;
             } else if (/^15\d{8}$/.test(docNum)) {
                 loai = 'HBTL';
-                so_ct = docNum;
             } else if (/^26\d{8}$/.test(docNum)) {
                 loai = 'Cấn trừ công nợ';
-                so_ct = docNum;
             } else {
                 loai = 'Khác';
-                so_ct = docNum;
             }
 
             const sign = isNeg ? '-' : '+';
-            items.push({ loai, so_ct, gia_tri: amount, gio: '', sign });
+            items.push({ loai, so_ct: '', doc_num: docNum, sales_doc: salesDoc, ref: ref, gia_tri: amount, gio: '', sign });
+        });
+
+        // Match số BK (44xx) với dòng Bảng kê thực sự
+        // Nhận dạng BK: âm + 25xx + cột 2 có pattern xxxxxx/MM_PLANT
+        const soBkRaw = document.getElementById('so_bk').value.trim();
+        const bkNumbers = soBkRaw.split(/[,;\s]+/).filter(s => /^\d{10}$/.test(s)).sort();
+
+        // Lọc chỉ dòng BK thật: loai=Bảng kê + ref có dạng xxxxxx/MM_PLANT
+        const bkItems = items.filter(i => i.loai === 'Bảng kê' && /^\d{4,6}\/\d{2}_\d{4}$/.test(i.ref || ''));
+        // Sort theo số ref (phần trước /) = thứ tự phát sinh
+        bkItems.sort((a, b) => {
+            const refA = parseInt((a.ref || '').split('/')[0]) || 0;
+            const refB = parseInt((b.ref || '').split('/')[0]) || 0;
+            return refA - refB;
+        });
+
+        if (bkNumbers.length > 0 && bkItems.length > 0 && bkNumbers.length !== bkItems.length) {
+            alert('Số lượng BK nhập (' + bkNumbers.length + ') không khớp dữ liệu SAP (' + bkItems.length + ' dòng Bảng kê).\nVui lòng kiểm tra lại ô Số BK hoặc dữ liệu SAP.');
+        }
+
+        bkItems.forEach(function(item, idx) {
+            item.so_ct = bkNumbers[idx] || item.doc_num;
+        });
+
+        // Các dòng BK không match pattern ref → fallback
+        items.forEach(function(item) {
+            if (item.loai === 'Hóa đơn') {
+                item.so_ct = item.sales_doc || item.doc_num;
+            } else if (item.so_ct === '') {
+                if (item.loai === 'Bảng kê' && bkNumbers.length === 1) {
+                    item.so_ct = bkNumbers[0];  // chỉ có 1 BK → dùng luôn
+                } else {
+                    item.so_ct = item.doc_num;
+                }
+            }
         });
 
         if (!items.length) { alert('Không nhận diện được chứng từ.'); return; }
@@ -757,7 +793,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = formatNum(totalCK));
         document.querySelectorAll('.pv-bang_chu').forEach(el => el.textContent = '(Bằng chữ: ' + numberToVietnamese(totalCK) + ' đồng)');
 
-        document.getElementById('sapResult').classList.remove('d-none');
+        // Show summary box if any item has value
+        const hasData = sapItems.some(i => i.gia_tri > 0);
+        document.getElementById('summaryBox').style.display = hasData ? '' : 'none';
         updateQR();
     }
 
@@ -839,9 +877,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== THÊM DÒNG THỦ CÔNG =====
     document.getElementById('btnAddRow').addEventListener('click', function() {
         sapItems.push({ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' });
-        document.getElementById('sapResult').classList.remove('d-none');
         renderSapTable(sapItems);
     });
+
+    // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
+    sapItems = [{ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' }];
+    renderSapTable(sapItems);
 
     // ===== KIỂM TRA TÀI KHOẢN (MBBank Lookup) =====
     function removeDiacritics(str) {
@@ -1015,7 +1056,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnClear').addEventListener('click', function() {
         if (confirm('Xóa toàn bộ dữ liệu trên form?')) {
             document.getElementById('phieuForm').reset();
-            document.getElementById('sapResult').classList.add('d-none');
             document.querySelectorAll('[class^="pv-"]').forEach(el => el.textContent = '___');
             document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = '0');
             document.getElementById('previewCTBody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Chưa có dữ liệu</td></tr>';
@@ -1023,6 +1063,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('bank_search').value = '';
             document.getElementById('bank_eoffice').value = '';
             document.getElementById('tvv_search').value = '';
+            document.getElementById('summaryBox').style.display = 'none';
+            // Reset to 1 empty BK row
+            sapItems = [{ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' }];
+            renderSapTable(sapItems);
         }
     });
 });
