@@ -58,9 +58,11 @@
                 <!-- Lý do -->
                 <div class="form-group">
                     <label for="lyDoSelect"><i class="bi bi-chat-left-text"></i> Lý do hủy</label>
-                    <select class="form-select" id="lyDoSelect">
+                    <select class="form-select" id="lyDoSelect" onchange="onLydoChange()">
                         <option value="">-- Đang tải... --</option>
                     </select>
+                    <input type="text" class="form-control mt-2 d-none" id="lyDoCustom"
+                           placeholder="Nhập lý do khác...">
                 </div>
 
                 <!-- CHT (moved to bottom) -->
@@ -100,16 +102,19 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/lydo-huy').then(r => r.json()).then(json => {
         const sel = document.getElementById('lyDoSelect');
         sel.innerHTML = '';
-        if (!json.ok || !json.data.length) {
-            sel.innerHTML = '<option value="">Chưa có lý do</option>';
-            return;
+        if (json.ok && json.data.length) {
+            json.data.forEach(function(ld) {
+                const opt = document.createElement('option');
+                opt.value = ld.noi_dung;
+                opt.textContent = ld.noi_dung;
+                sel.appendChild(opt);
+            });
         }
-        json.data.forEach(function(ld) {
-            const opt = document.createElement('option');
-            opt.value = ld.noi_dung;
-            opt.textContent = ld.noi_dung;
-            sel.appendChild(opt);
-        });
+        // Always add "Khác" option at the end
+        const optK = document.createElement('option');
+        optK.value = '__custom__';
+        optK.textContent = '-- Nhập lý do khác --';
+        sel.appendChild(optK);
     });
 });
 
@@ -120,18 +125,37 @@ document.getElementById('soBK').addEventListener('blur', function() {
     this.value = v;
 });
 
+// Toggle custom lý do input
+function onLydoChange() {
+    const sel = document.getElementById('lyDoSelect');
+    const custom = document.getElementById('lyDoCustom');
+    if (sel.value === '__custom__') {
+        custom.classList.remove('d-none');
+        custom.focus();
+    } else {
+        custom.classList.add('d-none');
+        custom.value = '';
+    }
+}
+
 function printBBHuy() {
     const soBKEl = document.getElementById('soBK');
     let soBK = soBKEl.value.replace(/\D/g, '');
     if (soBK.length > 10) soBK = soBK.slice(-10);
     soBKEl.value = soBK;
 
+    // Validate: đúng 10 số và bắt đầu bằng 440
+    if (soBK.length !== 10) { alert('Số bảng kê phải đúng 10 chữ số!'); soBKEl.focus(); return; }
+    if (!soBK.startsWith('440')) { alert('Số bảng kê phải bắt đầu bằng 440!'); soBKEl.focus(); return; }
+
     const tvv = document.getElementById('tvvSelect').value;
-    const lyDo = document.getElementById('lyDoSelect').value;
+    const lyDoSel = document.getElementById('lyDoSelect').value;
+    const lyDoCustom = document.getElementById('lyDoCustom').value.trim();
+    const lyDo = (lyDoSel === '__custom__') ? lyDoCustom : lyDoSel;
     const kt = document.getElementById('ktSelect').value;
 
-    if (!soBK || soBK.length < 10) { alert('Số bảng kê phải đủ 10 chữ số!'); soBKEl.focus(); return; }
     if (!tvv) { alert('Vui lòng chọn Tư vấn viên!'); return; }
+    if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return; }
 
     const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt });
     window.open('/bb-huy/print?' + params.toString(), '_blank');
