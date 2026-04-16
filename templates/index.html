@@ -138,21 +138,18 @@ textarea#sap_data {
                                    value="" placeholder="NGUYỄN VĂN A"
                                    style="text-transform: uppercase;">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">SĐT</label>
                             <input type="text" class="form-control form-control-sm" id="sdt" name="sdt"
                                    value="" placeholder="0901234567">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Số CCCD</label>
                             <input type="text" class="form-control form-control-sm" id="cccd" name="cccd"
                                    value="" placeholder="046xxx">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Số BK</label>
-                            <input type="text" class="form-control form-control-sm" id="so_bk" name="so_bk"
-                                   value="" placeholder="Số bảng kê">
-                        </div>
+                        <!-- Số BK: hidden, auto-filled from section 3 table -->
+                        <input type="hidden" id="so_bk" name="so_bk" value="">
                     </div>
                 </div>
             </div>
@@ -196,9 +193,17 @@ textarea#sap_data {
                         <div class="col-md-7">
                             <label class="form-label">Ngân hàng</label>
                             <div class="position-relative">
-                                <input type="text" class="form-control form-control-sm" id="bank_search"
-                                       autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="bank_search"
+                                           autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
+                                    <button class="btn btn-outline-secondary d-none" type="button" id="btnClearBank" title="Xóa ngân hàng">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
                                 <div id="bankDropdown" class="dropdown-menu w-100" style="max-height:250px;overflow-y:auto;font-size:0.8rem;"></div>
+                            </div>
+                            <div id="bankFullName" class="text-muted small mt-1 d-none" style="font-size:0.78rem;">
+                                <i class="bi bi-bank"></i> <span id="bankFullNameText"></span>
                             </div>
                             <input type="hidden" id="ngan_hang" name="ngan_hang" value="">
                             <input type="hidden" id="bank_bin" name="bank_bin" value="">
@@ -433,7 +438,7 @@ textarea#sap_data {
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_bk', 'so_tk', 'ngan_hang'];
+    const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_tk', 'ngan_hang'];
     const now = new Date();
     const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
     const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
@@ -489,13 +494,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await resp.json();
 
             if (data.ok) {
-                if (data.so_bk) document.getElementById('so_bk').value = data.so_bk;
+                // Fill so_bk into first BK row in section 3 table
+                if (data.so_bk) {
+                    const bkRow = sapItems.find(i => i.loai === 'Bảng kê' && !i.so_ct);
+                    if (bkRow) { bkRow.so_ct = data.so_bk; }
+                    document.getElementById('so_bk').value = data.so_bk;
+                    renderSapTable(sapItems);
+                }
                 if (data.ma_kh) document.getElementById('ma_kh').value = data.ma_kh;
                 if (data.cccd) document.getElementById('cccd').value = data.cccd;
                 if (data.sdt) document.getElementById('sdt').value = data.sdt;
                 if (data.ten_kh) document.getElementById('ten_kh').value = data.ten_kh.toUpperCase();
                 // Trigger preview update
-                ['so_bk','ma_kh','cccd','sdt','ten_kh'].forEach(f => {
+                ['ma_kh','cccd','sdt','ten_kh'].forEach(f => {
                     document.getElementById(f).dispatchEvent(new Event('input'));
                 });
                 btn.innerHTML = '<i class="bi bi-check-lg"></i> Đã quét!';
@@ -549,14 +560,35 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const item = e.target.closest('.dropdown-item');
         if (!item) return;
-        bankSearch.value = item.dataset.ten;
-        document.getElementById('ngan_hang').value = item.dataset.ten;
-        document.getElementById('bank_bin').value = item.dataset.bin;
-        bankEoffice.value = item.dataset.eoffice;
-        document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = item.dataset.ten);
+        selectBank(item.dataset.code, item.dataset.ten, item.dataset.bin, item.dataset.eoffice);
         bankDropdown.classList.remove('show');
-        updateQR();
     });
+
+    function selectBank(code, ten, bin, eoffice) {
+        bankSearch.value = code;  // short name in input
+        document.getElementById('ngan_hang').value = ten;
+        document.getElementById('bank_bin').value = bin;
+        bankEoffice.value = eoffice;
+        // Show full name below
+        document.getElementById('bankFullNameText').textContent = ten;
+        document.getElementById('bankFullName').classList.remove('d-none');
+        document.getElementById('btnClearBank').classList.remove('d-none');
+        document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = ten);
+        updateQR();
+    }
+
+    function clearBank() {
+        bankSearch.value = '';
+        document.getElementById('ngan_hang').value = '';
+        document.getElementById('bank_bin').value = '';
+        bankEoffice.value = '';
+        document.getElementById('bankFullName').classList.add('d-none');
+        document.getElementById('btnClearBank').classList.add('d-none');
+        document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = '___');
+        bankSearch.focus();
+    }
+
+    document.getElementById('btnClearBank').addEventListener('click', clearBank);
 
     document.addEventListener('click', function(e) {
         if (!bankSearch.contains(e.target) && !bankDropdown.contains(e.target))
@@ -647,9 +679,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Match số BK (44xx) với dòng Bảng kê thực sự
-        // Nhận dạng BK: âm + 25xx + cột 2 có pattern xxxxxx/MM_PLANT
+        // Lấy BK numbers từ bảng section 3 (dòng BK đã có so_ct) + hidden field
+        const existingBkNums = sapItems.filter(i => i.loai === 'Bảng kê' && i.so_ct && /^\d{10}$/.test(i.so_ct)).map(i => i.so_ct);
         const soBkRaw = document.getElementById('so_bk').value.trim();
-        const bkNumbers = soBkRaw.split(/[,;\s]+/).filter(s => /^\d{10}$/.test(s)).sort();
+        const hiddenBkNums = soBkRaw.split(/[,;\s]+/).filter(s => /^\d{10}$/.test(s));
+        // Merge: existing rows first, then hidden field extras
+        const allBkNums = [...new Set([...existingBkNums, ...hiddenBkNums])];
+        const bkNumbers = allBkNums.sort();
 
         // Lọc chỉ dòng BK thật: loai=Bảng kê + ref có dạng xxxxxx/MM_PLANT
         const bkItems = items.filter(i => i.loai === 'Bảng kê' && /^\d{4,6}\/\d{2}_\d{4}$/.test(i.ref || ''));
@@ -809,6 +845,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sumText').textContent = numberToVietnamese(totalCK) + ' đồng';
 
         document.getElementById('chung_tu_json').value = JSON.stringify(sapItems);
+        // Sync so_bk from BK rows in table
+        const bkNums = sapItems.filter(i => i.loai === 'Bảng kê' && i.so_ct).map(i => i.so_ct);
+        document.getElementById('so_bk').value = bkNums.join(', ');
         document.getElementById('tong_bk').value = totalChi;
         document.getElementById('tong_hd').value = totalThu;
         document.getElementById('tong_ck').value = totalCK;
@@ -1007,7 +1046,6 @@ document.addEventListener('DOMContentLoaded', function() {
             ['ten_kh', 'Tên KH'],
             ['sdt',    'SĐT'],
             ['cccd',   'Số CCCD'],
-            ['so_bk',  'Số BK'],
         ];
         for (const [id, label] of checks) {
             if (!document.getElementById(id).value.trim()) {
@@ -1083,8 +1121,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = '0');
             document.getElementById('previewCTBody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">Chưa có dữ liệu</td></tr>';
             document.getElementById('previewQR').innerHTML = '<div style="width:56px;height:56px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:0.4rem;color:#999;">QR Code</div>';
-            document.getElementById('bank_search').value = '';
-            document.getElementById('bank_eoffice').value = '';
+            clearBank();
             document.getElementById('tvv_search').value = '';
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
