@@ -1,7 +1,17 @@
 {% extends "base.html" %}
 
 {% block title %}Cài đặt{% endblock %}
+{% block nav_settings %}active{% endblock %}
 {% block page_title %}Cài đặt hệ thống{% endblock %}
+
+{% block extra_css %}
+.admin-section .card { border-left: 3px solid #0ea5e9; }
+.list-table { font-size: 0.88rem; }
+.list-table th { background: #f8fafc; font-weight: 600; }
+.list-table .btn-sm { padding: 2px 8px; font-size: 0.78rem; }
+.add-row { display: flex; gap: 8px; margin-top: 8px; }
+.add-row .form-control { font-size: 0.88rem; }
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -82,12 +92,88 @@
             <i class="bi bi-check-lg"></i> Lưu cài đặt
         </button>
         <span id="saveMsg" class="ms-2 text-success d-none">Đã lưu!</span>
+
+        {% if admin %}
+        <!-- ═══════ ADMIN ONLY ═══════ -->
+        <hr class="my-4">
+        <h6 class="text-muted mb-3"><i class="bi bi-shield-lock"></i> Quản trị (chỉ Admin)</h6>
+
+        <div class="admin-section">
+            <!-- BK Prefix -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-hash"></i> Tiền tố số Bảng kê (BB Hủy)
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <input type="text" class="form-control form-control-sm" id="s_bk_prefix"
+                                   value="{{ settings.get('bk_prefix', '4403') }}" maxlength="6"
+                                   placeholder="VD: 4403">
+                            <small class="text-muted">Tự điền trước vào ô số BK trong BB Hủy</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TVV List -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-person-lines-fill"></i> Danh sách Tư vấn viên
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-hover list-table mb-0" id="tvvTable">
+                        <thead>
+                            <tr><th style="width:80px">Mã</th><th>Tên</th><th style="width:50px"></th></tr>
+                        </thead>
+                        <tbody id="tvvBody">
+                            <tr><td colspan="3" class="text-center text-muted">Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="add-row">
+                        <input type="text" class="form-control form-control-sm" id="newTvvMa"
+                               placeholder="Mã TVV" style="max-width:100px;">
+                        <input type="text" class="form-control form-control-sm" id="newTvvTen"
+                               placeholder="Tên TVV" style="text-transform:uppercase;">
+                        <button class="btn btn-sm btn-success" onclick="addTvv()">
+                            <i class="bi bi-plus-lg"></i> Thêm
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lý do hủy -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-list-ul"></i> Danh sách lý do hủy BK
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-hover list-table mb-0" id="lydoTable">
+                        <thead>
+                            <tr><th>#</th><th>Nội dung</th><th style="width:50px"></th></tr>
+                        </thead>
+                        <tbody id="lydoBody">
+                            <tr><td colspan="3" class="text-center text-muted">Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="add-row">
+                        <input type="text" class="form-control form-control-sm" id="newLydo"
+                               placeholder="Nhập lý do hủy mới">
+                        <button class="btn btn-sm btn-success" onclick="addLydo()">
+                            <i class="bi bi-plus-lg"></i> Thêm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// ── Save settings ──
 document.getElementById('btnSaveSettings').addEventListener('click', function() {
     const payload = {
         cht_name: document.getElementById('s_cht_name').value.trim().toUpperCase(),
@@ -99,6 +185,10 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         mb_password: document.getElementById('s_mb_password').value.trim(),
         mb_account: document.getElementById('s_mb_account').value.trim(),
     };
+    // BK prefix (admin only)
+    const bkEl = document.getElementById('s_bk_prefix');
+    if (bkEl) payload.bk_prefix = bkEl.value.trim();
+
     fetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -111,5 +201,94 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         }
     });
 });
+
+{% if admin %}
+// ── TVV CRUD ──
+function loadTvv() {
+    fetch('/api/tvv').then(r => r.json()).then(json => {
+        const tbody = document.getElementById('tvvBody');
+        if (!json.ok || !json.data.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Chưa có TVV</td></tr>';
+            return;
+        }
+        tbody.innerHTML = json.data.map(t =>
+            `<tr>
+                <td>${t.ma}</td>
+                <td>${t.ten}</td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="delTvv(${t.id})"><i class="bi bi-trash"></i></button></td>
+            </tr>`
+        ).join('');
+    });
+}
+
+function addTvv() {
+    const ma = document.getElementById('newTvvMa').value.trim();
+    const ten = document.getElementById('newTvvTen').value.trim().toUpperCase();
+    if (!ma || !ten) { alert('Nhập đủ mã và tên TVV'); return; }
+    fetch('/api/tvv', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ma, ten})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            document.getElementById('newTvvMa').value = '';
+            document.getElementById('newTvvTen').value = '';
+            loadTvv();
+        } else alert(d.error);
+    });
+}
+
+function delTvv(id) {
+    if (!confirm('Xóa TVV này?')) return;
+    fetch('/api/tvv/' + id, {method: 'DELETE'}).then(r => r.json()).then(d => {
+        if (d.ok) loadTvv(); else alert(d.error);
+    });
+}
+
+// ── Lý do hủy CRUD ──
+function loadLydo() {
+    fetch('/api/lydo-huy').then(r => r.json()).then(json => {
+        const tbody = document.getElementById('lydoBody');
+        if (!json.ok || !json.data.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Chưa có lý do</td></tr>';
+            return;
+        }
+        tbody.innerHTML = json.data.map((ld, i) =>
+            `<tr>
+                <td>${i + 1}</td>
+                <td>${ld.noi_dung}</td>
+                <td><button class="btn btn-sm btn-outline-danger" onclick="delLydo(${ld.id})"><i class="bi bi-trash"></i></button></td>
+            </tr>`
+        ).join('');
+    });
+}
+
+function addLydo() {
+    const noi_dung = document.getElementById('newLydo').value.trim();
+    if (!noi_dung) { alert('Nhập nội dung lý do'); return; }
+    fetch('/api/lydo-huy', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({noi_dung})
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            document.getElementById('newLydo').value = '';
+            loadLydo();
+        } else alert(d.error);
+    });
+}
+
+function delLydo(id) {
+    if (!confirm('Xóa lý do này?')) return;
+    fetch('/api/lydo-huy/' + id, {method: 'DELETE'}).then(r => r.json()).then(d => {
+        if (d.ok) loadLydo(); else alert(d.error);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTvv();
+    loadLydo();
+});
+{% endif %}
 </script>
 {% endblock %}

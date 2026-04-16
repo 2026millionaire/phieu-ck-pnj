@@ -174,6 +174,39 @@ def init_db():
             ("admin", generate_password_hash("pnj1305"), "Admin"),
         )
 
+    # TVV table (replaces Excel sheet)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tvv (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            ma   TEXT NOT NULL,
+            ten  TEXT NOT NULL
+        )
+    """)
+    # Migrate TVV from Excel → DB if table is empty
+    row_tvv = conn.execute("SELECT COUNT(*) FROM tvv").fetchone()
+    if row_tvv[0] == 0:
+        for t in TVV_LIST:
+            if t["ma"] and t["ten"]:
+                conn.execute("INSERT INTO tvv (ma, ten) VALUES (?, ?)", (t["ma"], t["ten"]))
+
+    # Lý do hủy BK table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS lydo_huy (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            noi_dung TEXT NOT NULL
+        )
+    """)
+    row_ld = conn.execute("SELECT COUNT(*) FROM lydo_huy").fetchone()
+    if row_ld[0] == 0:
+        for ld in [
+            "Khách hàng đổi ý.",
+            "Sai thông tin khách hàng.",
+            "Sai mã sản phẩm.",
+            "Sai trọng lượng sản phẩm.",
+            "Sai giá trị mua lại.",
+        ]:
+            conn.execute("INSERT INTO lydo_huy (noi_dung) VALUES (?)", (ld,))
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
@@ -192,6 +225,7 @@ def init_db():
         "mb_username": "",
         "mb_password": "",
         "mb_account": "",
+        "bk_prefix": "4403",
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
@@ -553,6 +587,19 @@ def current_user_id():
     return session.get("user_id", 1)
 
 
+def is_admin():
+    """Check if current user is admin (username='admin')."""
+    uid = current_user_id()
+    if uid == 1:
+        return True  # ID 1 is always admin
+    try:
+        db = get_db()
+        row = db.execute("SELECT username FROM users WHERE id = ?", (uid,)).fetchone()
+        return row and row["username"].lower() == "admin"
+    except Exception:
+        return False
+
+
 @app.route("/")
 def index():
     """Main page with input form."""
@@ -570,7 +617,8 @@ def history_page():
 def bb_huy_page():
     """BB Hủy Bảng Kê — form page."""
     settings = get_settings()
-    return render_template("bb_huy.html", settings=settings)
+    bk_prefix = settings.get("bk_prefix", "4403")
+    return render_template("bb_huy.html", settings=settings, bk_prefix=bk_prefix)
 
 
 @app.route("/bb-huy/print")
@@ -663,7 +711,7 @@ def eoffice_page(phieu_id):
 def settings_page():
     """Settings page."""
     settings = get_settings()
-    return render_template("settings.html", settings=settings)
+    return render_template("settings.html", settings=settings, admin=is_admin())
 
 
 @app.route("/api/settings", methods=["GET"])
@@ -1256,8 +1304,73 @@ def api_banks():
 
 @app.route("/api/tvv")
 def api_tvv():
-    """Return TVV list for dropdown search."""
-    return jsonify({"ok": True, "data": TVV_LIST})
+    """Return TVV list from database."""
+    db = get_db()
+    rows = db.execute("SELECT id, ma, ten FROM tvv ORDER BY ma").fetchall()
+    data = [{"id": r["id"], "ma": r["ma"], "ten": r["ten"]} for r in rows]
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route("/api/tvv", methods=["POST"])
+def api_tvv_add():
+    """Add a new TVV (admin only)."""
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Chỉ admin mới được thao tác"}), 403
+    data = request.get_json(force=True)
+    ma = data.get("ma", "").strip()
+    ten = data.get("ten", "").strip().upper()
+    if not ma or not ten:
+        return jsonify({"ok": False, "error": "Thiếu mã hoặc tên TVV"})
+    db = get_db()
+    db.execute("INSERT INTO tvv (ma, ten) VALUES (?, ?)", (ma, ten))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/tvv/<int:tvv_id>", methods=["DELETE"])
+def api_tvv_delete(tvv_id):
+    """Delete a TVV (admin only)."""
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Chỉ admin mới được thao tác"}), 403
+    db = get_db()
+    db.execute("DELETE FROM tvv WHERE id = ?", (tvv_id,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/lydo-huy")
+def api_lydo_huy():
+    """Return lý do hủy list from database."""
+    db = get_db()
+    rows = db.execute("SELECT id, noi_dung FROM lydo_huy ORDER BY id").fetchall()
+    data = [{"id": r["id"], "noi_dung": r["noi_dung"]} for r in rows]
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route("/api/lydo-huy", methods=["POST"])
+def api_lydo_huy_add():
+    """Add a new lý do hủy (admin only)."""
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Chỉ admin mới được thao tác"}), 403
+    data = request.get_json(force=True)
+    noi_dung = data.get("noi_dung", "").strip()
+    if not noi_dung:
+        return jsonify({"ok": False, "error": "Thiếu nội dung lý do"})
+    db = get_db()
+    db.execute("INSERT INTO lydo_huy (noi_dung) VALUES (?)", (noi_dung,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/lydo-huy/<int:ld_id>", methods=["DELETE"])
+def api_lydo_huy_delete(ld_id):
+    """Delete a lý do hủy (admin only)."""
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Chỉ admin mới được thao tác"}), 403
+    db = get_db()
+    db.execute("DELETE FROM lydo_huy WHERE id = ?", (ld_id,))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------

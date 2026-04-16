@@ -18,6 +18,7 @@
 .info-row { display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; }
 .info-row .label { font-weight: 600; color: #64748b; min-width: 120px; }
 .info-row .value { color: #1e293b; font-weight: 500; }
+.bb-title { text-align: center; font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
 .btn-print { background: linear-gradient(135deg, #0ea5e9, #0369a1); border: none; color: #fff; padding: 10px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
 .btn-print:hover { background: linear-gradient(135deg, #0369a1, #024a75); color: #fff; }
 {% endblock %}
@@ -27,16 +28,14 @@
     <div class="col-lg-6">
         <div class="card form-card">
             <div class="card-body">
-                <!-- Auto-filled info -->
-                <div class="info-row">
-                    <span class="label"><i class="bi bi-person-badge"></i> CHT:</span>
-                    <span class="value" id="chtName">{{ settings.cht_name }}</span>
-                </div>
+                <!-- Title -->
+                <div class="bb-title">BIÊN BẢN HỦY BẢNG KÊ</div>
 
                 <!-- Số BK -->
                 <div class="form-group">
                     <label for="soBK"><i class="bi bi-hash"></i> Số bảng kê</label>
-                    <input type="text" class="form-control" id="soBK" placeholder="VD: 4403718624" maxlength="15" autofocus>
+                    <input type="text" class="form-control" id="soBK"
+                           value="{{ bk_prefix }}" maxlength="15" autofocus>
                 </div>
 
                 <!-- TVV -->
@@ -60,12 +59,14 @@
                 <div class="form-group">
                     <label for="lyDoSelect"><i class="bi bi-chat-left-text"></i> Lý do hủy</label>
                     <select class="form-select" id="lyDoSelect">
-                        <option value="Khách hàng đổi ý.">Khách hàng đổi ý.</option>
-                        <option value="Sai thông tin khách hàng.">Sai thông tin khách hàng.</option>
-                        <option value="Sai mã sản phẩm.">Sai mã sản phẩm.</option>
-                        <option value="Sai trọng lượng sản phẩm.">Sai trọng lượng sản phẩm.</option>
-                        <option value="Sai giá trị mua lại.">Sai giá trị mua lại.</option>
+                        <option value="">-- Đang tải... --</option>
                     </select>
+                </div>
+
+                <!-- CHT (moved to bottom) -->
+                <div class="info-row">
+                    <span class="label"><i class="bi bi-person-badge"></i> CHT:</span>
+                    <span class="value" id="chtName">{{ settings.cht_name }}</span>
                 </div>
 
                 <!-- Button -->
@@ -94,15 +95,42 @@ document.addEventListener('DOMContentLoaded', function() {
             sel.appendChild(opt);
         });
     });
+
+    // Load lý do hủy
+    fetch('/api/lydo-huy').then(r => r.json()).then(json => {
+        const sel = document.getElementById('lyDoSelect');
+        sel.innerHTML = '';
+        if (!json.ok || !json.data.length) {
+            sel.innerHTML = '<option value="">Chưa có lý do</option>';
+            return;
+        }
+        json.data.forEach(function(ld) {
+            const opt = document.createElement('option');
+            opt.value = ld.noi_dung;
+            opt.textContent = ld.noi_dung;
+            sel.appendChild(opt);
+        });
+    });
+});
+
+// Auto-trim số BK: nếu > 10 ký tự → lấy 10 số cuối (right 10)
+document.getElementById('soBK').addEventListener('blur', function() {
+    let v = this.value.replace(/\D/g, '');
+    if (v.length > 10) v = v.slice(-10);
+    this.value = v;
 });
 
 function printBBHuy() {
-    const soBK = document.getElementById('soBK').value.trim();
+    const soBKEl = document.getElementById('soBK');
+    let soBK = soBKEl.value.replace(/\D/g, '');
+    if (soBK.length > 10) soBK = soBK.slice(-10);
+    soBKEl.value = soBK;
+
     const tvv = document.getElementById('tvvSelect').value;
     const lyDo = document.getElementById('lyDoSelect').value;
     const kt = document.getElementById('ktSelect').value;
 
-    if (!soBK) { alert('Vui lòng nhập số bảng kê!'); document.getElementById('soBK').focus(); return; }
+    if (!soBK || soBK.length < 10) { alert('Số bảng kê phải đủ 10 chữ số!'); soBKEl.focus(); return; }
     if (!tvv) { alert('Vui lòng chọn Tư vấn viên!'); return; }
 
     const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt });
