@@ -604,7 +604,8 @@ def is_admin():
 def index():
     """Main page with input form."""
     settings = get_settings()
-    return render_template("index.html", staff=STAFF, bank_list=sorted(BANK_BINS.keys()), settings=settings)
+    bk_prefix = settings.get("bk_prefix", "4403")
+    return render_template("index.html", staff=STAFF, bank_list=sorted(BANK_BINS.keys()), settings=settings, bk_prefix=bk_prefix)
 
 
 @app.route("/history")

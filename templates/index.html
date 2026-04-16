@@ -931,12 +931,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ===== THÊM DÒNG THỦ CÔNG =====
     document.getElementById('btnAddRow').addEventListener('click', function() {
-        sapItems.push({ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' });
+        sapItems.push({ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' });
         renderSapTable(sapItems);
     });
 
     // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
-    sapItems = [{ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' }];
+    sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' }];
     renderSapTable(sapItems);
 
     // ===== KIỂM TRA TÀI KHOẢN (MBBank Lookup) =====
@@ -1047,6 +1047,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
         }
+
+        // ── Validate Mã KH: 10 số bắt đầu 10, hoặc 11 số bắt đầu 0 ──
+        const maKh = document.getElementById('ma_kh').value.trim();
+        const maKhValid = /^\d{10}$/.test(maKh) && maKh.startsWith('10')
+                       || /^\d{11}$/.test(maKh) && maKh.startsWith('0');
+        if (!maKhValid) {
+            alert('Mã KH không hợp lệ!\n• 10 số bắt đầu bằng "10" (VD: 1021636100)\n• hoặc 11 số bắt đầu bằng "0" (VD: 01021636100)');
+            document.getElementById('ma_kh').focus();
+            return;
+        }
+
+        // ── Validate SĐT: cảnh báo nếu không đủ 10 số (không chặn) ──
+        const sdt = document.getElementById('sdt').value.trim().replace(/\D/g, '');
+        if (sdt.length !== 10) {
+            if (!confirm('SĐT chỉ có ' + sdt.length + ' số (yêu cầu 10 số).\nBạn có muốn tiếp tục không?')) {
+                document.getElementById('sdt').focus();
+                return;
+            }
+        }
+
+        // ── Validate CCCD: chặn nếu không đủ 12 số ──
+        const cccd = document.getElementById('cccd').value.trim().replace(/\D/g, '');
+        if (cccd.length !== 12) {
+            alert('Số CCCD phải đủ 12 số! Hiện tại chỉ có ' + cccd.length + ' số.');
+            document.getElementById('cccd').focus();
+            return;
+        }
+
         const ten_kh = document.getElementById('ten_kh').value.trim().toUpperCase();
         if (!document.getElementById('tvv_name').value) { alert('Vui lòng chọn mã TVV.'); document.getElementById('tvv_search').focus(); return; }
 
@@ -1118,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('tvv_search').value = '';
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
-            sapItems = [{ loai: 'Bảng kê', so_ct: '', gia_tri: 0, gio: '', sign: '-' }];
+            sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' }];
             renderSapTable(sapItems);
         }
     });
