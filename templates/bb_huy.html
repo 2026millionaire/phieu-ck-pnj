@@ -41,9 +41,11 @@
                 <!-- TVV -->
                 <div class="form-group">
                     <label for="tvvSelect"><i class="bi bi-person"></i> Tư vấn viên</label>
-                    <select class="form-select" id="tvvSelect">
+                    <select class="form-select" id="tvvSelect" onchange="onTvvChange()">
                         <option value="">-- Chọn TVV --</option>
                     </select>
+                    <input type="text" class="form-control mt-2 d-none" id="tvvCustom"
+                           placeholder="Nhập tên TVV..." style="text-transform:uppercase;">
                 </div>
 
                 <!-- NV Kế Toán -->
@@ -96,6 +98,11 @@ document.addEventListener('DOMContentLoaded', function() {
             opt.textContent = t.ma + ' - ' + t.ten;
             sel.appendChild(opt);
         });
+        // Add custom option
+        const optK = document.createElement('option');
+        optK.value = '__custom__';
+        optK.textContent = '-- Nhập tên TVV khác --';
+        sel.appendChild(optK);
     });
 
     // Load lý do hủy
@@ -125,6 +132,19 @@ document.getElementById('soBK').addEventListener('blur', function() {
     this.value = v;
 });
 
+// Toggle custom TVV input
+function onTvvChange() {
+    const sel = document.getElementById('tvvSelect');
+    const custom = document.getElementById('tvvCustom');
+    if (sel.value === '__custom__') {
+        custom.classList.remove('d-none');
+        custom.focus();
+    } else {
+        custom.classList.add('d-none');
+        custom.value = '';
+    }
+}
+
 // Toggle custom lý do input
 function onLydoChange() {
     const sel = document.getElementById('lyDoSelect');
@@ -138,6 +158,15 @@ function onLydoChange() {
     }
 }
 
+// Format lý do: viết hoa đầu câu + thêm dấu . cuối
+function formatLydo(s) {
+    s = s.trim();
+    if (!s) return s;
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (!s.endsWith('.')) s += '.';
+    return s;
+}
+
 function printBBHuy() {
     const soBKEl = document.getElementById('soBK');
     let soBK = soBKEl.value.replace(/\D/g, '');
@@ -148,13 +177,19 @@ function printBBHuy() {
     if (soBK.length !== 10) { alert('Số bảng kê phải đúng 10 chữ số!'); soBKEl.focus(); return; }
     if (!soBK.startsWith('440')) { alert('Số bảng kê phải bắt đầu bằng 440!'); soBKEl.focus(); return; }
 
-    const tvv = document.getElementById('tvvSelect').value;
+    // TVV: dropdown hoặc tự nhập
+    const tvvSel = document.getElementById('tvvSelect').value;
+    const tvvCustom = document.getElementById('tvvCustom').value.trim().toUpperCase();
+    const tvv = (tvvSel === '__custom__') ? tvvCustom : tvvSel;
+
+    // Lý do: dropdown hoặc tự nhập (auto format)
     const lyDoSel = document.getElementById('lyDoSelect').value;
     const lyDoCustom = document.getElementById('lyDoCustom').value.trim();
-    const lyDo = (lyDoSel === '__custom__') ? lyDoCustom : lyDoSel;
+    let lyDo = (lyDoSel === '__custom__') ? formatLydo(lyDoCustom) : lyDoSel;
+
     const kt = document.getElementById('ktSelect').value;
 
-    if (!tvv) { alert('Vui lòng chọn Tư vấn viên!'); return; }
+    if (!tvv) { alert('Vui lòng chọn hoặc nhập tên Tư vấn viên!'); return; }
     if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return; }
 
     const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt });
