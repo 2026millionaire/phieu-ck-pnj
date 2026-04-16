@@ -89,19 +89,18 @@ textarea#sap_data {
     color: #0369a1;
 }
 
-/* Column widths — all screens */
+/* Table: fixed layout to enforce column widths */
+.sap-table { table-layout: fixed; }
 .sap-table .col-loai { width: 13%; }
 .sap-table .col-soct { width: 33%; }
 .sap-table .col-gt   { width: 30%; }
 .sap-table .col-gio  { width: 15%; }
 .sap-table .col-del  { width: 9%; }
+.sap-table td input, .sap-table td select { width: 100%; box-sizing: border-box; }
 
 /* Mobile: hide preview */
 @media (max-width: 991px) {
     .preview-col { display: none !important; }
-    .sap-table td input[type="text"],
-    .sap-table td select { font-size: 0.82rem !important; padding: 3px 4px !important; }
-    .sap-table td input[type="time"] { font-size: 0.72rem !important; padding: 3px 2px !important; }
 }
 {% endblock %}
 
@@ -267,6 +266,7 @@ textarea#sap_data {
             <div class="card mb-3">
                 <div class="card-header py-2">
                     <i class="bi bi-table"></i> 4. Dữ liệu SAP (ZFIE0029)
+                    <small class="text-muted fw-normal ms-2">— bỏ qua nếu đã nhập ở mục 3</small>
                 </div>
                 <div class="card-body">
                     <label class="form-label">Dán dữ liệu SAP</label>
