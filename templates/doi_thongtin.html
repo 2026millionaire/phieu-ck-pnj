@@ -6,7 +6,7 @@
 
 {% block extra_css %}
 .form-label { font-weight: 600; font-size: 0.85rem; color: #374151; }
-.muted-placeholder::placeholder { color: #b0b0b0; font-style: italic; }
+.muted-placeholder::placeholder { color: #b0b0b0; font-style: italic; text-transform: none; }
 {% endblock %}
 
 {% block content %}
@@ -65,6 +65,7 @@
                                            style="text-transform:uppercase;"></td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_moi"
                                            placeholder="Đổi thì nhập" style="text-transform:uppercase;"></td>
+                                <!-- CSS .muted-placeholder::placeholder resets text-transform -->
                             </tr>
                             <tr>
                                 <td class="fw-semibold">Ngày sinh</td>

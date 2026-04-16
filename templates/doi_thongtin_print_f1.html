@@ -102,7 +102,7 @@
         }
 
         .info-table td.field-name::before {
-            content: "\2022 ";
+            content: "\2022\00a0";
         }
 
         /* ── QR + consent block ── */
@@ -175,7 +175,7 @@
         }
 
         .confirm-list li::before {
-            content: "\2611 ";
+            content: "\2611\00a0\00a0";
             font-size: 13px;
         }
 
@@ -229,8 +229,9 @@
 
     <div class="page">
         <!-- Logo -->
-        <div class="logo-header">
+        <div class="logo-header" style="display:flex; align-items:center; gap:8px;">
             <img src="/static/logo_pnj.webp" alt="PNJ">
+            <span style="font-weight:bold; font-size:13px;">CÔNG TY CP VBĐQ PHÚ NHUẬN</span>
         </div>
 
         <!-- Title -->
