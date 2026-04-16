@@ -172,20 +172,27 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% block nav_eoffice %}{% endblock %}" href="/eoffice">
+                    <a class="nav-link {% block nav_eoffice %}{% endblock %}" href="{{ url_for('eoffice_index') }}">
                         <i class="bi bi-clipboard-data"></i> eOffice QT82
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% block nav_settings %}{% endblock %}" href="/settings">
+                    <a class="nav-link {% block nav_settings %}{% endblock %}" href="{{ url_for('settings_page') }}">
                         <i class="bi bi-gear"></i> Cài đặt
                     </a>
                 </li>
             </ul>
         </div>
         <div class="sidebar-footer">
+            {% if session.get('user_name') %}
+            <div class="mb-1"><i class="bi bi-person-circle"></i> {{ session.user_name }}</div>
+            <a href="/logout" class="text-light" style="font-size:0.75rem;opacity:0.7;text-decoration:none;">
+                <i class="bi bi-box-arrow-left"></i> Đăng xuất
+            </a>
+            {% else %}
             PNJ 1305 &mdash; Phiếu xác nhận CK<br>
             &copy; {{ now().year if now is defined else "2026" }}
+            {% endif %}
         </div>
     </nav>
 

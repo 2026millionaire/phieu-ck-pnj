@@ -11,7 +11,10 @@ import sqlite3
 import webbrowser
 from datetime import datetime, timedelta
 
-from flask import Flask, g, jsonify, render_template, request
+from functools import wraps
+
+from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # ---------------------------------------------------------------------------
 # App config
@@ -19,6 +22,10 @@ from flask import Flask, g, jsonify, render_template, request
 app = Flask(__name__)
 app.config["JSON_AS_ASCII"] = False
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.secret_key = os.environ.get("SECRET_KEY", "pnj1305-xnck-secret-key-2026")
+
+# Auth: only require login when running on server (not localhost)
+REQUIRE_LOGIN = os.environ.get("REQUIRE_LOGIN", "0") == "1"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phieu_ck.db")
 PORT = 5050
@@ -149,6 +156,22 @@ def init_db():
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
         except Exception:
             pass
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            name     TEXT DEFAULT ''
+        )
+    """)
+    # Create default admin user if no users exist
+    row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
+    if row[0] == 0:
+        conn.execute(
+            "INSERT INTO users (username, password, name) VALUES (?, ?, ?)",
+            ("admin", generate_password_hash("pnj1305"), "Admin"),
+        )
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS settings (
@@ -344,15 +367,16 @@ def parse_sap_paste(raw_text):
         so_hd = cols[4].strip() if len(cols) > 4 and cols[4].strip() else ""
 
         # Determine type based on sign and document number
+        # so_ct = số hiển thị (90xx cho HĐ, 44xx cho BK lấy từ so_bk input)
+        # doc_num = số SAP gốc (14xx, 25xx, 16xx...)
         if not is_negative:
-            # Positive = Hóa đơn (phải thu)
             loai = "Hóa đơn"
-            so_ct = so_hd if so_hd else doc_num
-            gia_tri = amount  # stored positive, will subtract in calc
+            so_ct = so_hd if so_hd else doc_num  # 90xxxxxxxx
+            gia_tri = amount
         elif re.match(r"^25\d{8}$", doc_num):
             loai = "Bảng kê"
-            so_ct = doc_num
-            gia_tri = amount  # stored positive, will add in calc
+            so_ct = doc_num  # tạm dùng 25xx, frontend sẽ thay bằng so_bk (44xx)
+            gia_tri = amount
         elif re.match(r"^16\d{8}$", doc_num):
             loai = "Biên nhận cọc"
             so_ct = doc_num
@@ -371,6 +395,7 @@ def parse_sap_paste(raw_text):
             gia_tri = amount
 
         records.append({
+            "doc_num": doc_num,  # số SAP gốc
             "loai": loai,
             "so_ct": so_ct,
             "gia_tri": gia_tri,
@@ -457,6 +482,71 @@ def build_noi_dung(plant, so_bk, ngay, ten_kh):
 # Routes
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+
+def login_required(f):
+    """Decorator: redirect to login page if not authenticated."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not REQUIRE_LOGIN:
+            return f(*args, **kwargs)
+        if not session.get("user_id"):
+            return redirect(url_for("login_page"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.before_request
+def check_auth():
+    """Global auth check — skip for login/static routes."""
+    if not REQUIRE_LOGIN:
+        return
+    allowed = ("login_page", "login_action", "logout_action", "static")
+    if request.endpoint in allowed:
+        return
+    if not session.get("user_id"):
+        return redirect(url_for("login_page"))
+
+
+@app.route("/login", methods=["GET"])
+def login_page():
+    if session.get("user_id"):
+        return redirect(url_for("index"))
+    error = request.args.get("error", "")
+    return render_template("login.html", error=error)
+
+
+@app.route("/login", methods=["POST"])
+def login_action():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    remember = request.form.get("remember")
+
+    db = get_db()
+    user = db.execute(
+        "SELECT * FROM users WHERE username = ?", (username,)
+    ).fetchone()
+
+    if user and check_password_hash(user["password"], password):
+        session.clear()
+        session["user_id"] = user["id"]
+        session["user_name"] = user["name"] or user["username"]
+        if remember:
+            session.permanent = True
+            app.permanent_session_lifetime = timedelta(days=30)
+        return redirect(url_for("index"))
+
+    return redirect(url_for("login_page", error="Sai tên đăng nhập hoặc mật khẩu"))
+
+
+@app.route("/logout")
+def logout_action():
+    session.clear()
+    return redirect(url_for("login_page"))
+
+
 @app.route("/")
 def index():
     """Main page with input form."""
@@ -501,12 +591,12 @@ def eoffice_page(phieu_id):
     except (ValueError, TypeError):
         ngay_str = d["created_at"][:10] if d["created_at"] else ""
 
-    # Tìm số BK từ chứng từ (dòng Bảng kê)
+    # Số BK: ưu tiên từ form input (44xx), fallback từ chứng từ
     so_bk = d.get("so_bk", "")
-    for ct in d["chung_tu"]:
-        if ct.get("loai") in ("Bảng kê", "Biên nhận cọc") and ct.get("so_ct"):
-            so_bk = ct["so_ct"]
-            break
+
+    # Số chứng từ SAP gốc (14xx, 25xx, 16xx...)
+    doc_nums = [ct.get("doc_num", ct.get("so_ct", "")) for ct in d["chung_tu"] if ct.get("doc_num") or ct.get("so_ct")]
+    d["eo_so_ct_sap"] = ", ".join(doc_nums)
 
     d["eo_ma_kh"] = d.get("ma_kh", "")
     d["eo_noi_dung"] = f"{plant} TT PO {so_bk} ngày {ngay_str} cho {d.get('ten_kh', '')}"
@@ -1093,8 +1183,10 @@ def api_template_tt(phieu_id):
         else:
             ws.cell(row=r, column=3, value=abs(int(gia_tri)))
 
-        ws.cell(row=r, column=4, value=ct.get("so_ct", ""))
-        ws.cell(row=r, column=5, value=cccd)
+        # Số CT dạng text (giữ số 0 đầu)
+        ws.cell(row=r, column=4, value=str(ct.get("so_ct", "")))
+        # CCCD dạng text (giữ số 0 đầu)
+        ws.cell(row=r, column=5, value=str(cccd))
         ws.cell(row=r, column=7, value=True)
 
     # Fill remaining STT rows
