@@ -151,6 +151,7 @@ def init_db():
     for col, ctype, default in [
         ("nguoi_ki", "TEXT", "'tvv'"),
         ("da_trinh", "INTEGER", "0"),
+        ("user_id", "INTEGER", "1"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -547,6 +548,11 @@ def logout_action():
     return redirect(url_for("login_page"))
 
 
+def current_user_id():
+    """Return logged-in user's ID, default 1 (admin) for local/no-login mode."""
+    return session.get("user_id", 1)
+
+
 @app.route("/")
 def index():
     """Main page with input form."""
@@ -570,7 +576,8 @@ def eoffice_index():
 def eoffice_page(phieu_id):
     """eOffice QT82 page with copyable fields."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ?", (phieu_id,)).fetchone()
+    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                     (phieu_id, current_user_id())).fetchone()
     if not row:
         return render_template("eoffice.html", phieu=None)
 
@@ -654,7 +661,8 @@ def api_da_trinh(phieu_id):
     """Toggle da_trinh status."""
     data = request.get_json(force=True)
     db = get_db()
-    db.execute("UPDATE phieu SET da_trinh = ? WHERE id = ?", (1 if data.get("da_trinh") else 0, phieu_id))
+    db.execute("UPDATE phieu SET da_trinh = ? WHERE id = ? AND user_id = ?",
+               (1 if data.get("da_trinh") else 0, phieu_id, current_user_id()))
     db.commit()
     return jsonify({"ok": True})
 
@@ -718,8 +726,9 @@ def api_save():
             (created_at, ma_kh, ten_kh, sdt, cccd,
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
-             chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
+             user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         data.get("ma_kh", ""),
@@ -741,6 +750,7 @@ def api_save():
         qr_url,
         noi_dung,
         nguoi_ki,
+        current_user_id(),
     ))
     db.commit()
     new_id = cursor.lastrowid
@@ -760,7 +770,8 @@ def api_save():
 def api_get_phieu(phieu_id):
     """Get a single phieu as JSON."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ?", (phieu_id,)).fetchone()
+    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                     (phieu_id, current_user_id())).fetchone()
     if not row:
         return jsonify({"ok": False, "error": "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu"}), 404
 
@@ -778,7 +789,8 @@ def api_get_phieu(phieu_id):
 def api_print(phieu_id):
     """Return printable HTML for a specific phieu."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ?", (phieu_id,)).fetchone()
+    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                     (phieu_id, current_user_id())).fetchone()
     if not row:
         return "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu", 404
 
@@ -858,7 +870,8 @@ def api_print(phieu_id):
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
 
     # Mark as printed
-    db.execute("UPDATE phieu SET status = 'printed' WHERE id = ?", (phieu_id,))
+    db.execute("UPDATE phieu SET status = 'printed' WHERE id = ? AND user_id = ?",
+               (phieu_id, current_user_id()))
     db.commit()
 
     return render_template("print.html", p=d, staff=STAFF)
@@ -866,9 +879,10 @@ def api_print(phieu_id):
 
 @app.route("/api/history")
 def api_history():
-    """JSON list of all phieu, newest first."""
+    """JSON list of all phieu, newest first (filtered by current user)."""
     db = get_db()
-    rows = db.execute("SELECT * FROM phieu ORDER BY id DESC").fetchall()
+    rows = db.execute("SELECT * FROM phieu WHERE user_id = ? ORDER BY id DESC",
+                      (current_user_id(),)).fetchall()
     result = []
     for row in rows:
         d = row_to_dict(row)
@@ -885,11 +899,12 @@ def api_history():
 def api_delete(phieu_id):
     """Delete a phieu."""
     db = get_db()
-    row = db.execute("SELECT id FROM phieu WHERE id = ?", (phieu_id,)).fetchone()
+    row = db.execute("SELECT id FROM phieu WHERE id = ? AND user_id = ?",
+                     (phieu_id, current_user_id())).fetchone()
     if not row:
         return jsonify({"ok": False, "error": "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu"}), 404
 
-    db.execute("DELETE FROM phieu WHERE id = ?", (phieu_id,))
+    db.execute("DELETE FROM phieu WHERE id = ? AND user_id = ?", (phieu_id, current_user_id()))
     db.commit()
     return jsonify({"ok": True})
 
@@ -1154,7 +1169,8 @@ def api_template_tt(phieu_id):
     import tempfile
 
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ?", (phieu_id,)).fetchone()
+    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                     (phieu_id, current_user_id())).fetchone()
     if not row:
         return "Không tìm thấy phiếu", 404
 
