@@ -89,9 +89,26 @@ textarea#sap_data {
     color: #0369a1;
 }
 
-/* Mobile: hide preview */
+/* Column widths — desktop */
+.sap-table .col-loai { width: 18%; }
+.sap-table .col-soct { width: 28%; }
+.sap-table .col-gt   { width: 28%; }
+.sap-table .col-gio  { width: 18%; }
+.sap-table .col-del  { width: 8%; }
+
+/* Mobile: hide preview + adjust table columns */
 @media (max-width: 991px) {
     .preview-col { display: none !important; }
+}
+@media (max-width: 768px) {
+    .sap-table .col-loai { width: 13%; }
+    .sap-table .col-soct { width: 32%; }
+    .sap-table .col-gt   { width: 28%; }
+    .sap-table .col-gio  { width: 18%; }
+    .sap-table .col-del  { width: 9%; }
+    .sap-table td input[type="text"],
+    .sap-table td select { font-size: 0.82rem !important; padding: 3px 4px !important; }
+    .sap-table td input[type="time"] { font-size: 0.72rem !important; padding: 3px 2px !important; }
 }
 {% endblock %}
 
@@ -217,11 +234,11 @@ textarea#sap_data {
                     <table class="table table-bordered table-sm sap-table mb-0">
                         <thead>
                             <tr>
-                                <th style="width:18%;">Loại</th>
-                                <th style="width:28%;">Số CT</th>
-                                <th class="text-end" style="width:28%;">Giá trị</th>
-                                <th style="width:18%;">Giờ</th>
-                                <th style="width:8%;"></th>
+                                <th class="col-loai">Loại</th>
+                                <th class="col-soct">Số CT</th>
+                                <th class="text-end col-gt">Giá trị</th>
+                                <th class="col-gio">Giờ</th>
+                                <th class="col-del"></th>
                             </tr>
                         </thead>
                         <tbody id="sapTableBody"></tbody>
