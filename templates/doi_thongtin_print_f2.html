@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>F2 - Đề nghị khóa dữ liệu cá nhân</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 15mm 20mm;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: "Times New Roman", Times, serif;
+            color: #000;
+        }
+
+        body {
+            font-size: 13.5px;
+            line-height: 1.6;
+            width: 170mm;
+            margin: 0 auto;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        @media screen {
+            body { background: #d1d5db; padding: 12mm; }
+            .page {
+                background: #fff;
+                padding: 14mm 18mm;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+                border-radius: 4px;
+                min-height: 270mm;
+            }
+        }
+
+        @media print {
+            body { padding: 0; background: #fff; }
+            .page { padding: 0; }
+            .no-print { display: none !important; }
+            div[style*="position: fixed"] { display: none !important; }
+        }
+
+        .title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 17px;
+            margin-bottom: 16px;
+        }
+
+        .greeting {
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        .body-text {
+            text-align: justify;
+            margin-bottom: 10px;
+        }
+
+        /* Mục 1: Thông tin KH */
+        .section-title {
+            font-weight: bold;
+            margin-top: 14px;
+            margin-bottom: 6px;
+        }
+
+        .info-line {
+            margin-bottom: 4px;
+            padding-left: 12px;
+        }
+
+        .info-line .label {
+            display: inline-block;
+            width: 190px;
+            font-weight: normal;
+        }
+
+        .info-line .value {
+            font-weight: normal;
+            border-bottom: 1px dotted #999;
+            display: inline-block;
+            min-width: 250px;
+            padding-bottom: 1px;
+        }
+
+        /* Mục 2: Hạng mục */
+        .checkbox-item {
+            margin-bottom: 6px;
+            padding-left: 12px;
+        }
+
+        .checkbox-item .cb {
+            font-size: 15px;
+            margin-right: 4px;
+        }
+
+        .checkbox-desc {
+            font-size: 12.5px;
+            color: #444;
+            font-style: italic;
+            padding-left: 32px;
+            margin-top: -2px;
+            margin-bottom: 6px;
+        }
+
+        /* Mục 3: Cam kết */
+        .consent-item {
+            margin-bottom: 4px;
+            padding-left: 12px;
+        }
+
+        .consent-sub {
+            padding-left: 30px;
+            margin-bottom: 3px;
+        }
+
+        .consent-sub li {
+            margin-bottom: 3px;
+            text-align: justify;
+        }
+
+        /* Signature */
+        .sig-area {
+            margin-top: 24px;
+            text-align: right;
+        }
+
+        .sig-date {
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        .sig-label {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .sig-sublabel {
+            font-style: italic;
+            font-size: 12.5px;
+            margin-bottom: 40px;
+        }
+
+        .sig-name {
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        /* Action bar */
+        .action-bar {
+            text-align: center;
+            margin-bottom: 12px;
+            font-family: "Segoe UI", sans-serif;
+        }
+        .action-bar .btn {
+            padding: 8px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            color: #fff;
+            background: #0ea5e9;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .action-bar .btn:hover { background: #0369a1; }
+    </style>
+</head>
+<body>
+    <div class="action-bar no-print">
+        <button class="btn" onclick="window.print()">&#128424; In biểu mẫu F2</button>
+    </div>
+
+    <div class="page">
+        <div class="title">ĐỀ NGHỊ KHÓA DỮ LIỆU CÁ NHÂN</div>
+
+        <div class="greeting">Kính gửi: Công ty Cổ phần Vàng bạc Đá quý Phú Nhuận (PNJ)</div>
+
+        <div class="body-text">
+            Bằng văn bản này, tôi đề nghị PNJ thực hiện khóa dữ liệu cá nhân của tôi theo quy định pháp luật và theo các nội dung chi tiết dưới đây.
+        </div>
+
+        <!-- Mục 1 -->
+        <div class="section-title">1. Thông tin khách hàng:</div>
+        <div class="info-line">
+            <span class="label">Họ và tên:</span>
+            <span class="value">{{ ho_ten }}</span>
+        </div>
+        <div class="info-line">
+            <span class="label">Số điện thoại:</span>
+            <span class="value">{{ sdt }}</span>
+        </div>
+        <div class="info-line">
+            <span class="label">CCCD / Passport:</span>
+            <span class="value">{{ cccd }}</span>
+        </div>
+        <div class="info-line">
+            <span class="label">Mã khách hàng tại PNJ:</span>
+            <span class="value">{{ ma_kh }}</span>
+        </div>
+
+        <!-- Mục 2 -->
+        <div class="section-title">2. Hạng mục đề nghị khóa dữ liệu cá nhân:</div>
+        <div class="checkbox-item">
+            <span class="cb">☐</span> Khóa hiển thị thông tin tại đơn vị bán lẻ (các cửa hàng PNJ)
+        </div>
+        <div class="checkbox-desc">(Khi được tra cứu trên hệ thống tại cửa hàng, dữ liệu cá nhân sẽ không hiển thị để nhân viên có thể xem hoặc thực hiện giao dịch)</div>
+
+        <div class="checkbox-item">
+            <span class="cb">☐</span> Khóa truy cập thông tin tại kênh My PNJ (website/app)
+        </div>
+        <div class="checkbox-desc">(Khách hàng chính chủ cũng sẽ không thể truy cập, xem thông tin cá nhân và lịch sử giao dịch của mình khi đăng nhập vào tài khoản My PNJ)</div>
+
+        <div class="checkbox-item">
+            <span class="cb">☐</span> Khác (ghi rõ): ....................................................................................................
+        </div>
+
+        <!-- Mục 3 -->
+        <div class="section-title">3. Cam kết và đồng ý của khách hàng:</div>
+        <div class="consent-item">
+            <span class="cb">☐</span> Tôi xác nhận đã được PNJ tư vấn về quyền khóa dữ liệu cá nhân theo quy định pháp luật.
+        </div>
+        <div class="consent-item">
+            <span class="cb">☐</span> Tôi hiểu và đồng ý rằng:
+        </div>
+        <ul class="consent-sub">
+            <li>Dữ liệu cá nhân của tôi vẫn được PNJ lưu trữ nội bộ nhằm phục vụ yêu cầu quản lý, báo cáo cho cơ quan nhà nước theo quy định của pháp luật.</li>
+            <li>Sau khi thực hiện khóa dữ liệu cá nhân nêu tại Mục 2 của Đề nghị này, tôi sẽ không thể tra cứu thông tin, cũng như không áp dụng được chính sách bảo hành, thu đổi, hoặc các ưu đãi khách hàng dựa trên lịch sử giao dịch trước đây.</li>
+            <li>Tôi sẽ không nhận quảng cáo/tiếp thị/chăm sóc hậu mãi (Không gửi SMS, Zalo, Email, cuộc gọi giới thiệu sản phẩm, dịch vụ).</li>
+            <li>Tôi sẽ không nhận các ưu đãi thành viên, quà tặng, chính sách tri ân từ PNJ gắn liền với dữ liệu cá nhân đã bị khóa.</li>
+            <li>PNJ không chịu trách nhiệm cho bất kỳ khiếu nại nào phát sinh liên quan đến các quyền lợi gắn với dữ liệu cá nhân đã bị khóa tại PNJ theo đề nghị của tôi.</li>
+        </ul>
+
+        <!-- Signature -->
+        <div class="sig-area">
+            <div class="sig-date">Ngày {{ ngay }} tháng {{ thang }} năm {{ nam }}</div>
+            <div class="sig-label">Khách hàng</div>
+            <div class="sig-sublabel">(Ký & ghi rõ họ tên)</div>
+            {% if ho_ten %}
+            <div class="sig-name">{{ ho_ten }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.toString()) {
+                setTimeout(function() { window.print(); }, 500);
+            }
+        });
+    </script>
+</body>
+</html>

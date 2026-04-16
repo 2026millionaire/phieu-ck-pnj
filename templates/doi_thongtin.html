@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Đổi TT KH{% endblock %}
+{% block nav_doitt %}active{% endblock %}
+{% block page_title %}Đổi thông tin Khách Hàng{% endblock %}
+
+{% block extra_css %}
+.form-label { font-weight: 600; font-size: 0.85rem; color: #374151; }
+.muted-placeholder::placeholder { color: #b0b0b0; font-style: italic; }
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <!-- Chọn biểu mẫu -->
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-file-earmark-text"></i> Chọn biểu mẫu
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="formType" id="rbF1" value="f1" checked>
+                    <label class="form-check-label" for="rbF1">
+                        <strong>F1</strong> — VB đồng ý chính sách thu thập & XLDL cá nhân
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="formType" id="rbF2" value="f2">
+                    <label class="form-check-label" for="rbF2">
+                        <strong>F2</strong> — Đề nghị khóa dữ liệu cá nhân
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ F1: Đồng ý XLDL ═══ -->
+        <div id="sectionF1">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-pencil-square"></i> Thông tin cập nhật (F1)
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ghi_chu"
+                               placeholder="Nếu có ghi chú thì nhập tại đây">
+                    </div>
+
+                    <table class="table table-bordered table-sm mb-0" style="font-size:0.88rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:26%">Trường</th>
+                                <th>Thông tin cũ</th>
+                                <th>Thông tin mới</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">Họ và tên</td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_cu"
+                                           placeholder="Tên cũ (nếu đổi)" style="text-transform:uppercase;"></td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_moi"
+                                           placeholder="Tên mới (nếu đổi)" style="text-transform:uppercase;"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Ngày sinh</td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ns_cu"
+                                           placeholder="Ngày sinh cũ (nếu đổi)"></td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ns_moi"
+                                           placeholder="Ngày sinh mới (nếu đổi)"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Số điện thoại</td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_sdt_cu"
+                                           placeholder="SĐT cũ (nếu đổi)"></td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_sdt_moi"
+                                           placeholder="SĐT mới (nếu đổi)"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintF1">
+                    <i class="bi bi-printer"></i> In biểu mẫu F1
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClearF1">
+                    <i class="bi bi-eraser"></i> Xóa form
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══ F2: Khóa dữ liệu ═══ -->
+        <div id="sectionF2" style="display:none;">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-lock"></i> Thông tin khách hàng (F2)
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Họ và tên</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_ho_ten"
+                                   placeholder="Họ và tên KH" style="text-transform:uppercase;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_sdt"
+                                   placeholder="SĐT">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">CCCD / Passport</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_cccd"
+                                   placeholder="Số CCCD hoặc Passport">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mã KH tại PNJ</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_ma_kh"
+                                   placeholder="VD: 0102163610">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintF2">
+                    <i class="bi bi-printer"></i> In biểu mẫu F2
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClearF2">
+                    <i class="bi bi-eraser"></i> Xóa form
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Toggle F1 / F2 ──
+document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
+    rb.addEventListener('change', function() {
+        document.getElementById('sectionF1').style.display = this.value === 'f1' ? '' : 'none';
+        document.getElementById('sectionF2').style.display = this.value === 'f2' ? '' : 'none';
+    });
+});
+
+// ── Print F1 ──
+document.getElementById('btnPrintF1').addEventListener('click', function() {
+    const params = new URLSearchParams({
+        ghi_chu: document.getElementById('f1_ghi_chu').value.trim(),
+        ten_cu:  document.getElementById('f1_ten_cu').value.trim().toUpperCase(),
+        ten_moi: document.getElementById('f1_ten_moi').value.trim().toUpperCase(),
+        ns_cu:   document.getElementById('f1_ns_cu').value.trim(),
+        ns_moi:  document.getElementById('f1_ns_moi').value.trim(),
+        sdt_cu:  document.getElementById('f1_sdt_cu').value.trim(),
+        sdt_moi: document.getElementById('f1_sdt_moi').value.trim(),
+    });
+    window.open('/doi-thongtin/print-f1?' + params.toString(), '_blank');
+});
+
+// ── Print F2 ──
+document.getElementById('btnPrintF2').addEventListener('click', function() {
+    const params = new URLSearchParams({
+        ho_ten: document.getElementById('f2_ho_ten').value.trim().toUpperCase(),
+        sdt:    document.getElementById('f2_sdt').value.trim(),
+        cccd:   document.getElementById('f2_cccd').value.trim(),
+        ma_kh:  document.getElementById('f2_ma_kh').value.trim(),
+    });
+    window.open('/doi-thongtin/print-f2?' + params.toString(), '_blank');
+});
+
+// ── Clear ──
+document.getElementById('btnClearF1').addEventListener('click', function() {
+    ['f1_ghi_chu','f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
+        document.getElementById(id).value = '';
+    });
+});
+document.getElementById('btnClearF2').addEventListener('click', function() {
+    ['f2_ho_ten','f2_sdt','f2_cccd','f2_ma_kh'].forEach(function(id) {
+        document.getElementById(id).value = '';
+    });
+});
+</script>
+{% endblock %}

@@ -243,6 +243,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% block nav_doitt %}{% endblock %}" href="{{ url_for('doi_thongtin_page') }}">
+                        <i class="bi bi-pencil-square"></i> Đổi TT KH
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% block nav_settings %}{% endblock %}" href="{{ url_for('settings_page') }}">
                         <i class="bi bi-gear"></i> Cài đặt
                     </a>

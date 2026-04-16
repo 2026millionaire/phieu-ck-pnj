@@ -642,6 +642,42 @@ def bb_huy_print():
         ngay_str=ngay_str, plant=plant)
 
 
+@app.route("/doi-thongtin")
+def doi_thongtin_page():
+    """Đổi thông tin KH — form page."""
+    settings = get_settings()
+    return render_template("doi_thongtin.html", settings=settings)
+
+
+@app.route("/doi-thongtin/print-f1")
+def doi_thongtin_print_f1():
+    """F1 — VB đồng ý XLDL cá nhân — printable A4."""
+    return render_template("doi_thongtin_print_f1.html",
+        ghi_chu=request.args.get("ghi_chu", ""),
+        ten_cu=request.args.get("ten_cu", ""),
+        ten_moi=request.args.get("ten_moi", ""),
+        ns_cu=request.args.get("ns_cu", ""),
+        ns_moi=request.args.get("ns_moi", ""),
+        sdt_cu=request.args.get("sdt_cu", ""),
+        sdt_moi=request.args.get("sdt_moi", ""),
+        ngay=datetime.now().strftime("%d"),
+        thang=datetime.now().strftime("%m"),
+        nam=datetime.now().strftime("%Y"))
+
+
+@app.route("/doi-thongtin/print-f2")
+def doi_thongtin_print_f2():
+    """F2 — Đề nghị khóa dữ liệu — printable A4."""
+    return render_template("doi_thongtin_print_f2.html",
+        ho_ten=request.args.get("ho_ten", ""),
+        sdt=request.args.get("sdt", ""),
+        cccd=request.args.get("cccd", ""),
+        ma_kh=request.args.get("ma_kh", ""),
+        ngay=datetime.now().strftime("%d"),
+        thang=datetime.now().strftime("%m"),
+        nam=datetime.now().strftime("%Y"))
+
+
 @app.route("/eoffice")
 def eoffice_index():
     """eOffice QT82 page without phieu selected."""
