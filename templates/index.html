@@ -278,6 +278,16 @@ textarea#sap_data {
                 </div>
             </div>
 
+            <!-- Ngày lập -->
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto"><label class="form-label mb-0"><i class="bi bi-calendar3"></i> Ngày lập</label></div>
+                        <div class="col-md-4 col"><input type="date" class="form-control form-control-sm" id="ngayLap" name="ngay_lap"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Người ký -->
             <div class="card mb-3">
                 <div class="card-header py-2">
@@ -935,6 +945,15 @@ document.addEventListener('DOMContentLoaded', function() {
         renderSapTable(sapItems);
     });
 
+    // ===== Pre-fill ngày hôm nay =====
+    (function() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        document.getElementById('ngayLap').value = yyyy + '-' + mm + '-' + dd;
+    })();
+
     // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
     sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' }];
     renderSapTable(sapItems);
@@ -1109,6 +1128,7 @@ document.addEventListener('DOMContentLoaded', function() {
             chung_tu: chungTu,
             tong_ck: parseFloat(document.getElementById('tong_ck').value) || 0,
             nguoi_ki: nguoiKi,
+            ngay_lap: document.getElementById('ngayLap').value,
         };
 
         this.disabled = true;

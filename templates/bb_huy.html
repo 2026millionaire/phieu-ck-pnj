@@ -31,6 +31,12 @@
                 <!-- Title -->
                 <div class="bb-title">BIÊN BẢN HỦY BẢNG KÊ</div>
 
+                <!-- Ngày -->
+                <div class="form-group">
+                    <label for="ngayLap"><i class="bi bi-calendar3"></i> Ngày lập</label>
+                    <input type="date" class="form-control" id="ngayLap">
+                </div>
+
                 <!-- Số BK -->
                 <div class="form-group">
                     <label for="soBK"><i class="bi bi-hash"></i> Số bảng kê</label>
@@ -87,6 +93,15 @@
 
 {% block scripts %}
 <script>
+// Pre-fill ngày hôm nay
+(function() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('ngayLap').value = yyyy + '-' + mm + '-' + dd;
+})();
+
 // Load TVV list
 document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/tvv').then(r => r.json()).then(json => {
@@ -192,7 +207,8 @@ function printBBHuy() {
     if (!tvv) { alert('Vui lòng chọn hoặc nhập tên Tư vấn viên!'); return; }
     if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return; }
 
-    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt });
+    const d = document.getElementById('ngayLap').value.split('-');
+    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt, ngay: d[2]||'', thang: d[1]||'', nam: d[0]||'' });
     window.open('/bb-huy/print?' + params.toString(), '_blank');
 }
 </script>

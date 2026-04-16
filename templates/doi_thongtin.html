@@ -33,6 +33,16 @@
             </div>
         </div>
 
+        <!-- Ngày tháng năm -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label class="form-label mb-0"><i class="bi bi-calendar3"></i> Ngày</label></div>
+                    <div class="col"><input type="date" class="form-control form-control-sm" id="ngayLap"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══ F1: Đồng ý XLDL ═══ -->
         <div id="sectionF1">
             <div class="card mb-3">
@@ -40,12 +50,6 @@
                     <i class="bi bi-pencil-square"></i> Thông tin cập nhật (F1)
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Ghi chú</label>
-                        <input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ghi_chu"
-                               placeholder="Nếu đổi thì nhập">
-                    </div>
-
                     <table class="table table-bordered table-sm mb-0" style="font-size:0.88rem;">
                         <thead class="table-light">
                             <tr>
@@ -57,24 +61,24 @@
                         <tbody>
                             <tr>
                                 <td class="fw-semibold">Họ và tên</td>
-                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_cu"
-                                           placeholder="Nếu đổi thì nhập" style="text-transform:uppercase;"></td>
+                                <td><input type="text" class="form-control form-control-sm" id="f1_ten_cu"
+                                           style="text-transform:uppercase;"></td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_moi"
-                                           placeholder="Nếu đổi thì nhập" style="text-transform:uppercase;"></td>
+                                           placeholder="Đổi thì nhập" style="text-transform:uppercase;"></td>
                             </tr>
                             <tr>
                                 <td class="fw-semibold">Ngày sinh</td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ns_cu"
-                                           placeholder="Nếu đổi thì nhập"></td>
+                                           placeholder="Đổi thì nhập"></td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ns_moi"
-                                           placeholder="Nếu đổi thì nhập"></td>
+                                           placeholder="Đổi thì nhập"></td>
                             </tr>
                             <tr>
                                 <td class="fw-semibold">Số điện thoại</td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_sdt_cu"
-                                           placeholder="Nếu đổi thì nhập"></td>
+                                           placeholder="Đổi thì nhập"></td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_sdt_moi"
-                                           placeholder="Nếu đổi thì nhập"></td>
+                                           placeholder="Đổi thì nhập"></td>
                             </tr>
                         </tbody>
                     </table>
@@ -138,6 +142,15 @@
 
 {% block scripts %}
 <script>
+// ── Pre-fill ngày hôm nay ──
+(function() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('ngayLap').value = yyyy + '-' + mm + '-' + dd;
+})();
+
 // ── Toggle F1 / F2 ──
 document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
     rb.addEventListener('change', function() {
@@ -148,32 +161,35 @@ document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
 
 // ── Print F1 ──
 document.getElementById('btnPrintF1').addEventListener('click', function() {
+    const d = document.getElementById('ngayLap').value.split('-');
     const params = new URLSearchParams({
-        ghi_chu: document.getElementById('f1_ghi_chu').value.trim(),
         ten_cu:  document.getElementById('f1_ten_cu').value.trim().toUpperCase(),
         ten_moi: document.getElementById('f1_ten_moi').value.trim().toUpperCase(),
         ns_cu:   document.getElementById('f1_ns_cu').value.trim(),
         ns_moi:  document.getElementById('f1_ns_moi').value.trim(),
         sdt_cu:  document.getElementById('f1_sdt_cu').value.trim(),
         sdt_moi: document.getElementById('f1_sdt_moi').value.trim(),
+        ngay: d[2] || '', thang: d[1] || '', nam: d[0] || '',
     });
     window.open('/doi-thongtin/print-f1?' + params.toString(), '_blank');
 });
 
 // ── Print F2 ──
 document.getElementById('btnPrintF2').addEventListener('click', function() {
+    const d = document.getElementById('ngayLap').value.split('-');
     const params = new URLSearchParams({
         ho_ten: document.getElementById('f2_ho_ten').value.trim().toUpperCase(),
         sdt:    document.getElementById('f2_sdt').value.trim(),
         cccd:   document.getElementById('f2_cccd').value.trim(),
         ma_kh:  document.getElementById('f2_ma_kh').value.trim(),
+        ngay: d[2] || '', thang: d[1] || '', nam: d[0] || '',
     });
     window.open('/doi-thongtin/print-f2?' + params.toString(), '_blank');
 });
 
 // ── Clear ──
 document.getElementById('btnClearF1').addEventListener('click', function() {
-    ['f1_ghi_chu','f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
+    ['f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
 });

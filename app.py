@@ -634,7 +634,10 @@ def bb_huy_print():
     plant = settings.get("plant", "1305")
 
     now = datetime.now()
-    ngay_str = f"Hôm nay, ngày {now.day:02d} tháng {now.month:02d} năm {now.year}, tại Cửa Hàng PNJ NEXT 27 Hà Nội - Huế,"
+    ngay = request.args.get("ngay", f"{now.day:02d}")
+    thang = request.args.get("thang", f"{now.month:02d}")
+    nam = request.args.get("nam", str(now.year))
+    ngay_str = f"Hôm nay, ngày {ngay} tháng {thang} năm {nam}, tại Cửa Hàng PNJ NEXT 27 Hà Nội - Huế,"
 
     return render_template("bb_huy_print.html",
         so_bk=so_bk, tvv_name=tvv_name, ly_do=ly_do,
@@ -652,30 +655,31 @@ def doi_thongtin_page():
 @app.route("/doi-thongtin/print-f1")
 def doi_thongtin_print_f1():
     """F1 — VB đồng ý XLDL cá nhân — printable A4."""
+    now = datetime.now()
     return render_template("doi_thongtin_print_f1.html",
-        ghi_chu=request.args.get("ghi_chu", ""),
         ten_cu=request.args.get("ten_cu", ""),
         ten_moi=request.args.get("ten_moi", ""),
         ns_cu=request.args.get("ns_cu", ""),
         ns_moi=request.args.get("ns_moi", ""),
         sdt_cu=request.args.get("sdt_cu", ""),
         sdt_moi=request.args.get("sdt_moi", ""),
-        ngay=datetime.now().strftime("%d"),
-        thang=datetime.now().strftime("%m"),
-        nam=datetime.now().strftime("%Y"))
+        ngay=request.args.get("ngay", now.strftime("%d")),
+        thang=request.args.get("thang", now.strftime("%m")),
+        nam=request.args.get("nam", now.strftime("%Y")))
 
 
 @app.route("/doi-thongtin/print-f2")
 def doi_thongtin_print_f2():
     """F2 — Đề nghị khóa dữ liệu — printable A4."""
+    now = datetime.now()
     return render_template("doi_thongtin_print_f2.html",
         ho_ten=request.args.get("ho_ten", ""),
         sdt=request.args.get("sdt", ""),
         cccd=request.args.get("cccd", ""),
         ma_kh=request.args.get("ma_kh", ""),
-        ngay=datetime.now().strftime("%d"),
-        thang=datetime.now().strftime("%m"),
-        nam=datetime.now().strftime("%Y"))
+        ngay=request.args.get("ngay", now.strftime("%d")),
+        thang=request.args.get("thang", now.strftime("%m")),
+        nam=request.args.get("nam", now.strftime("%Y")))
 
 
 @app.route("/eoffice")

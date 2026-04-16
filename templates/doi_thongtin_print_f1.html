@@ -16,8 +16,8 @@
         }
 
         body {
-            font-size: 13.5px;
-            line-height: 1.6;
+            font-size: 13px;
+            line-height: 1.5;
             width: 170mm;
             margin: 0 auto;
             -webkit-print-color-adjust: exact;
@@ -42,122 +42,156 @@
             div[style*="position: fixed"] { display: none !important; }
         }
 
+        /* ── Logo header ── */
+        .logo-header {
+            margin-bottom: 12px;
+        }
+        .logo-header img {
+            height: 40px;
+        }
+
+        /* ── Title ── */
         .title {
             text-align: center;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 15px;
+            text-transform: uppercase;
             margin-bottom: 2px;
         }
 
         .subtitle {
             text-align: center;
             font-weight: bold;
-            font-size: 14.5px;
-            margin-bottom: 16px;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 14px;
         }
 
+        /* ── Body ── */
         .greeting {
-            margin-bottom: 10px;
-            font-style: italic;
+            margin-bottom: 6px;
+            font-style: normal;
         }
 
         .body-text {
             text-align: justify;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
-        .ghi-chu {
-            margin-bottom: 10px;
-            font-style: italic;
-            color: #555;
-        }
-
-        /* Table */
+        /* ── Table ── */
         .info-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 14px;
-            font-size: 13.5px;
+            margin-bottom: 12px;
+            font-size: 13px;
         }
 
         .info-table th, .info-table td {
             border: 1px solid #000;
-            padding: 5px 8px;
+            padding: 4px 8px;
         }
 
         .info-table th {
-            background: #f0f0f0;
             font-weight: bold;
             text-align: center;
         }
 
         .info-table td.field-name {
-            font-weight: bold;
-            width: 22%;
+            font-weight: normal;
+            width: 20%;
         }
 
-        .info-table td {
-            min-height: 22px;
+        .info-table td.field-name::before {
+            content: "\2022 ";
         }
 
-        /* Consent section */
+        /* ── QR + consent block ── */
+        .consent-qr-block {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 10px;
+        }
+
+        .consent-qr-block .consent-text {
+            flex: 1;
+            text-align: justify;
+        }
+
+        .consent-qr-block .qr-side {
+            flex: 0 0 120px;
+            text-align: center;
+        }
+
+        .consent-qr-block .qr-side img {
+            width: 105px;
+            height: 105px;
+        }
+
+        .consent-qr-block .qr-side .qr-caption {
+            font-size: 10px;
+            font-style: italic;
+            margin-top: 2px;
+        }
+
+        /* ── Consent sections ── */
         .consent-intro {
-            text-align: justify;
-            margin-bottom: 8px;
-        }
-
-        .consent-section {
-            margin-bottom: 6px;
-        }
-
-        .consent-section .section-title {
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
         }
 
-        .consent-section p {
+        .consent-list {
+            margin-bottom: 8px;
+            padding-left: 16px;
+        }
+
+        .consent-list .item {
+            margin-bottom: 4px;
             text-align: justify;
-            margin-bottom: 4px;
         }
 
-        .consent-confirm {
-            margin-top: 12px;
-            margin-bottom: 4px;
+        .consent-list .item-title {
+            font-weight: bold;
         }
 
-        .consent-confirm .confirm-title {
+        /* ── Confirm ── */
+        .confirm-section {
+            margin-top: 8px;
+        }
+
+        .confirm-title {
             font-weight: bold;
             text-decoration: underline;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
-        .consent-confirm ul {
+        .confirm-list {
             list-style: none;
             padding-left: 0;
         }
 
-        .consent-confirm li {
-            margin-bottom: 4px;
-            padding-left: 6px;
+        .confirm-list li {
+            margin-bottom: 3px;
+            text-align: justify;
         }
 
-        .consent-confirm li::before {
-            content: "☑ ";
+        .confirm-list li::before {
+            content: "\2611 ";
+            font-size: 13px;
         }
 
-        /* Signature */
+        /* ── Signature ── */
         .sig-area {
-            margin-top: 20px;
-            text-align: right;
+            margin-top: 16px;
+            text-align: center;
+            float: right;
+            width: 50%;
         }
 
         .sig-date {
-            font-style: italic;
             margin-bottom: 4px;
         }
 
         .sig-label {
-            font-weight: bold;
             font-style: italic;
             margin-bottom: 40px;
         }
@@ -168,7 +202,7 @@
             text-transform: uppercase;
         }
 
-        /* Action bar */
+        /* ── Action bar ── */
         .action-bar {
             text-align: center;
             margin-bottom: 12px;
@@ -194,19 +228,23 @@
     </div>
 
     <div class="page">
+        <!-- Logo -->
+        <div class="logo-header">
+            <img src="/static/logo_pnj.webp" alt="PNJ">
+        </div>
+
+        <!-- Title -->
         <div class="title">VĂN BẢN ĐỒNG Ý</div>
         <div class="subtitle">CHÍNH SÁCH THU THẬP VÀ XỬ LÝ DỮ LIỆU CÁ NHÂN</div>
 
-        <div class="greeting">Kính gửi Quý khách hàng,</div>
+        <!-- Greeting -->
+        <div class="greeting"><em>Kính gửi Quý khách hàng,</em></div>
 
         <div class="body-text">
             PNJ hiểu rằng Quý Khách hàng đang có yêu cầu cập nhật thông tin cá nhân của mình tại PNJ như sau:
         </div>
 
-        {% if ghi_chu %}
-        <div class="ghi-chu">Ghi chú: {{ ghi_chu }}</div>
-        {% endif %}
-
+        <!-- Table -->
         <table class="info-table">
             <thead>
                 <tr>
@@ -234,35 +272,49 @@
             </tbody>
         </table>
 
-        <div class="consent-intro">
-            Bằng việc ký vào Phiếu này, Quý khách xác nhận cho PNJ được thu thập và xử lý dữ liệu cá nhân trên của Khách hàng theo các điều khoản quy định tại Chính sách Thu thập và Xử lý Dữ liệu Cá nhân của PNJ, được công khai tại địa chỉ: <em>https://www.pnj.com.vn/chinh-sach-bao-hanh-va-thu-doi.html</em>
+        <!-- Consent + QR side by side -->
+        <div class="consent-qr-block">
+            <div class="consent-text">
+                Bằng việc ký vào Phiếu này, Quý khách xác nhận cho PNJ được thu thập và xử lý dữ liệu cá nhân trên của Khách hàng theo các điều khoản quy định tại <strong>Chính sách Thu thập và Xử lý Dữ liệu Cá nhân</strong> của PNJ, được công khai tại địa chỉ:
+                <a href="https://www.pnj.com.vn/chinh-sach-bao-hanh-va-thu-doi.html/?position=floor&amp;utm_lp=item9" style="color:#0066cc;">https://www.pnj.com.vn/chinh-sach-bao-hanh-va-thu-doi.html</a>
+                hoặc Quét mã bên dưới để xem chi tiết:
+            </div>
+            <div class="qr-side">
+                <img src="/static/qr_chinhsach.png" alt="QR">
+                <div class="qr-caption">Quét mã xem chi tiết!</div>
+            </div>
         </div>
 
-        <div class="consent-section">
-            <div class="section-title">Chính sách này quy định rõ về các nội dung chính sau đây:</div>
+        <!-- Policy details -->
+        <div class="consent-intro">Chính sách này quy định rõ về các nội dung chính sau đây:</div>
+
+        <div class="consent-list">
+            <div class="item">
+                <span class="item-title">1. Mục đích thu thập và xử lý dữ liệu:</span>
+                PNJ sẽ xử lý dữ liệu của Quý khách nhằm mục đích quản lý giao dịch, thực hiện các dịch vụ sau bán hàng (bảo hành, thu đổi), chăm sóc khách hàng và tuân thủ các nghĩa vụ pháp lý theo quy định của pháp luật.
+            </div>
+            <div class="item">
+                <span class="item-title">2. Quyền của Quý khách hàng:</span>
+                Quý khách hàng có đầy đủ các quyền đối với dữ liệu cá nhân của mình như quyền được biết, quyền đồng ý, quyền truy cập, chỉnh sửa, xóa dữ liệu và các quyền khác được pháp luật bảo vệ.
+            </div>
+            <div class="item">
+                <span class="item-title">3. Cam kết từ PNJ:</span>
+                PNJ cam kết bảo mật thông tin, chỉ sử dụng dữ liệu trong phạm vi và mục đích đã thông báo, không tiết lộ cho bên thứ ba khi chưa có sự đồng ý hoặc yêu cầu từ cơ quan có thẩm quyền.
+            </div>
         </div>
 
-        <div class="consent-section">
-            <p><strong>Mục đích thu thập và xử lý dữ liệu:</strong> PNJ sẽ xử lý dữ liệu của Quý khách nhằm mục đích quản lý giao dịch, thực hiện các dịch vụ sau bán hàng (bảo hành, thu đổi), chăm sóc khách hàng và tuân thủ các nghĩa vụ pháp lý theo quy định của pháp luật.</p>
-        </div>
-
-        <div class="consent-section">
-            <p><strong>Quyền của Quý khách hàng:</strong> Quý khách hàng có đầy đủ các quyền đối với dữ liệu cá nhân của mình như quyền được biết, quyền đồng ý, quyền truy cập, chỉnh sửa, xóa dữ liệu và các quyền khác được pháp luật bảo vệ.</p>
-        </div>
-
-        <div class="consent-section">
-            <p><strong>Cam kết từ PNJ:</strong> PNJ cam kết bảo mật thông tin, chỉ sử dụng dữ liệu trong phạm vi và mục đích đã thông báo, không tiết lộ cho bên thứ ba khi chưa có sự đồng ý hoặc yêu cầu từ cơ quan có thẩm quyền.</p>
-        </div>
-
-        <div class="consent-confirm">
+        <!-- Confirm -->
+        <div class="confirm-section">
             <div class="confirm-title">Khách hàng xác nhận:</div>
-            <ul>
+            <ul class="confirm-list">
                 <li>Đã đọc, hiểu rõ và đồng ý cho PNJ thu thập, lưu trữ, xử lý dữ liệu cá nhân của tôi như trên.</li>
                 <li>Tôi cam kết cung cấp thông tin chính xác, đầy đủ và chịu trách nhiệm về tính hợp pháp của thông tin này.</li>
                 <li>Tôi hiểu rõ quyền của mình và cách thức yêu cầu PNJ thực hiện các quyền đó.</li>
             </ul>
         </div>
 
+        <!-- Signature -->
+        <div style="clear:both;"></div>
         <div class="sig-area">
             <div class="sig-date">Ngày {{ ngay }} tháng {{ thang }} năm {{ nam }}</div>
             <div class="sig-label">Khách hàng ký, ghi rõ họ tên</div>
@@ -277,7 +329,7 @@
     <script>
         window.addEventListener('load', function() {
             const params = new URLSearchParams(window.location.search);
-            if (params.toString()) {
+            if (params.get('ten_cu') || params.get('ten_moi')) {
                 setTimeout(function() { window.print(); }, 500);
             }
         });
