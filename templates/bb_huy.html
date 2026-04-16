@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}BB Hủy BK{% endblock %}
+{% block nav_bbhuy %}active{% endblock %}
+{% block page_title %}Biên bản hủy bảng kê{% endblock %}
+
+{% block extra_css %}
+.form-card { max-width: 560px; }
+.form-card .card-body { padding: 24px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+.form-group .form-control, .form-group .form-select {
+    border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem;
+}
+.form-group .form-control:focus, .form-group .form-select:focus {
+    border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.12);
+}
+.info-row { display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; }
+.info-row .label { font-weight: 600; color: #64748b; min-width: 120px; }
+.info-row .value { color: #1e293b; font-weight: 500; }
+.btn-print { background: linear-gradient(135deg, #0ea5e9, #0369a1); border: none; color: #fff; padding: 10px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
+.btn-print:hover { background: linear-gradient(135deg, #0369a1, #024a75); color: #fff; }
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card form-card">
+            <div class="card-body">
+                <!-- Auto-filled info -->
+                <div class="info-row">
+                    <span class="label"><i class="bi bi-person-badge"></i> CHT:</span>
+                    <span class="value" id="chtName">{{ settings.cht_name }}</span>
+                </div>
+
+                <!-- Số BK -->
+                <div class="form-group">
+                    <label for="soBK"><i class="bi bi-hash"></i> Số bảng kê</label>
+                    <input type="text" class="form-control" id="soBK" placeholder="VD: 4403718624" maxlength="15" autofocus>
+                </div>
+
+                <!-- TVV -->
+                <div class="form-group">
+                    <label for="tvvSelect"><i class="bi bi-person"></i> Tư vấn viên</label>
+                    <select class="form-select" id="tvvSelect">
+                        <option value="">-- Chọn TVV --</option>
+                    </select>
+                </div>
+
+                <!-- NV Kế Toán -->
+                <div class="form-group">
+                    <label for="ktSelect"><i class="bi bi-person-workspace"></i> NV Kế Toán CH</label>
+                    <select class="form-select" id="ktSelect">
+                        <option value="{{ settings.kt1_name }}">{{ settings.kt1_name }}</option>
+                        <option value="{{ settings.kt2_name }}">{{ settings.kt2_name }}</option>
+                    </select>
+                </div>
+
+                <!-- Lý do -->
+                <div class="form-group">
+                    <label for="lyDoSelect"><i class="bi bi-chat-left-text"></i> Lý do hủy</label>
+                    <select class="form-select" id="lyDoSelect">
+                        <option value="Khách hàng đổi ý.">Khách hàng đổi ý.</option>
+                        <option value="Sai thông tin khách hàng.">Sai thông tin khách hàng.</option>
+                        <option value="Sai mã sản phẩm.">Sai mã sản phẩm.</option>
+                        <option value="Sai trọng lượng sản phẩm.">Sai trọng lượng sản phẩm.</option>
+                        <option value="Sai giá trị mua lại.">Sai giá trị mua lại.</option>
+                    </select>
+                </div>
+
+                <!-- Button -->
+                <div class="text-center mt-4">
+                    <button class="btn btn-print" onclick="printBBHuy()">
+                        <i class="bi bi-printer"></i> In biên bản
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load TVV list
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/tvv').then(r => r.json()).then(json => {
+        if (!json.ok) return;
+        const sel = document.getElementById('tvvSelect');
+        json.data.forEach(function(t) {
+            const opt = document.createElement('option');
+            opt.value = t.ten;
+            opt.textContent = t.ma + ' - ' + t.ten;
+            sel.appendChild(opt);
+        });
+    });
+});
+
+function printBBHuy() {
+    const soBK = document.getElementById('soBK').value.trim();
+    const tvv = document.getElementById('tvvSelect').value;
+    const lyDo = document.getElementById('lyDoSelect').value;
+    const kt = document.getElementById('ktSelect').value;
+
+    if (!soBK) { alert('Vui lòng nhập số bảng kê!'); document.getElementById('soBK').focus(); return; }
+    if (!tvv) { alert('Vui lòng chọn Tư vấn viên!'); return; }
+
+    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt });
+    window.open('/bb-huy/print?' + params.toString(), '_blank');
+}
+</script>
+{% endblock %}

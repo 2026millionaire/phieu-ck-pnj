@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>BB Hủy BK {{ so_bk }}</title>
+    <style>
+        @page {
+            size: A5 landscape;
+            margin: 6mm 10mm 6mm 10mm;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 13px;
+            color: #000;
+        }
+
+        body {
+            width: 202mm; /* A5 landscape width */
+            margin: 0 auto;
+            padding: 8mm;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        @media screen {
+            body {
+                background: #e5e7eb;
+                padding: 12mm;
+            }
+            .page {
+                background: #fff;
+                padding: 8mm;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                border-radius: 4px;
+            }
+        }
+
+        @media print {
+            body { padding: 0; background: #fff; }
+            .page { padding: 0; }
+            .no-print { display: none !important; }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .header-left {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .header-left .chi_nhanh {
+            border: 1.5px solid #000;
+            padding: 2px 10px;
+            display: inline-block;
+            margin-bottom: 2px;
+        }
+        .header-left .cua_hang {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .header-right {
+            text-align: center;
+            font-size: 12px;
+        }
+        .header-right .quoc_hieu {
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .header-right .tieu_ngu {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .header-right .gach_ngang {
+            display: block;
+            width: 50%;
+            margin: 1px auto;
+            border-bottom: 1px solid #000;
+        }
+
+        /* Title */
+        .title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 12px 0 8px;
+        }
+
+        /* Ngay */
+        .ngay {
+            font-style: italic;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        /* Body content */
+        .content { line-height: 1.7; }
+        .content .label { font-style: italic; }
+        .content .indent { padding-left: 30px; }
+        .content .name { font-weight: normal; }
+
+        .row-3 {
+            display: flex;
+        }
+        .row-3 .num { min-width: 24px; }
+        .row-3 .role { min-width: 140px; }
+        .row-3 .name { flex: 1; }
+
+        .noi_dung { margin-top: 6px; }
+        .noi_dung .label-bold { font-weight: bold; font-style: italic; }
+
+        .ket_qua { margin-top: 4px; }
+        .ket_qua .label-bold { font-weight: bold; font-style: italic; }
+
+        /* Signature */
+        .signatures {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .sig-col {
+            width: 30%;
+        }
+        .sig-col .sig-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 40px;
+        }
+        .sig-col .sig-name {
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        /* Action buttons (screen only) */
+        .action-bar {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .action-bar .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: sans-serif;
+            cursor: pointer;
+            color: #fff;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-print-action { background: #0ea5e9; }
+        .btn-print-action:hover { background: #0369a1; }
+    </style>
+</head>
+<body>
+    <!-- Action buttons (screen only) -->
+    <div class="action-bar no-print">
+        <button class="btn btn-print-action" onclick="window.print()">
+            &#128424; In biên bản
+        </button>
+    </div>
+
+    <div class="page">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="chi_nhanh">CHI NHÁNH PNJ HUẾ</div><br>
+                <div class="cua_hang">CỬA HÀNG PNJ NEXT 27 HÀ NỘI</div>
+            </div>
+            <div class="header-right">
+                <div class="quoc_hieu">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div class="tieu_ngu">Độc lập - Tự do - Hạnh phúc</div>
+                <span class="gach_ngang"></span>
+            </div>
+        </div>
+
+        <!-- Title -->
+        <div class="title">BIÊN BẢN HỦY BẢNG KÊ</div>
+
+        <!-- Ngày -->
+        <div class="ngay">{{ ngay_str }}</div>
+
+        <!-- Content -->
+        <div class="content">
+            <div>Chúng tôi gồm:</div>
+
+            <div class="row-3 indent">
+                <span class="num">1.</span>
+                <span class="role">Cửa Hàng Trưởng:</span>
+                <span class="name">{{ cht_name }}</span>
+            </div>
+            <div class="row-3 indent">
+                <span class="num">2.</span>
+                <span class="role">NV Kế Toán CH:</span>
+                <span class="name">{{ kt_name }}</span>
+            </div>
+            <div class="row-3 indent">
+                <span class="num">3.</span>
+                <span class="role">Tư Vấn Viên:</span>
+                <span class="name">{{ tvv_name }}</span>
+            </div>
+
+            <div class="noi_dung">
+                <span class="label-bold">Nội dung ghi nhận:</span>
+                &nbsp;&nbsp;Hủy bảng kê số {{ so_bk }}.
+            </div>
+
+            <div>
+                <span class="label-bold">Lý do:</span>
+                &nbsp;&nbsp;{{ ly_do }}
+            </div>
+
+            <div class="ket_qua">
+                <span class="label-bold">Kết quả buổi làm việc:</span>
+                &nbsp;&nbsp;&nbsp;Cửa hàng tiến hành hủy bảng kê (kèm biên bản hủy).
+            </div>
+        </div>
+
+        <!-- Signatures -->
+        <div class="signatures">
+            <div class="sig-col">
+                <div class="sig-title">Cửa Hàng Trưởng</div>
+                <div class="sig-name">{{ cht_name }}</div>
+            </div>
+            <div class="sig-col">
+                <div class="sig-title">Kế Toán Cửa Hàng</div>
+                <div class="sig-name">{{ kt_name }}</div>
+            </div>
+            <div class="sig-col">
+                <div class="sig-title">Tư Vấn Viên</div>
+                <div class="sig-name">{{ tvv_name }}</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-print when opened
+        window.addEventListener('load', function() {
+            if (new URLSearchParams(window.location.search).get('so_bk')) {
+                setTimeout(function() { window.print(); }, 500);
+            }
+        });
+    </script>
+</body>
+</html>

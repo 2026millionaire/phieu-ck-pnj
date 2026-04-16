@@ -566,6 +566,33 @@ def history_page():
     return render_template("history.html")
 
 
+@app.route("/bb-huy")
+def bb_huy_page():
+    """BB Hủy Bảng Kê — form page."""
+    settings = get_settings()
+    return render_template("bb_huy.html", settings=settings)
+
+
+@app.route("/bb-huy/print")
+def bb_huy_print():
+    """BB Hủy Bảng Kê — printable A5 landscape."""
+    settings = get_settings()
+    so_bk = request.args.get("so_bk", "")
+    tvv_name = request.args.get("tvv", "")
+    ly_do = request.args.get("ly_do", "")
+    kt_name = request.args.get("kt", settings.get("kt1_name", ""))
+    cht_name = settings.get("cht_name", "")
+    plant = settings.get("plant", "1305")
+
+    now = datetime.now()
+    ngay_str = f"Hôm nay, ngày {now.day:02d} tháng {now.month:02d} năm {now.year}, tại Cửa Hàng PNJ NEXT 27 Hà Nội - Huế,"
+
+    return render_template("bb_huy_print.html",
+        so_bk=so_bk, tvv_name=tvv_name, ly_do=ly_do,
+        kt_name=kt_name, cht_name=cht_name,
+        ngay_str=ngay_str, plant=plant)
+
+
 @app.route("/eoffice")
 def eoffice_index():
     """eOffice QT82 page without phieu selected."""
