@@ -755,7 +755,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tr.innerHTML =
                 '<td>' + loaiSelect + '</td>' +
                 '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit" data-idx="' + idx + '" data-field="so_ct" value="' + (item.so_ct || '') + '" style="font-size:0.8rem;"></td>' +
-                '<td><input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + formatNum(item.gia_tri) + '" style="font-size:0.8rem;"></td>' +
+                '<td><input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" style="font-size:0.8rem;"></td>' +
                 '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" style="font-size:0.75rem;padding:2px 4px;"></td>' +
                 '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
             tbody.appendChild(tr);

@@ -23,9 +23,9 @@
     text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px;
 }
 .copy-field .field-value {
-    font-size: 0.9rem; font-weight: 600; color: #1e293b; word-break: break-all;
+    font-size: 0.9rem; font-weight: 400; color: #1e293b; word-break: break-all;
+    font-family: "Segoe UI", sans-serif;
 }
-.copy-field .field-value.mono { font-family: "Courier New", monospace; font-size: 0.85rem; }
 .btn-copy {
     flex-shrink: 0; padding: 4px 10px; font-size: 0.75rem; font-weight: 600;
     border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc;
@@ -52,14 +52,14 @@
             </div>
             <div class="card-body p-2">
                 <div id="copyFields">
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã KH</div><div class="field-value mono" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã KH</div><div class="field-value" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div class="field-info"><div class="field-label">Nội dung</div><div class="field-value" id="val_noi_dung" style="font-size:0.8rem;">{{ phieu.eo_noi_dung }}</div></div><button class="btn-copy" onclick="copyField('noi_dung')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Số CT SAP</div><div class="field-value" id="val_so_ct_sap" style="font-size:0.8rem;">{{ phieu.eo_so_ct_sap }}</div></div><button class="btn-copy" onclick="copyField('so_ct_sap')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div class="field-info"><div class="field-label">Tên TK</div><div class="field-value" id="val_ten_tk">{{ phieu.eo_ten_tk }}</div></div><button class="btn-copy" onclick="copyField('ten_tk')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Số TK</div><div class="field-value mono" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã NH</div><div class="field-value mono" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">CCCD</div><div class="field-value mono" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Tên file</div><div class="field-value mono" id="val_ten_file">{{ phieu.eo_ten_file }}</div></div><button class="btn-copy" onclick="copyField('ten_file')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Số tiền</div><div class="field-value mono" id="val_so_tien">{{ phieu.tong_ck | int }}</div></div><button class="btn-copy" onclick="copyField('so_tien')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Số TK</div><div class="field-value" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã NH</div><div class="field-value" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">CCCD</div><div class="field-value" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div class="field-info"><div class="field-label">Tên file</div><div class="field-value" id="val_ten_file">{{ phieu.eo_ten_file }}</div></div><button class="btn-copy" onclick="copyField('ten_file')"><i class="bi bi-clipboard"></i></button></div>
                 </div>
                 <div class="d-flex gap-2 mt-2">
                     <a href="/api/print/{{ phieu.id }}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer"></i> In</a>
