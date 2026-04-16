@@ -527,7 +527,7 @@ def login_action():
 
     db = get_db()
     user = db.execute(
-        "SELECT * FROM users WHERE username = ?", (username,)
+        "SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username,)
     ).fetchone()
 
     if user and check_password_hash(user["password"], password):
