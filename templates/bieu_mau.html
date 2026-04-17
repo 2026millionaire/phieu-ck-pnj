@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Biểu Mẫu{% endblock %}
+{% block nav_bieumau %}active{% endblock %}
+{% block page_title %}Biểu Mẫu{% endblock %}
+
+{% block extra_css %}
+.form-label { font-weight: 600; font-size: 0.85rem; color: #374151; }
+.muted-placeholder::placeholder { color: #b0b0b0; font-style: italic; text-transform: none; }
+/* BB Hủy styles */
+.form-group { margin-bottom: 16px; }
+.form-group label { font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+.form-group .form-control, .form-group .form-select {
+    border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 0.95rem;
+}
+.form-group .form-control:focus, .form-group .form-select:focus {
+    border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.12);
+}
+.info-row { display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; }
+.info-row .label { font-weight: 600; color: #64748b; min-width: 120px; }
+.info-row .value { color: #1e293b; font-weight: 500; }
+.bb-title { text-align: center; font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
+.btn-print { background: linear-gradient(135deg, #0ea5e9, #0369a1); border: none; color: #fff; padding: 10px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
+.btn-print:hover { background: linear-gradient(135deg, #0369a1, #024a75); color: #fff; }
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <!-- Chọn biểu mẫu -->
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-file-earmark-text"></i> Chọn biểu mẫu
+            </div>
+            <div class="card-body">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="formType" id="rbBBHuy" value="bbhuy">
+                    <label class="form-check-label" for="rbBBHuy">
+                        <strong>BB Hủy BK</strong> — Biên bản hủy bảng kê
+                    </label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="formType" id="rbF1" value="f1" checked>
+                    <label class="form-check-label" for="rbF1">
+                        <strong>F1</strong> — VB đồng ý chính sách thu thập & XLDL cá nhân
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="formType" id="rbF2" value="f2">
+                    <label class="form-check-label" for="rbF2">
+                        <strong>F2</strong> — Đề nghị khóa dữ liệu cá nhân
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ngày tháng năm -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label class="form-label mb-0"><i class="bi bi-calendar3"></i> Ngày</label></div>
+                    <div class="col"><input type="date" class="form-control form-control-sm" id="ngayLap"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ BB Hủy BK ═══ -->
+        <div id="sectionBBHuy" style="display:none;">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-x-circle"></i> Biên bản hủy bảng kê
+                </div>
+                <div class="card-body">
+                    <!-- Số BK -->
+                    <div class="form-group">
+                        <label for="soBK"><i class="bi bi-hash"></i> Số bảng kê</label>
+                        <input type="text" class="form-control" id="soBK"
+                               value="{{ bk_prefix }}" maxlength="15">
+                    </div>
+
+                    <!-- TVV -->
+                    <div class="form-group">
+                        <label for="tvvSelect"><i class="bi bi-person"></i> Tư vấn viên</label>
+                        <select class="form-select" id="tvvSelect" onchange="onTvvChange()">
+                            <option value="">-- Chọn TVV --</option>
+                        </select>
+                        <input type="text" class="form-control mt-2 d-none" id="tvvCustom"
+                               placeholder="Nhập tên TVV..." style="text-transform:uppercase;">
+                    </div>
+
+                    <!-- NV Kế Toán -->
+                    <div class="form-group">
+                        <label for="ktSelect"><i class="bi bi-person-workspace"></i> NV Kế Toán CH</label>
+                        <select class="form-select" id="ktSelect">
+                            <option value="{{ settings.kt1_name }}">{{ settings.kt1_name }}</option>
+                            <option value="{{ settings.kt2_name }}">{{ settings.kt2_name }}</option>
+                        </select>
+                    </div>
+
+                    <!-- Lý do -->
+                    <div class="form-group">
+                        <label for="lyDoSelect"><i class="bi bi-chat-left-text"></i> Lý do hủy</label>
+                        <select class="form-select" id="lyDoSelect" onchange="onLydoChange()">
+                            <option value="">-- Đang tải... --</option>
+                        </select>
+                        <input type="text" class="form-control mt-2 d-none" id="lyDoCustom"
+                               placeholder="Nhập lý do khác...">
+                    </div>
+
+                    <!-- CHT -->
+                    <div class="info-row">
+                        <span class="label"><i class="bi bi-person-badge"></i> CHT:</span>
+                        <span class="value" id="chtName">{{ settings.cht_name }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintBBHuy">
+                    <i class="bi bi-printer"></i> In biên bản
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══ F1: Đồng ý XLDL ═══ -->
+        <div id="sectionF1">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-pencil-square"></i> Thông tin cập nhật (F1)
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-sm mb-0" style="font-size:0.88rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:26%">Trường</th>
+                                <th>Thông tin cũ</th>
+                                <th>Thông tin mới</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">Họ và tên</td>
+                                <td><input type="text" class="form-control form-control-sm" id="f1_ten_cu"
+                                           style="text-transform:uppercase;"></td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_moi"
+                                           placeholder="Đổi thì nhập" style="text-transform:uppercase;"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Ngày sinh</td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ns_cu"
+                                           placeholder="Đổi thì nhập"></td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ns_moi"
+                                           placeholder="Đổi thì nhập"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Số điện thoại</td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_sdt_cu"
+                                           placeholder="Đổi thì nhập"></td>
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_sdt_moi"
+                                           placeholder="Đổi thì nhập"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintF1">
+                    <i class="bi bi-printer"></i> In biểu mẫu F1
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClearF1">
+                    <i class="bi bi-eraser"></i> Xóa form
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══ F2: Khóa dữ liệu ═══ -->
+        <div id="sectionF2" style="display:none;">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-lock"></i> Thông tin khách hàng (F2)
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Họ và tên</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_ho_ten"
+                                   placeholder="Họ và tên KH" style="text-transform:uppercase;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_sdt"
+                                   placeholder="SĐT">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">CCCD / Passport</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_cccd"
+                                   placeholder="Số CCCD hoặc Passport">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mã KH tại PNJ</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_ma_kh"
+                                   placeholder="VD: 0102163610">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintF2">
+                    <i class="bi bi-printer"></i> In biểu mẫu F2
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClearF2">
+                    <i class="bi bi-eraser"></i> Xóa form
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Pre-fill ngày hôm nay ──
+(function() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('ngayLap').value = yyyy + '-' + mm + '-' + dd;
+})();
+
+// ── Toggle sections ──
+document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
+    rb.addEventListener('change', function() {
+        document.getElementById('sectionBBHuy').style.display = this.value === 'bbhuy' ? '' : 'none';
+        document.getElementById('sectionF1').style.display = this.value === 'f1' ? '' : 'none';
+        document.getElementById('sectionF2').style.display = this.value === 'f2' ? '' : 'none';
+    });
+});
+
+// ══════════════════════════════════════
+// BB HỦY BK
+// ══════════════════════════════════════
+
+// Load TVV list + Lý do hủy
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/tvv').then(r => r.json()).then(json => {
+        if (!json.ok) return;
+        const sel = document.getElementById('tvvSelect');
+        json.data.forEach(function(t) {
+            const opt = document.createElement('option');
+            opt.value = t.ten;
+            opt.textContent = t.ma + ' - ' + t.ten;
+            sel.appendChild(opt);
+        });
+        const optK = document.createElement('option');
+        optK.value = '__custom__';
+        optK.textContent = '-- Nhập tên TVV khác --';
+        sel.appendChild(optK);
+    });
+
+    fetch('/api/lydo-huy').then(r => r.json()).then(json => {
+        const sel = document.getElementById('lyDoSelect');
+        sel.innerHTML = '';
+        if (json.ok && json.data.length) {
+            json.data.forEach(function(ld) {
+                const opt = document.createElement('option');
+                opt.value = ld.noi_dung;
+                opt.textContent = ld.noi_dung;
+                sel.appendChild(opt);
+            });
+        }
+        const optK = document.createElement('option');
+        optK.value = '__custom__';
+        optK.textContent = '-- Nhập lý do khác --';
+        sel.appendChild(optK);
+    });
+});
+
+// Auto-trim số BK
+document.getElementById('soBK').addEventListener('blur', function() {
+    let v = this.value.replace(/\D/g, '');
+    if (v.length > 10) v = v.slice(-10);
+    this.value = v;
+});
+
+function onTvvChange() {
+    const sel = document.getElementById('tvvSelect');
+    const custom = document.getElementById('tvvCustom');
+    if (sel.value === '__custom__') { custom.classList.remove('d-none'); custom.focus(); }
+    else { custom.classList.add('d-none'); custom.value = ''; }
+}
+
+function onLydoChange() {
+    const sel = document.getElementById('lyDoSelect');
+    const custom = document.getElementById('lyDoCustom');
+    if (sel.value === '__custom__') { custom.classList.remove('d-none'); custom.focus(); }
+    else { custom.classList.add('d-none'); custom.value = ''; }
+}
+
+function formatLydo(s) {
+    s = s.trim();
+    if (!s) return s;
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (!s.endsWith('.')) s += '.';
+    return s;
+}
+
+document.getElementById('btnPrintBBHuy').addEventListener('click', function() {
+    const soBKEl = document.getElementById('soBK');
+    let soBK = soBKEl.value.replace(/\D/g, '');
+    if (soBK.length > 10) soBK = soBK.slice(-10);
+    soBKEl.value = soBK;
+
+    if (soBK.length !== 10) { alert('Số bảng kê phải đúng 10 chữ số!'); soBKEl.focus(); return; }
+    if (!soBK.startsWith('440')) { alert('Số bảng kê phải bắt đầu bằng 440!'); soBKEl.focus(); return; }
+
+    const tvvSel = document.getElementById('tvvSelect').value;
+    const tvvCustom = document.getElementById('tvvCustom').value.trim().toUpperCase();
+    const tvv = (tvvSel === '__custom__') ? tvvCustom : tvvSel;
+
+    const lyDoSel = document.getElementById('lyDoSelect').value;
+    const lyDoCustom = document.getElementById('lyDoCustom').value.trim();
+    let lyDo = (lyDoSel === '__custom__') ? formatLydo(lyDoCustom) : lyDoSel;
+
+    const kt = document.getElementById('ktSelect').value;
+
+    if (!tvv) { alert('Vui lòng chọn hoặc nhập tên Tư vấn viên!'); return; }
+    if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return; }
+
+    const d = document.getElementById('ngayLap').value.split('-');
+    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt, ngay: d[2]||'', thang: d[1]||'', nam: d[0]||'' });
+    window.open('/bb-huy/print?' + params.toString(), '_blank');
+});
+
+// ══════════════════════════════════════
+// F1 + F2
+// ══════════════════════════════════════
+
+document.getElementById('btnPrintF1').addEventListener('click', function() {
+    const d = document.getElementById('ngayLap').value.split('-');
+    const params = new URLSearchParams({
+        ten_cu:  document.getElementById('f1_ten_cu').value.trim().toUpperCase(),
+        ten_moi: document.getElementById('f1_ten_moi').value.trim().toUpperCase(),
+        ns_cu:   document.getElementById('f1_ns_cu').value.trim(),
+        ns_moi:  document.getElementById('f1_ns_moi').value.trim(),
+        sdt_cu:  document.getElementById('f1_sdt_cu').value.trim(),
+        sdt_moi: document.getElementById('f1_sdt_moi').value.trim(),
+        ngay: d[2] || '', thang: d[1] || '', nam: d[0] || '',
+    });
+    window.open('/doi-thongtin/print-f1?' + params.toString(), '_blank');
+});
+
+document.getElementById('btnPrintF2').addEventListener('click', function() {
+    const d = document.getElementById('ngayLap').value.split('-');
+    const params = new URLSearchParams({
+        ho_ten: document.getElementById('f2_ho_ten').value.trim().toUpperCase(),
+        sdt:    document.getElementById('f2_sdt').value.trim(),
+        cccd:   document.getElementById('f2_cccd').value.trim(),
+        ma_kh:  document.getElementById('f2_ma_kh').value.trim(),
+        ngay: d[2] || '', thang: d[1] || '', nam: d[0] || '',
+    });
+    window.open('/doi-thongtin/print-f2?' + params.toString(), '_blank');
+});
+
+document.getElementById('btnClearF1').addEventListener('click', function() {
+    ['f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
+        document.getElementById(id).value = '';
+    });
+});
+document.getElementById('btnClearF2').addEventListener('click', function() {
+    ['f2_ho_ten','f2_sdt','f2_cccd','f2_ma_kh'].forEach(function(id) {
+        document.getElementById(id).value = '';
+    });
+});
+</script>
+{% endblock %}

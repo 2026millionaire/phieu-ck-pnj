@@ -614,12 +614,18 @@ def history_page():
     return render_template("history.html")
 
 
-@app.route("/bb-huy")
-def bb_huy_page():
-    """BB Hủy Bảng Kê — form page."""
+@app.route("/bieu-mau")
+def bieu_mau_page():
+    """Biểu Mẫu — merged page: BB Hủy BK, F1, F2."""
     settings = get_settings()
     bk_prefix = settings.get("bk_prefix", "4403")
-    return render_template("bb_huy.html", settings=settings, bk_prefix=bk_prefix)
+    return render_template("bieu_mau.html", settings=settings, bk_prefix=bk_prefix)
+
+
+@app.route("/bb-huy")
+def bb_huy_page():
+    """Redirect old BB Hủy page to Biểu Mẫu."""
+    return redirect(url_for('bieu_mau_page'))
 
 
 @app.route("/bb-huy/print")
@@ -647,9 +653,8 @@ def bb_huy_print():
 
 @app.route("/doi-thongtin")
 def doi_thongtin_page():
-    """Đổi thông tin KH — form page."""
-    settings = get_settings()
-    return render_template("doi_thongtin.html", settings=settings)
+    """Redirect old Đổi TT KH page to Biểu Mẫu."""
+    return redirect(url_for('bieu_mau_page'))
 
 
 @app.route("/doi-thongtin/print-f1")
