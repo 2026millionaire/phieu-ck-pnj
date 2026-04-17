@@ -682,8 +682,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Match số BK (44xx) với dòng Bảng kê thực sự
-        // Lấy BK numbers từ bảng section 3 (dòng BK đã có so_ct) + hidden field
-        const existingBkNums = sapItems.filter(i => i.loai === 'Bảng kê' && i.so_ct && /^\d{10}$/.test(i.so_ct)).map(i => i.so_ct);
+        // Lấy BK numbers từ bảng section 3 (dòng BK đã có so_ct đủ 10 số) + hidden field
+        const existingBkNums = sapItems.filter(i => i.loai === 'Bảng kê' && i.so_ct && /^\d{10}$/.test(i.so_ct.trim())).map(i => i.so_ct.trim());
+        // Cũng lấy prefix chưa đủ 10 số (VD: "4403") → giữ lại sau, không ghi đè
+        const existingBkPrefixes = sapItems.filter(i => i.loai === 'Bảng kê' && i.so_ct && i.so_ct.trim().length > 0 && i.so_ct.trim().length < 10).map(i => i.so_ct.trim());
         const soBkRaw = document.getElementById('so_bk').value.trim();
         const hiddenBkNums = soBkRaw.split(/[,;\s]+/).filter(s => /^\d{10}$/.test(s));
         // Merge: existing rows first, then hidden field extras
@@ -704,7 +706,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         bkItems.forEach(function(item, idx) {
-            item.so_ct = bkNumbers[idx] || item.doc_num;
+            if (bkNumbers[idx]) {
+                item.so_ct = bkNumbers[idx];
+            } else if (existingBkPrefixes.length > 0) {
+                // Có prefix nhưng chưa đủ 10 số → giữ prefix, không ghi đè bằng doc_num
+                item.so_ct = existingBkPrefixes[0];
+            } else {
+                item.so_ct = item.doc_num;
+            }
         });
 
         // Các dòng BK không match pattern ref → fallback
@@ -713,7 +722,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 item.so_ct = item.sales_doc || item.doc_num;
             } else if (item.so_ct === '') {
                 if (item.loai === 'Bảng kê' && bkNumbers.length === 1) {
-                    item.so_ct = bkNumbers[0];  // chỉ có 1 BK → dùng luôn
+                    item.so_ct = bkNumbers[0];
+                } else if (item.loai === 'Bảng kê' && existingBkPrefixes.length > 0) {
+                    item.so_ct = existingBkPrefixes[0];  // giữ prefix thay vì doc_num
                 } else {
                     item.so_ct = item.doc_num;
                 }
@@ -1067,14 +1078,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // ── Validate Mã KH: 10 số bắt đầu 10, hoặc 11 số bắt đầu 0 ──
-        const maKh = document.getElementById('ma_kh').value.trim();
-        const maKhValid = /^\d{10}$/.test(maKh) && maKh.startsWith('10')
-                       || /^\d{11}$/.test(maKh) && maKh.startsWith('0');
+        // ── Trim Mã KH: bỏ số 0 đầu → chuẩn hóa ──
+        let maKh = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+        document.getElementById('ma_kh').value = maKh;
+        // Validate: 9 số bắt đầu 10, hoặc 8 ký tự bắt đầu E (NV PNJ). Chỉ cảnh báo.
+        const maKhValid = /^\d{9}$/.test(maKh) && maKh.startsWith('10')
+                       || /^E\d{7}$/i.test(maKh);
         if (!maKhValid) {
-            alert('Mã KH không hợp lệ!\n• 10 số bắt đầu bằng "10" (VD: 1021636100)\n• hoặc 11 số bắt đầu bằng "0" (VD: 01021636100)');
-            document.getElementById('ma_kh').focus();
-            return;
+            if (!confirm('Mã KH có vẻ không đúng định dạng:\n• 9 số bắt đầu bằng "10" (VD: 103888401)\n• hoặc 8 ký tự bắt đầu bằng "E" (VD: E0123458)\n\nBạn có muốn tiếp tục không?')) {
+                document.getElementById('ma_kh').focus();
+                return;
+            }
         }
 
         // ── Validate SĐT: cảnh báo nếu không đủ 10 số (không chặn) ──
