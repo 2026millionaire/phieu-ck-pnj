@@ -118,6 +118,9 @@ document.addEventListener('DOMContentLoaded', function() {
         optK.value = '__custom__';
         optK.textContent = '-- Nhập tên TVV khác --';
         sel.appendChild(optK);
+
+        // Restore TVV mặc định từ localStorage (per-browser cache)
+        restoreDefaultTvv();
     });
 
     // Load lý do hủy
@@ -157,6 +160,33 @@ function onTvvChange() {
     } else {
         custom.classList.add('d-none');
         custom.value = '';
+        if (sel.value) localStorage.setItem('pnj_bk_tvv_name', sel.value);
+    }
+}
+
+// Save khi nhập custom TVV
+(function() {
+    const custom = document.getElementById('tvvCustom');
+    if (custom) {
+        custom.addEventListener('blur', function() {
+            const v = this.value.trim();
+            if (v) localStorage.setItem('pnj_bk_tvv_name', v);
+        });
+    }
+})();
+
+function restoreDefaultTvv() {
+    const saved = localStorage.getItem('pnj_bk_tvv_name');
+    if (!saved) return;
+    const sel = document.getElementById('tvvSelect');
+    const custom = document.getElementById('tvvCustom');
+    const hasOption = [...sel.options].some(opt => opt.value === saved);
+    if (hasOption) {
+        sel.value = saved;
+    } else {
+        sel.value = '__custom__';
+        custom.classList.remove('d-none');
+        custom.value = saved;
     }
 }
 

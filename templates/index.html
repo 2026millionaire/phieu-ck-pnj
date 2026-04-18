@@ -602,7 +602,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ===== TVV DROPDOWN SEARCHABLE =====
     let allTvv = [];
-    fetch('/api/tvv').then(r => r.json()).then(d => { allTvv = d.data || []; });
+    fetch('/api/tvv').then(r => r.json()).then(d => {
+        allTvv = d.data || [];
+        // Restore TVV mặc định từ localStorage (per-browser cache)
+        const savedCode = localStorage.getItem('pnj_bk_tvv_code');
+        const savedName = localStorage.getItem('pnj_bk_tvv_name');
+        if (savedCode && savedName) {
+            document.getElementById('tvv_search').value = `${savedCode} - ${savedName}`;
+            document.getElementById('tvv_code').value = savedCode;
+            document.getElementById('tvv_name').value = savedName;
+            // Nếu người ký = TVV → cập nhật preview
+            const rb = document.querySelector('input[name="nguoi_ki"]:checked');
+            if (rb && rb.value === 'tvv') {
+                document.querySelectorAll('.pv-nguoi_ki').forEach(el => el.textContent = savedName);
+            }
+        }
+    });
 
     const tvvSearch = document.getElementById('tvv_search');
     const tvvDropdown = document.getElementById('tvvDropdown');
@@ -628,12 +643,17 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const item = e.target.closest('.dropdown-item');
         if (!item) return;
-        tvvSearch.value = `E01${item.dataset.ma} - ${item.dataset.ten}`;
-        document.getElementById('tvv_code').value = 'E01' + item.dataset.ma;
-        document.getElementById('tvv_name').value = item.dataset.ten;
+        const code = 'E01' + item.dataset.ma;
+        const name = item.dataset.ten;
+        tvvSearch.value = `${code} - ${name}`;
+        document.getElementById('tvv_code').value = code;
+        document.getElementById('tvv_name').value = name;
+        // Lưu cache mặc định cho browser này
+        localStorage.setItem('pnj_bk_tvv_code', code);
+        localStorage.setItem('pnj_bk_tvv_name', name);
         // Update preview người ký nếu radio = tvv
         if (document.querySelector('input[name="nguoi_ki"]:checked').value === 'tvv') {
-            document.querySelectorAll('.pv-nguoi_ki').forEach(el => el.textContent = item.dataset.ten);
+            document.querySelectorAll('.pv-nguoi_ki').forEach(el => el.textContent = name);
         }
         tvvDropdown.classList.remove('show');
     });
