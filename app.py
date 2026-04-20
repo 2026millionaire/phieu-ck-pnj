@@ -16,6 +16,8 @@ from functools import wraps
 from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import shared_auth
+
 # ---------------------------------------------------------------------------
 # App config
 # ---------------------------------------------------------------------------
@@ -559,15 +561,12 @@ def login_action():
     password = request.form.get("password", "")
     remember = request.form.get("remember")
 
-    db = get_db()
-    user = db.execute(
-        "SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username,)
-    ).fetchone()
-
-    if user and check_password_hash(user["password"], password):
+    user = shared_auth.authenticate(username, password)
+    if user:
         session.clear()
         session["user_id"] = user["id"]
-        session["user_name"] = user["name"] or user["username"]
+        session["user_name"] = user["full_name"] or user["username"]
+        session["role"] = user["role"]
         if remember:
             session.permanent = True
             app.permanent_session_lifetime = timedelta(days=30)
@@ -588,16 +587,14 @@ def current_user_id():
 
 
 def is_admin():
-    """Check if current user is admin (username='admin')."""
-    uid = current_user_id()
-    if uid == 1:
-        return True  # ID 1 is always admin
-    try:
-        db = get_db()
-        row = db.execute("SELECT username FROM users WHERE id = ?", (uid,)).fetchone()
-        return row and row["username"].lower() == "admin"
-    except Exception:
-        return False
+    """Check if current user has admin role (from shared DB)."""
+    if session.get("role") == "admin":
+        return True
+    uid = session.get("user_id")
+    if uid:
+        user = shared_auth.get_user(uid)
+        return bool(user and user.get("role") == "admin")
+    return False
 
 
 @app.route("/")
