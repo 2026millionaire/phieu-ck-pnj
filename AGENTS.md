@@ -34,6 +34,20 @@ This repo is the PNJ 1305 transfer-confirmation web app.
 - The user uses EVKey instead of Windows Vietnamese IME. If automating Windows dialogs, support English dialog labels as fallback.
 - Treat PNJ/customer data and server credentials as sensitive. Do not paste secrets into chat unless explicitly needed and approved.
 
+## Working Rules
+
+- Production VPS is the source of truth for runtime data.
+- Before uploading, publishing, or deploying this repo:
+  1. Check local git status.
+  2. Pull/sync production runtime data from VPS to local when the task depends on current data.
+  3. Backup local DB before replacing it.
+  4. Verify local app with production-like data.
+  5. Commit and push only code/config/helper files, never `.db`, secrets, logs, or customer data.
+  6. Deploy to VPS only after local test passes.
+- Never overwrite the production DB from local unless the user explicitly requests it.
+- Before deploy, state exactly what will be pushed and what service will be restarted.
+- For this app, production DB sync means copying `/opt/phieu-ck-app/phieu_ck.db` from VPS to local `phieu_ck.db` after making a timestamped local backup.
+
 ## Local Run
 
 ```bash
