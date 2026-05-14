@@ -511,9 +511,9 @@ def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
 def build_noi_dung(plant, so_bk, ngay, ten_kh):
     """
     Build eOffice QT82 noi_dung string.
-    Format: '1305 TT PO {so_bk} ngày {date} cho {ten_kh}'
+    Format: '1305_CK BK {so_bk} ngày {date} cho {ten_kh}'
     """
-    return f"{plant} TT PO {so_bk} ng\u00e0y {ngay} cho {ten_kh}"
+    return f"{plant}_CK BK {so_bk} ngày {ngay} cho {ten_kh}"
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -709,7 +709,7 @@ def eoffice_page(phieu_id):
     plant = d.get("plant", settings.get("plant", "1305"))
 
     # Build eOffice fields
-    # Nội dung: "1305 TT PO 2500202418 ngày 2026-04-09 cho HỒ THỊ MỸ VÂN"
+    # Nội dung: "1305_CK BK 4403... ngày 2026-04-09 cho HỒ THỊ MỸ VÂN"
     try:
         dt = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
         ngay_str = dt.strftime("%Y-%m-%d")
@@ -724,7 +724,7 @@ def eoffice_page(phieu_id):
     d["eo_so_ct_sap"] = ", ".join(doc_nums)
 
     d["eo_ma_kh"] = d.get("ma_kh", "")
-    d["eo_noi_dung"] = f"{plant} TT PO {so_bk} ngày {ngay_str} cho {d.get('ten_kh', '')}"
+    d["eo_noi_dung"] = build_noi_dung(plant, so_bk, ngay_str, d.get("ten_kh", ""))
     d["eo_ten_tk"] = d.get("ten_tk", "") or d.get("ten_kh", "")
     d["eo_so_tk"] = re.sub(r"\D", "", d.get("so_tk", ""))
     # Mã NH eOffice: tìm từ BANK_LIST
