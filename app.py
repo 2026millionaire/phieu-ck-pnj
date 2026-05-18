@@ -515,6 +515,41 @@ def build_noi_dung(plant, so_bk, ngay, ten_kh):
     """
     return f"{plant}_CK BK {so_bk} ngày {ngay} cho {ten_kh}"
 
+
+def build_created_at_from_form(data, chung_tu_list):
+    """
+    Use the user-selected form date as the source of truth.
+
+    The VPS clock can drift after provider/domain incidents. If we rely only on
+    datetime.now(), print/eOffice dates can be one day behind the browser UI.
+    """
+    ngay_lap = (data.get("ngay_lap") or "").strip()
+    created_date = None
+    if ngay_lap:
+        try:
+            created_date = datetime.strptime(ngay_lap, "%Y-%m-%d").date()
+        except ValueError:
+            created_date = None
+
+    doc_times = []
+    for ct in chung_tu_list:
+        gio = (ct.get("gio") or "").strip()
+        if not gio:
+            continue
+        for fmt in ("%d/%m/%Y %H:%M", "%H:%M"):
+            try:
+                parsed = datetime.strptime(gio, fmt)
+                doc_times.append(parsed.time())
+                break
+            except ValueError:
+                pass
+
+    now = datetime.now()
+    if created_date:
+        created_time = max(doc_times) if doc_times else now.time().replace(microsecond=0)
+        return datetime.combine(created_date, created_time).strftime("%Y-%m-%d %H:%M:%S")
+    return now.strftime("%Y-%m-%d %H:%M:%S")
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -790,13 +825,13 @@ def api_save():
     """Save a phieu to the database. Returns the new ID."""
     data = request.get_json(force=True)
 
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     # Parse chung_tu from SAP paste or from already-parsed JSON
     chung_tu_list = data.get("chung_tu", [])
     if isinstance(chung_tu_list, str):
         # Might be raw SAP paste text
         chung_tu_list = parse_sap_paste(chung_tu_list)
+
+    created_at = build_created_at_from_form(data, chung_tu_list)
 
     chung_tu_json = json.dumps(chung_tu_list, ensure_ascii=False)
     tong_ck = data.get("tong_ck") or calc_tong_ck(chung_tu_list)
