@@ -58,6 +58,16 @@
                         <input type="text" class="form-control form-control-sm" id="s_plant"
                                value="{{ settings.get('plant', '1305') }}">
                     </div>
+                    <div class="col-12 mt-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="s_show_payment_time"
+                                   {% if settings.get('show_payment_time', '1') == '1' %}checked{% endif %}>
+                            <label class="form-check-label" for="s_show_payment_time">
+                                Hiển thị dòng "Thời gian thanh toán" trên phiếu in
+                            </label>
+                        </div>
+                        <small class="text-muted">Bỏ tick để ẩn dòng thời gian thanh toán theo biểu mẫu mới.</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -182,6 +192,7 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         kt1_name: document.getElementById('s_kt1_name').value.trim().toUpperCase(),
         kt2_name: document.getElementById('s_kt2_name').value.trim().toUpperCase(),
         thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
+        show_payment_time: document.getElementById('s_show_payment_time').checked ? '1' : '0',
         plant: document.getElementById('s_plant').value.trim(),
     };
     // Admin-only fields

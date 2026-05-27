@@ -441,9 +441,11 @@
     </div>
 
     <!-- ===== THỜI GIAN THANH TOÁN ===== -->
+    {% if p.show_payment_time %}
     <div class="payment-time">
         <strong>Thời gian thanh toán:</strong> {{ p.ngay_tt_fmt | default(p.ngay_tt) }}
     </div>
+    {% endif %}
 
     <!-- ===== LƯU Ý ===== -->
     <div class="notes">

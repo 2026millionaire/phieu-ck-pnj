@@ -221,6 +221,7 @@ def init_db():
         "kt1_name": "CHÂU ĐĂNG KHOA",
         "kt2_name": "LÊ THỊ MỸ TUYỀN",
         "thoi_gian_ck": "48",
+        "show_payment_time": "1",
         "plant": "1305",
         "vietqr_client_id": "",
         "vietqr_api_key": "",
@@ -1021,6 +1022,7 @@ def api_print(phieu_id):
         "kt2": settings.get("kt2_name", ""),
     }
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
+    d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
 
     # Mark as printed
     db.execute("UPDATE phieu SET status = 'printed' WHERE id = ? AND user_id = ?",
