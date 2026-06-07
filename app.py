@@ -1187,9 +1187,6 @@ def api_print(phieu_id):
 
     settings = get_settings()
     d = prepare_phieu_for_output(row, settings)
-    db.execute("UPDATE phieu SET status = 'printed' WHERE id = ? AND user_id = ?",
-               (phieu_id, current_user_id()))
-    db.commit()
     return render_template("print.html", p=d, staff=STAFF)
 
 
