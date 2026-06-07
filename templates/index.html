@@ -324,7 +324,7 @@ textarea#sap_data {
                     <i class="bi bi-download"></i> Lưu & Tải PDF
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="btnSavePrint" data-action="view">
-                    <i class="bi bi-eye"></i> Lưu & Xem phiếu
+                    <i class="bi bi-printer"></i> Lưu & In phiếu
                 </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClear">
                     <i class="bi bi-x-lg"></i> Xóa
@@ -1164,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', function() {
             this.disabled = false;
             this.innerHTML = action === 'pdf'
                 ? '<i class="bi bi-download"></i> Lưu & Tải PDF'
-                : '<i class="bi bi-eye"></i> Lưu & Xem phiếu';
+                : '<i class="bi bi-printer"></i> Lưu & In phiếu';
         };
 
         const checks = [
@@ -1281,7 +1281,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     resetSaveButton();
                     return;
                 }
-                const printUrl = '/api/print/' + data.id;
+                const printUrl = '/api/print/' + data.id + '?print=1';
                 if (printWindow) {
                     printWindow.location.href = printUrl;
                 } else {
