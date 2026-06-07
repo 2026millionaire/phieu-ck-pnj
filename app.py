@@ -551,6 +551,37 @@ def build_created_at_from_form(data, chung_tu_list):
         return datetime.combine(created_date, created_time).strftime("%Y-%m-%d %H:%M:%S")
     return now.strftime("%Y-%m-%d %H:%M:%S")
 
+
+def find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck):
+    """
+    Return a recent matching phieu if the browser sends the same save request
+    repeatedly. This protects iPhone/Safari flows where opening the print page
+    can fail silently and users tap Save again.
+    """
+    ma_kh = (data.get("ma_kh") or "").strip()
+    cccd = (data.get("cccd") or "").strip()
+    so_tk = (data.get("so_tk") or "").strip()
+    if not ma_kh or not so_bk:
+        return None
+    cutoff = (datetime.now() - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+
+    return db.execute(
+        """
+        SELECT id FROM phieu
+        WHERE user_id = ?
+          AND ma_kh = ?
+          AND ten_kh = ?
+          AND cccd = ?
+          AND so_tk = ?
+          AND so_bk = ?
+          AND ABS(COALESCE(tong_ck, 0) - ?) < 1
+          AND created_at >= ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id, ma_kh, ten_kh, cccd, so_tk, so_bk, float(tong_ck or 0), cutoff),
+    ).fetchone()
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -875,6 +906,16 @@ def api_save():
     nguoi_ki = data.get("nguoi_ki", "tvv")
 
     db = get_db()
+    user_id = current_user_id()
+    duplicate = find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck)
+    if duplicate:
+        return jsonify({
+            "ok": True,
+            "id": duplicate["id"],
+            "duplicate": True,
+            "message": "Phiếu này đã được lưu trước đó, hệ thống mở lại bản đã lưu.",
+        })
+
     cursor = db.execute("""
         INSERT INTO phieu
             (created_at, ma_kh, ten_kh, sdt, cccd,
@@ -904,7 +945,7 @@ def api_save():
         qr_url,
         noi_dung,
         nguoi_ki,
-        current_user_id(),
+        user_id,
     ))
     db.commit()
     new_id = cursor.lastrowid

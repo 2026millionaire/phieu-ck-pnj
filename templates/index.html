@@ -1083,7 +1083,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ===== LƯU & IN PHIẾU =====
+    let savePrintInProgress = false;
     document.getElementById('btnSavePrint').addEventListener('click', function() {
+        if (savePrintInProgress) return;
+        savePrintInProgress = true;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+
+        const resetSaveButton = () => {
+            savePrintInProgress = false;
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-printer"></i> Lưu & In phiếu';
+        };
+
         const checks = [
             ['ma_kh',  'Mã KH (Vendor)'],
             ['ten_kh', 'Tên KH'],
@@ -1094,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!document.getElementById(id).value.trim()) {
                 alert('Vui lòng nhập ' + label + '.');
                 document.getElementById(id).focus();
+                resetSaveButton();
                 return;
             }
         }
@@ -1107,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!maKhValid) {
             if (!confirm('Mã KH có vẻ không đúng định dạng:\n• 9 số bắt đầu bằng "10" (VD: 103888401)\n• hoặc 8 ký tự bắt đầu bằng "E" (VD: E0123458)\n\nBạn có muốn tiếp tục không?')) {
                 document.getElementById('ma_kh').focus();
+                resetSaveButton();
                 return;
             }
         }
@@ -1116,6 +1130,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sdt.length !== 10) {
             if (!confirm('SĐT chỉ có ' + sdt.length + ' số (yêu cầu 10 số).\nBạn có muốn tiếp tục không?')) {
                 document.getElementById('sdt').focus();
+                resetSaveButton();
                 return;
             }
         }
@@ -1125,11 +1140,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cccd.length !== 12) {
             alert('Số CCCD phải đủ 12 số! Hiện tại chỉ có ' + cccd.length + ' số.');
             document.getElementById('cccd').focus();
+            resetSaveButton();
             return;
         }
 
         const ten_kh = document.getElementById('ten_kh').value.trim().toUpperCase();
-        if (!document.getElementById('tvv_name').value) { alert('Vui lòng chọn mã TVV.'); document.getElementById('tvv_search').focus(); return; }
+        if (!document.getElementById('tvv_name').value) {
+            alert('Vui lòng chọn mã TVV.');
+            document.getElementById('tvv_search').focus();
+            resetSaveButton();
+            return;
+        }
 
         const chungTuJson = document.getElementById('chung_tu_json').value;
         let chungTu = [];
@@ -1165,8 +1186,12 @@ document.addEventListener('DOMContentLoaded', function() {
             ngay_lap: document.getElementById('ngayLap').value,
         };
 
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+        // iPhone/Safari can block window.open after an async fetch. Open first
+        // while still inside the tap gesture, then point it to the print URL.
+        const printWindow = window.open('about:blank', '_blank');
+        if (printWindow) {
+            printWindow.document.write('<!doctype html><title>Đang tạo phiếu...</title><p style="font-family:sans-serif;padding:16px;">Đang tạo phiếu, vui lòng chờ...</p>');
+        }
 
         fetch('/api/save', {
             method: 'POST',
@@ -1176,15 +1201,25 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                window.open('/api/print/' + data.id + '?print=1', '_blank');
+                const printUrl = '/api/print/' + data.id + '?print=1';
+                if (printWindow) {
+                    printWindow.location.href = printUrl;
+                } else {
+                    window.location.href = printUrl;
+                }
+                if (data.duplicate) {
+                    console.warn(data.message || 'Phiếu đã được lưu trước đó.');
+                }
             } else {
+                if (printWindow) printWindow.close();
                 alert('Lỗi: ' + (data.error || 'Không rõ'));
+                resetSaveButton();
             }
         })
-        .catch(err => alert('Lỗi kết nối: ' + err))
-        .finally(() => {
-            this.disabled = false;
-            this.innerHTML = '<i class="bi bi-printer"></i> Lưu & In phiếu';
+        .catch(err => {
+            if (printWindow) printWindow.close();
+            alert('Lỗi kết nối: ' + err);
+            resetSaveButton();
         });
     });
 
