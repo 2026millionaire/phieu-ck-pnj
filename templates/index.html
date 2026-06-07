@@ -316,9 +316,12 @@ textarea#sap_data {
             </div>
 
             <!-- Actions -->
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-primary" id="btnSaveDraft">
+                    <i class="bi bi-save"></i> Lưu nháp
+                </button>
                 <button type="button" class="btn btn-primary" id="btnSavePrint">
-                    <i class="bi bi-printer"></i> Lưu & In phiếu
+                    <i class="bi bi-check2-circle"></i> Lưu phiếu
                 </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClear">
                     <i class="bi bi-x-lg"></i> Xóa
@@ -1084,6 +1087,68 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ===== LƯU & IN PHIẾU =====
     let savePrintInProgress = false;
+    let saveDraftInProgress = false;
+    document.getElementById('btnSaveDraft').addEventListener('click', function() {
+        if (saveDraftInProgress) return;
+        const maKhValue = document.getElementById('ma_kh').value.trim();
+        const tenKhValue = document.getElementById('ten_kh').value.trim();
+        const soBkValue = document.getElementById('so_bk').value.trim();
+        if (!maKhValue && !tenKhValue && !soBkValue) {
+            if (!confirm('Phi\u1ebfu g\u1ea7n nh\u01b0 \u0111ang tr\u1ed1ng. B\u1ea1n v\u1eabn mu\u1ed1n l\u01b0u nh\u00e1p?')) return;
+        }
+
+        saveDraftInProgress = true;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> \u0110ang l\u01b0u...';
+
+        const chungTuJson = document.getElementById('chung_tu_json').value;
+        let chungTu = [];
+        try { chungTu = JSON.parse(chungTuJson); } catch(e) {}
+        const ten_kh = tenKhValue.toUpperCase();
+        const nguoiKi = document.querySelector('input[name="nguoi_ki"]:checked').value;
+        const payload = {
+            ma_kh: maKhValue.replace(/^0+/, ''),
+            ten_kh: ten_kh,
+            sdt: document.getElementById('sdt').value.trim(),
+            cccd: document.getElementById('cccd').value.trim(),
+            so_tk: document.getElementById('so_tk').value.trim(),
+            ten_tk: document.getElementById('cbUseTenKH').checked
+                ? ten_kh
+                : (document.getElementById('ten_chu_tk').value.trim() || ten_kh),
+            ngan_hang: document.getElementById('ngan_hang').value,
+            so_bk: soBkValue,
+            tvv_code: document.getElementById('tvv_code').value,
+            tvv_name_real: document.getElementById('tvv_name').value,
+            tvv_name: document.getElementById('tvv_name').value,
+            cht_name: nguoiKiLabels['cht'],
+            chung_tu: chungTu,
+            tong_ck: parseFloat(document.getElementById('tong_ck').value) || 0,
+            nguoi_ki: nguoiKi,
+            ngay_lap: document.getElementById('ngayLap').value,
+            status: 'draft',
+        };
+
+        fetch('/api/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                alert('\u0110\u00e3 l\u01b0u nh\u00e1p phi\u1ebfu #' + data.id + '. C\u00f3 th\u1ec3 m\u1edf l\u1ea1i t\u1eeb trang L\u1ecbch s\u1eed.');
+            } else {
+                alert('L\u1ed7i: ' + (data.error || 'Kh\u00f4ng r\u00f5'));
+            }
+        })
+        .catch(err => alert('L\u1ed7i k\u1ebft n\u1ed1i: ' + err))
+        .finally(() => {
+            saveDraftInProgress = false;
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-save"></i> L\u01b0u nh\u00e1p';
+        });
+    });
+
     document.getElementById('btnSavePrint').addEventListener('click', function() {
         if (savePrintInProgress) return;
         savePrintInProgress = true;
@@ -1093,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const resetSaveButton = () => {
             savePrintInProgress = false;
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-printer"></i> Lưu & In phiếu';
+            this.innerHTML = '<i class="bi bi-check2-circle"></i> Lưu phiếu';
         };
 
         const checks = [
@@ -1184,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tong_ck: parseFloat(document.getElementById('tong_ck').value) || 0,
             nguoi_ki: nguoiKi,
             ngay_lap: document.getElementById('ngayLap').value,
+            status: 'printed',
         };
 
         // iPhone/Safari can block window.open after an async fetch. Open first
@@ -1201,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                const printUrl = '/api/print/' + data.id + '?print=1';
+                const printUrl = '/api/print/' + data.id;
                 if (printWindow) {
                     printWindow.location.href = printUrl;
                 } else {
@@ -1222,6 +1288,44 @@ document.addEventListener('DOMContentLoaded', function() {
             resetSaveButton();
         });
     });
+
+
+    function loadDraftFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const draftId = params.get('draft_id');
+        if (!draftId) return;
+        fetch('/api/phieu/' + draftId)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.ok || !data.phieu) return;
+                const p = data.phieu;
+                document.getElementById('ma_kh').value = p.ma_kh || '';
+                document.getElementById('ten_kh').value = p.ten_kh || '';
+                document.getElementById('sdt').value = p.sdt || '';
+                document.getElementById('cccd').value = p.cccd || '';
+                document.getElementById('so_tk').value = p.so_tk || '';
+                document.getElementById('ten_chu_tk').value = p.ten_tk || '';
+                document.getElementById('ngan_hang').value = p.ngan_hang || '';
+                document.getElementById('bank_search').value = p.ngan_hang || '';
+                document.getElementById('so_bk').value = p.so_bk || '';
+                document.getElementById('tvv_code').value = p.tvv_code || '';
+                document.getElementById('tvv_name').value = p.tvv_name || '';
+                document.getElementById('tvv_search').value = p.tvv_code ? (p.tvv_code + ' - ' + (p.tvv_name || '')) : (p.tvv_name || '');
+                if (p.nguoi_ki) {
+                    const radio = document.querySelector('input[name="nguoi_ki"][value="' + p.nguoi_ki + '"]');
+                    if (radio) radio.checked = true;
+                }
+                if (p.created_at && p.created_at.length >= 10) {
+                    document.getElementById('ngayLap').value = p.created_at.slice(0, 10);
+                }
+                sapItems = Array.isArray(p.chung_tu) && p.chung_tu.length ? p.chung_tu : [{ loai: 'B\u1ea3ng k\u00ea', so_ct: p.so_bk || '{{ bk_prefix }}', gia_tri: p.tong_ck || 0, gio: '', sign: '-' }];
+                renderSapTable(sapItems);
+                updatePreview();
+            })
+            .catch(err => console.warn('Kh\u00f4ng t\u1ea3i \u0111\u01b0\u1ee3c nh\u00e1p', err));
+    }
+
+    loadDraftFromQuery();
 
     // Clear form
     document.getElementById('btnClear').addEventListener('click', function() {

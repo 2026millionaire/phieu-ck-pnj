@@ -5,15 +5,17 @@ Flask web app for creating transfer confirmation slips.
 """
 
 import json
+import io
 import os
 import re
 import sqlite3
+import urllib.request
 import webbrowser
 from datetime import datetime, timedelta
 
 from functools import wraps
 
-from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, g, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import shared_auth
@@ -582,6 +584,199 @@ def find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck):
         (user_id, ma_kh, ten_kh, cccd, so_tk, so_bk, float(tong_ck or 0), cutoff),
     ).fetchone()
 
+
+def prepare_phieu_for_output(row, settings=None):
+    """Return a phieu dict with all display fields used by print/PDF output."""
+    d = row_to_dict(row)
+    d["tong_ck_chu"] = so_thanh_chu(d["tong_ck"])
+    try:
+        d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
+    except (json.JSONDecodeError, TypeError):
+        d["chung_tu"] = []
+
+    try:
+        dt = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
+        d["created_at_fmt"] = dt.strftime("%H:%M_%d/%m/%Y")
+        d["created_at_date"] = dt.strftime("%d/%m/%Y %H:%M")
+        d["ngay"] = dt.strftime("%d")
+        d["thang"] = dt.strftime("%m")
+        d["nam"] = dt.strftime("%Y")
+    except (ValueError, TypeError):
+        d["created_at_fmt"] = d["created_at"]
+        d["created_at_date"] = d["created_at"]
+        d["ngay"] = ""
+        d["thang"] = ""
+        d["nam"] = ""
+
+    raw_sdt = re.sub(r"\D", "", d.get("sdt", ""))
+    d["sdt_fmt"] = f"{raw_sdt[:4]} {raw_sdt[4:7]} {raw_sdt[7:]}" if len(raw_sdt) == 10 else d.get("sdt", "")
+
+    raw_tk = re.sub(r"\D", "", d.get("so_tk", ""))
+    d["so_tk_fmt"] = " ".join([raw_tk[i:i+4] for i in range(0, len(raw_tk), 4)]) if raw_tk else d.get("so_tk", "")
+
+    raw_cccd = re.sub(r"\D", "", d.get("cccd", ""))
+    d["cccd_fmt"] = " ".join([raw_cccd[i:i+3] for i in range(0, len(raw_cccd), 3)]) if raw_cccd else d.get("cccd", "")
+
+    ngay_tt_raw = d.get("ngay_tt", "")
+    try:
+        if " " in ngay_tt_raw:
+            dt_tt = datetime.strptime(ngay_tt_raw, "%Y-%m-%d %H:%M")
+            d["ngay_tt_fmt"] = dt_tt.strftime("%d/%m/%Y %H:%M")
+        else:
+            dt_tt = datetime.strptime(ngay_tt_raw, "%Y-%m-%d")
+            dt_ca = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
+            d["ngay_tt_fmt"] = dt_tt.strftime("%d/%m/%Y") + " " + dt_ca.strftime("%H:%M")
+    except (ValueError, TypeError):
+        d["ngay_tt_fmt"] = ngay_tt_raw
+
+    bk_times = []
+    for ct in d["chung_tu"]:
+        if ct.get("loai") in ("Bảng kê", "Biên nhận cọc") and ct.get("gio"):
+            try:
+                t = datetime.strptime(ct["gio"], "%d/%m/%Y %H:%M")
+                bk_times.append(t)
+            except ValueError:
+                pass
+    if bk_times:
+        latest_bk = max(bk_times)
+        d["created_at_fmt"] = latest_bk.strftime("%H:%M_%d/%m/%Y")
+
+    settings = settings or get_settings()
+    nguoi_ki = d.get("nguoi_ki", "tvv")
+    nguoi_ki_map = {
+        "tvv": d.get("tvv_name", ""),
+        "cht": settings.get("cht_name", ""),
+        "kt1": settings.get("kt1_name", ""),
+        "kt2": settings.get("kt2_name", ""),
+    }
+    d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
+    d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
+    return d
+
+
+def make_phieu_pdf(p):
+    """Create a printable PDF file for browsers that block window.print()."""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+        from reportlab.lib.pagesizes import A5
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import (
+            Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        )
+    except ImportError as exc:
+        raise RuntimeError("REPORTLAB_MISSING") from exc
+
+    font_candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+        r"C:\Windows\Fonts\times.ttf",
+        r"C:\Windows\Fonts\timesbd.ttf",
+    ]
+    regular_font = next((p for p in font_candidates if os.path.exists(p) and not p.lower().endswith("bold.ttf") and "bd" not in p.lower()), None)
+    bold_font = next((p for p in font_candidates if os.path.exists(p) and (p.lower().endswith("bold.ttf") or "bd" in p.lower())), regular_font)
+    if regular_font:
+        pdfmetrics.registerFont(TTFont("PNJSerif", regular_font))
+        pdfmetrics.registerFont(TTFont("PNJSerif-Bold", bold_font or regular_font))
+        base_font = "PNJSerif"
+        bold = "PNJSerif-Bold"
+    else:
+        base_font = "Times-Roman"
+        bold = "Times-Bold"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A5,
+        rightMargin=9 * mm,
+        leftMargin=9 * mm,
+        topMargin=8 * mm,
+        bottomMargin=8 * mm,
+    )
+    styles = getSampleStyleSheet()
+    normal = ParagraphStyle("NormalPNJ", parent=styles["Normal"], fontName=base_font, fontSize=8.8, leading=10.5)
+    small = ParagraphStyle("SmallPNJ", parent=normal, fontSize=7.2, leading=8.5)
+    bold_style = ParagraphStyle("BoldPNJ", parent=normal, fontName=bold)
+    center_bold = ParagraphStyle("CenterBoldPNJ", parent=bold_style, alignment=TA_CENTER)
+    title_style = ParagraphStyle("TitlePNJ", parent=center_bold, fontSize=10.8, leading=13, spaceBefore=3, spaceAfter=5)
+    right_italic = ParagraphStyle("RightItalicPNJ", parent=normal, alignment=TA_RIGHT, italic=True)
+    story = []
+
+    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "logo_pnj.webp")
+    logo = Image(logo_path, width=12 * mm, height=7 * mm) if os.path.exists(logo_path) else Paragraph("PNJ", bold_style)
+    header_left = Table([[logo, Paragraph("<b>CÔNG TY CP VÀNG BẠC<br/>ĐÁ QUÝ PHÚ NHUẬN</b>", small)]], colWidths=[14 * mm, 46 * mm])
+    header_right = Paragraph("<b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br/><b>Độc lập - Tự do - Hạnh phúc</b><br/>______", center_bold)
+    story.append(Table([[header_left, header_right]], colWidths=[64 * mm, 70 * mm]))
+    story.append(Paragraph(f"Số: CH PNJ NEXT 27 Hà Nội, Huế - {p.get('plant') or '1305'}_{p.get('created_at_fmt') or ''}", small))
+    story.append(Paragraph("PHIẾU XÁC NHẬN THÔNG TIN THANH TOÁN CHUYỂN KHOẢN", title_style))
+
+    story.append(Paragraph("<b>1. Thông tin Khách Hàng</b>", bold_style))
+    story.append(Table([
+        [Paragraph(f"Họ & Tên: <b>{p.get('ten_kh') or ''}</b>", normal), Paragraph(f"Mã KH (Vendor)*: <b>{p.get('ma_kh') or ''}</b>", normal)],
+        [Paragraph(f"Số điện thoại: <b>{p.get('sdt_fmt') or ''}</b>", normal), Paragraph(f"Số CCCD: <b>{p.get('cccd_fmt') or ''}</b>", normal)],
+    ], colWidths=[70 * mm, 64 * mm]))
+
+    story.append(Paragraph("<b>2. Thông tin thanh toán / Ủy Quyền chuyển khoản</b>", bold_style))
+    payment_rows = [
+        [Paragraph("Tên tài khoản thụ hưởng:", normal), Paragraph(f"<b>{p.get('ten_tk') or p.get('ten_kh') or ''}</b>", normal)],
+        [Paragraph("Số tài khoản thụ hưởng:", normal), Paragraph(f"<b>{p.get('so_tk_fmt') or ''}</b>", normal)],
+        [Paragraph("Ngân hàng thụ hưởng:", normal), Paragraph(f"<b>{p.get('ngan_hang') or ''}</b>", normal)],
+        [Paragraph("Số tiền chuyển khoản:", normal), Paragraph(f"<b>{float(p.get('tong_ck') or 0):,.0f} đồng</b>", normal)],
+        [Paragraph("(Bằng chữ:", normal), Paragraph(f"<i>{p.get('tong_ck_chu') or ''})</i>", normal)],
+    ]
+    pay_table = Table(payment_rows, colWidths=[42 * mm, 62 * mm])
+    qr_cell = ""
+    if p.get("qr_url"):
+        try:
+            with urllib.request.urlopen(p["qr_url"], timeout=5) as resp:
+                qr_bytes = io.BytesIO(resp.read())
+            qr_cell = Image(qr_bytes, width=27 * mm, height=27 * mm)
+        except Exception:
+            qr_cell = Paragraph("QR", small)
+    story.append(Table([[pay_table, qr_cell]], colWidths=[106 * mm, 28 * mm]))
+
+    story.append(Paragraph("<b>Thông tin chứng từ:</b>", bold_style))
+    table_data = [["Loại chứng từ", "Số chứng từ", "Giá trị", "Ngày giờ"]]
+    for ct in p.get("chung_tu", []):
+        table_data.append([
+            ct.get("loai", ""),
+            ct.get("so_ct", ""),
+            f"{abs(float(ct.get('gia_tri') or 0)):,.0f}",
+            ct.get("gio", ""),
+        ])
+    table_data.append(["TỔNG THANH TOÁN (BK+CỌC+HBTL-HĐ)", "", f"{float(p.get('tong_ck') or 0):,.0f}", ""])
+    ct_table = Table(table_data, colWidths=[35 * mm, 36 * mm, 31 * mm, 32 * mm])
+    ct_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), base_font),
+        ("FONTNAME", (0, 0), (-1, 0), bold),
+        ("FONTNAME", (0, -1), (-1, -1), bold),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.7),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.yellow),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.yellow),
+        ("SPAN", (0, -1), (1, -1)),
+        ("ALIGN", (2, 1), (2, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+    ]))
+    story.append(ct_table)
+    story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.", small))
+    if p.get("show_payment_time"):
+        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('ngay_tt_fmt') or p.get('ngay_tt') or ''}", small))
+    story.append(Paragraph("<b>Lưu ý:</b><br/>1. Các giao dịch phát sinh từ T2-T6 trước 16h30: Thanh toán trong ngày (T)<br/>2. Các giao dịch phát sinh từ T2-T6 sau 16h30, T7; CN, Lễ, Tết: Thanh toán vào ngày kế tiếp (T+1)<br/>* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", small))
+    story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
+    story.append(Spacer(1, 4 * mm))
+    story.append(Table([
+        [Paragraph("<b>Khách Hàng xác nhận</b><br/><i>(Ký, ghi rõ họ tên)</i>", center_bold), Paragraph("<b>Cửa Hàng xác nhận</b><br/><i>(Ký, ghi rõ họ tên)</i>", center_bold)],
+        [Paragraph(f"<b>{p.get('ten_kh') or ''}</b>", center_bold), Paragraph(f"<b>{p.get('nguoi_ki_name') or ''}</b>", center_bold)],
+    ], colWidths=[67 * mm, 67 * mm], rowHeights=[18 * mm, 14 * mm]))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -907,7 +1102,8 @@ def api_save():
 
     db = get_db()
     user_id = current_user_id()
-    duplicate = find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck)
+    requested_status = data.get("status") if data.get("status") in ("draft", "printed") else "draft"
+    duplicate = None if requested_status == "draft" else find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck)
     if duplicate:
         return jsonify({
             "ok": True,
@@ -941,7 +1137,7 @@ def api_save():
         chung_tu_json,
         tong_ck,
         ngay_tt,
-        "draft",
+        requested_status,
         qr_url,
         noi_dung,
         nguoi_ki,
@@ -989,88 +1185,33 @@ def api_print(phieu_id):
     if not row:
         return "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu", 404
 
-    d = row_to_dict(row)
-    d["tong_ck_chu"] = so_thanh_chu(d["tong_ck"])
-    try:
-        d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
-    except (json.JSONDecodeError, TypeError):
-        d["chung_tu"] = []
-
-    # Format created_at for display: "09/04/2026_17:38"
-    try:
-        dt = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
-        d["created_at_fmt"] = dt.strftime("%H:%M_%d/%m/%Y")
-        d["created_at_date"] = dt.strftime("%d/%m/%Y %H:%M")
-        d["ngay"] = dt.strftime("%d")
-        d["thang"] = dt.strftime("%m")
-        d["nam"] = dt.strftime("%Y")
-    except (ValueError, TypeError):
-        d["created_at_fmt"] = d["created_at"]
-        d["created_at_date"] = d["created_at"]
-        d["ngay"] = ""
-        d["thang"] = ""
-        d["nam"] = ""
-
-    # Format SĐT: 4-3-3 (e.g. 0964 667 669)
-    raw_sdt = re.sub(r"\D", "", d.get("sdt", ""))
-    if len(raw_sdt) == 10:
-        d["sdt_fmt"] = f"{raw_sdt[:4]} {raw_sdt[4:7]} {raw_sdt[7:]}"
-    else:
-        d["sdt_fmt"] = d.get("sdt", "")
-
-    # Format Số TK: groups of 4 (e.g. 0964 6676 69)
-    raw_tk = re.sub(r"\D", "", d.get("so_tk", ""))
-    d["so_tk_fmt"] = " ".join([raw_tk[i:i+4] for i in range(0, len(raw_tk), 4)]) if raw_tk else d.get("so_tk", "")
-
-    # Format CCCD: groups of 3 (e.g. 046 093 004 708)
-    raw_cccd = re.sub(r"\D", "", d.get("cccd", ""))
-    d["cccd_fmt"] = " ".join([raw_cccd[i:i+3] for i in range(0, len(raw_cccd), 3)]) if raw_cccd else d.get("cccd", "")
-
-    # Format ngay_tt for display (supports both "YYYY-MM-DD" and "YYYY-MM-DD HH:MM")
-    ngay_tt_raw = d.get("ngay_tt", "")
-    try:
-        if " " in ngay_tt_raw:
-            dt_tt = datetime.strptime(ngay_tt_raw, "%Y-%m-%d %H:%M")
-            d["ngay_tt_fmt"] = dt_tt.strftime("%d/%m/%Y %H:%M")
-        else:
-            dt_tt = datetime.strptime(ngay_tt_raw, "%Y-%m-%d")
-            dt_ca = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
-            d["ngay_tt_fmt"] = dt_tt.strftime("%d/%m/%Y") + " " + dt_ca.strftime("%H:%M")
-    except (ValueError, TypeError):
-        d["ngay_tt_fmt"] = ngay_tt_raw
-
-    # Số phiếu: dùng giờ BK gần nhất thay vì giờ created_at
-    bk_times = []
-    for ct in d["chung_tu"]:
-        if ct.get("loai") in ("Bảng kê", "Biên nhận cọc") and ct.get("gio"):
-            try:
-                t = datetime.strptime(ct["gio"], "%d/%m/%Y %H:%M")
-                bk_times.append(t)
-            except ValueError:
-                pass
-    if bk_times:
-        latest_bk = max(bk_times)
-        d["created_at_fmt"] = latest_bk.strftime("%H:%M_%d/%m/%Y")
-    # else keep the created_at_fmt from earlier
-
-    # Resolve tên người ký từ nguoi_ki field
     settings = get_settings()
-    nguoi_ki = d.get("nguoi_ki", "tvv")
-    nguoi_ki_map = {
-        "tvv": d.get("tvv_name", ""),
-        "cht": settings.get("cht_name", ""),
-        "kt1": settings.get("kt1_name", ""),
-        "kt2": settings.get("kt2_name", ""),
-    }
-    d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
-    d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
-
-    # Mark as printed
+    d = prepare_phieu_for_output(row, settings)
     db.execute("UPDATE phieu SET status = 'printed' WHERE id = ? AND user_id = ?",
                (phieu_id, current_user_id()))
     db.commit()
-
     return render_template("print.html", p=d, staff=STAFF)
+
+
+
+@app.route("/api/pdf/<int:phieu_id>")
+def api_pdf(phieu_id):
+    """Download a PDF copy for in-app browsers where window.print() is blocked."""
+    db = get_db()
+    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                     (phieu_id, current_user_id())).fetchone()
+    if not row:
+        return "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu", 404
+
+    p = prepare_phieu_for_output(row, get_settings())
+    try:
+        pdf = make_phieu_pdf(p)
+    except RuntimeError:
+        return "Server ch\u01b0a c\u00e0i th\u01b0 vi\u1ec7n xu\u1ea5t PDF. Vui l\u00f2ng b\u00e1o admin c\u00e0i reportlab.", 500
+
+    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", (p.get("ten_kh") or "phieu_ck").strip())[:40] or "phieu_ck"
+    filename = f"phieu_ck_{p.get('id')}_{safe_name}.pdf"
+    return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 
 @app.route("/api/history")

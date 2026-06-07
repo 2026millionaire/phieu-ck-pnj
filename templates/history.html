@@ -199,6 +199,9 @@ function renderTable(data) {
 
         var checked = p.da_trinh ? 'checked' : '';
 
+        var editDraftAction = p.status === 'draft'
+            ? '<a href="/?draft_id=' + p.id + '" class="action-btn view" title="Sửa nháp"><i class="bi bi-pencil-square"></i></a> '
+            : '';
         var tr = document.createElement('tr');
         tr.innerHTML =
             '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
@@ -212,7 +215,9 @@ function renderTable(data) {
             '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + '></td>' +
             '<td class="text-center">' +
                 '<a href="/eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a> ' +
+                editDraftAction +
                 '<a href="/api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a> ' +
+                '<a href="/api/pdf/' + p.id + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a> ' +
                 '<a href="/api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a> ' +
                 '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', \'' + (p.ten_kh || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>' +
             '</td>';
