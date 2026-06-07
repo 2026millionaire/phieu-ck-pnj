@@ -320,8 +320,11 @@ textarea#sap_data {
                 <button type="button" class="btn btn-outline-primary" id="btnSaveDraft">
                     <i class="bi bi-save"></i> Lưu nháp
                 </button>
-                <button type="button" class="btn btn-primary" id="btnSavePrint">
-                    <i class="bi bi-check2-circle"></i> Lưu phiếu
+                <button type="button" class="btn btn-success" id="btnSavePdf" data-action="pdf">
+                    <i class="bi bi-download"></i> Lưu & Tải PDF
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnSavePrint" data-action="view">
+                    <i class="bi bi-eye"></i> Lưu & Xem phiếu
                 </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClear">
                     <i class="bi bi-x-lg"></i> Xóa
@@ -1149,8 +1152,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.getElementById('btnSavePrint').addEventListener('click', function() {
+    function handleSaveFinalClick() {
         if (savePrintInProgress) return;
+        const action = this.dataset.action || 'view';
         savePrintInProgress = true;
         this.disabled = true;
         this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
@@ -1158,7 +1162,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const resetSaveButton = () => {
             savePrintInProgress = false;
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-check2-circle"></i> Lưu phiếu';
+            this.innerHTML = action === 'pdf'
+                ? '<i class="bi bi-download"></i> Lưu & Tải PDF'
+                : '<i class="bi bi-eye"></i> Lưu & Xem phiếu';
         };
 
         const checks = [
@@ -1252,11 +1258,14 @@ document.addEventListener('DOMContentLoaded', function() {
             status: 'printed',
         };
 
-        // iPhone/Safari can block window.open after an async fetch. Open first
-        // while still inside the tap gesture, then point it to the print URL.
-        const printWindow = window.open('about:blank', '_blank');
-        if (printWindow) {
-            printWindow.document.write('<!doctype html><title>Đang tạo phiếu...</title><p style="font-family:sans-serif;padding:16px;">Đang tạo phiếu, vui lòng chờ...</p>');
+        // Only the view flow opens a new window. PDF download stays in the current tab,
+        // which works better inside Zalo and other in-app browsers.
+        let printWindow = null;
+        if (action === 'view') {
+            printWindow = window.open('about:blank', '_blank');
+            if (printWindow) {
+                printWindow.document.write('<!doctype html><title>Đang tạo phiếu...</title><p style="font-family:sans-serif;padding:16px;">Đang tạo phiếu, vui lòng chờ...</p>');
+            }
         }
 
         fetch('/api/save', {
@@ -1267,6 +1276,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
+                if (action === 'pdf') {
+                    window.location.href = '/api/pdf/' + data.id;
+                    resetSaveButton();
+                    return;
+                }
                 const printUrl = '/api/print/' + data.id;
                 if (printWindow) {
                     printWindow.location.href = printUrl;
@@ -1287,7 +1301,10 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Lỗi kết nối: ' + err);
             resetSaveButton();
         });
-    });
+    }
+
+    document.getElementById('btnSavePrint').addEventListener('click', handleSaveFinalClick);
+    document.getElementById('btnSavePdf').addEventListener('click', handleSaveFinalClick);
 
 
     function loadDraftFromQuery() {
