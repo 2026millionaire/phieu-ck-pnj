@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import Flask, g, jsonify, redirect, render_template, request, send_file, session, url_for
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import shared_auth
@@ -33,6 +34,7 @@ REQUIRE_LOGIN = os.environ.get("REQUIRE_LOGIN", "0") == "1"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phieu_ck.db")
 PORT = 5050
+PDF_TOKEN_MAX_AGE = 15 * 60
 
 # ---------------------------------------------------------------------------
 # Load data from Excel
@@ -585,6 +587,39 @@ def find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck):
     ).fetchone()
 
 
+def pdf_token_serializer():
+    """Serializer for short-lived PDF download tokens."""
+    return URLSafeTimedSerializer(app.secret_key, salt="phieu-ck-pdf-download")
+
+
+def create_pdf_token(phieu_id, user_id):
+    """Create a short-lived token scoped to one phieu PDF."""
+    return pdf_token_serializer().dumps({
+        "purpose": "pdf",
+        "phieu_id": int(phieu_id),
+        "user_id": int(user_id),
+    })
+
+
+def verify_pdf_token(phieu_id):
+    """Return token payload if valid for this phieu, otherwise None."""
+    token = (request.args.get("token") or "").strip()
+    if not token:
+        return None
+    try:
+        payload = pdf_token_serializer().loads(token, max_age=PDF_TOKEN_MAX_AGE)
+    except (BadSignature, SignatureExpired, TypeError, ValueError):
+        return None
+    if payload.get("purpose") != "pdf":
+        return None
+    if int(payload.get("phieu_id", 0)) != int(phieu_id):
+        return None
+    user_id = payload.get("user_id")
+    if not user_id:
+        return None
+    return payload
+
+
 def prepare_phieu_for_output(row, settings=None):
     """Return a phieu dict with all display fields used by print/PDF output."""
     d = row_to_dict(row)
@@ -804,6 +839,8 @@ def check_auth():
         return
     allowed = ("login_page", "login_action", "logout_action", "static")
     if request.endpoint in allowed:
+        return
+    if request.endpoint == "api_pdf" and verify_pdf_token(request.view_args.get("phieu_id")):
         return
     if not session.get("user_id"):
         return redirect(url_for("login_page"))
@@ -1108,6 +1145,7 @@ def api_save():
         return jsonify({
             "ok": True,
             "id": duplicate["id"],
+            "pdf_token": create_pdf_token(duplicate["id"], user_id),
             "duplicate": True,
             "message": "Phiếu này đã được lưu trước đó, hệ thống mở lại bản đã lưu.",
         })
@@ -1149,6 +1187,7 @@ def api_save():
     return jsonify({
         "ok": True,
         "id": new_id,
+        "pdf_token": create_pdf_token(new_id, user_id),
         "tong_ck": tong_ck,
         "tong_ck_chu": so_thanh_chu(tong_ck),
         "ngay_tt": ngay_tt,
@@ -1187,6 +1226,7 @@ def api_print(phieu_id):
 
     settings = get_settings()
     d = prepare_phieu_for_output(row, settings)
+    d["pdf_token"] = create_pdf_token(phieu_id, current_user_id())
     return render_template("print.html", p=d, staff=STAFF)
 
 
@@ -1195,8 +1235,13 @@ def api_print(phieu_id):
 def api_pdf(phieu_id):
     """Download a PDF copy for in-app browsers where window.print() is blocked."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
-                     (phieu_id, current_user_id())).fetchone()
+    token_payload = verify_pdf_token(phieu_id)
+    if token_payload:
+        row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                         (phieu_id, int(token_payload["user_id"]))).fetchone()
+    else:
+        row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+                         (phieu_id, current_user_id())).fetchone()
     if not row:
         return "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu", 404
 
@@ -1225,6 +1270,7 @@ def api_history():
             d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
         except (json.JSONDecodeError, TypeError):
             d["chung_tu"] = []
+        d["pdf_token"] = create_pdf_token(d["id"], current_user_id())
         result.append(d)
     return jsonify({"ok": True, "data": result})
 

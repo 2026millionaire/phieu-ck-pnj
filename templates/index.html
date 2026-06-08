@@ -321,10 +321,10 @@ textarea#sap_data {
                     <i class="bi bi-save"></i> Lưu nháp
                 </button>
                 <button type="button" class="btn btn-success" id="btnSavePdf" data-action="pdf">
-                    <i class="bi bi-download"></i> Lưu & Tải PDF
+                    <i class="bi bi-download"></i> Tải PDF
                 </button>
                 <button type="button" class="btn btn-outline-primary" id="btnSavePrint" data-action="view">
-                    <i class="bi bi-printer"></i> Lưu & In phiếu
+                    <i class="bi bi-printer"></i> In phiếu
                 </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClear">
                     <i class="bi bi-x-lg"></i> Xóa
@@ -1165,8 +1165,8 @@ document.addEventListener('DOMContentLoaded', function() {
             savePrintInProgress = false;
             this.disabled = false;
             this.innerHTML = action === 'pdf'
-                ? '<i class="bi bi-download"></i> Lưu & Tải PDF'
-                : '<i class="bi bi-printer"></i> Lưu & In phiếu';
+                ? '<i class="bi bi-download"></i> PDF'
+                : '<i class="bi bi-printer"></i> In phiếu';
         };
 
         const checks = [
@@ -1279,7 +1279,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.ok) {
                 if (action === 'pdf') {
-                    window.location.href = appUrl('/api/pdf/' + data.id);
+                    const tokenParam = data.pdf_token ? '?token=' + encodeURIComponent(data.pdf_token) : '';
+                    window.location.href = appUrl('/api/pdf/' + data.id + tokenParam);
                     resetSaveButton();
                     return;
                 }
@@ -1313,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const params = new URLSearchParams(window.location.search);
         const draftId = params.get('draft_id');
         if (!draftId) return;
-        fetch('/api/phieu/' + draftId)
+        fetch(appUrl('/api/phieu/' + draftId))
             .then(r => r.json())
             .then(data => {
                 if (!data.ok || !data.phieu) return;
