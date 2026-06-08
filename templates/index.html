@@ -447,6 +447,8 @@ textarea#sap_data {
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
+    const appUrl = (path) => appBasePath + path;
     const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_tk', 'ngan_hang'];
     const now = new Date();
     const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
@@ -1277,11 +1279,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.ok) {
                 if (action === 'pdf') {
-                    window.location.href = '/api/pdf/' + data.id;
+                    window.location.href = appUrl('/api/pdf/' + data.id);
                     resetSaveButton();
                     return;
                 }
-                const printUrl = '/api/print/' + data.id + '?print=1';
+                const printUrl = appUrl('/api/print/' + data.id + '?print=1');
                 if (printWindow) {
                     printWindow.location.href = printUrl;
                 } else {
