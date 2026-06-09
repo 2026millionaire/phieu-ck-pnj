@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
     <title>Phiếu CK - {{ p.ten_kh }} - {{ p.created_at }}</title>
     <style>
         @page {
@@ -108,6 +109,14 @@
         .info-row .right { width: 44%; }
         .info-label { color: #000; }
         .info-value { font-weight: 700; }
+        .info-value,
+        .value,
+        .contact,
+        a[x-apple-data-detectors] {
+            color: #000 !important;
+            text-decoration: none !important;
+            border-bottom: none !important;
+        }
 
         /* ===== PAYMENT BLOCK (details + QR) ===== */
         .payment-block {

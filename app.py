@@ -1142,6 +1142,12 @@ def api_save():
     requested_status = data.get("status") if data.get("status") in ("draft", "printed") else "draft"
     duplicate = None if requested_status == "draft" else find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck)
     if duplicate:
+        if requested_status == "printed":
+            db.execute(
+                "UPDATE phieu SET status = 'printed' WHERE id = ? AND user_id = ?",
+                (duplicate["id"], user_id),
+            )
+            db.commit()
         return jsonify({
             "ok": True,
             "id": duplicate["id"],

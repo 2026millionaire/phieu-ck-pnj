@@ -1287,6 +1287,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const printUrl = appUrl('/api/print/' + data.id + '?print=1');
                 if (printWindow) {
                     printWindow.location.href = printUrl;
+                    resetSaveButton();
                 } else {
                     window.location.href = printUrl;
                 }
