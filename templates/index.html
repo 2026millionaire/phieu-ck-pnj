@@ -778,6 +778,34 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
     const loaiSignMap = {};
     loaiMap.forEach(l => loaiSignMap[l.value] = l.sign);
+    const taxDocPrefix = '4800';
+    const taxDocLength = 10;
+
+    function applyLoaiDefaults(item, previousLoai) {
+        if (item.loai === 'Thuế TNCN') {
+            const currentSoCt = (item.so_ct || '').trim();
+            if (!currentSoCt || currentSoCt === '{{ bk_prefix }}' || previousLoai === 'Bảng kê') {
+                item.so_ct = taxDocPrefix;
+            }
+        }
+    }
+
+    function confirmTaxDocNumbers(chungTu) {
+        const invalidTaxRows = chungTu.filter(function(item) {
+            return item.loai === 'Thuế TNCN'
+                && ((item.so_ct || '').trim().length < taxDocLength);
+        });
+        if (!invalidTaxRows.length) return true;
+
+        const numbers = invalidTaxRows.map(function(item) {
+            return (item.so_ct || '').trim() || '(trống)';
+        }).join(', ');
+        return confirm(
+            'Số chứng từ thuế gồm 10 kí tự, bạn nhập chưa đủ'
+            + (numbers ? ': ' + numbers : '')
+            + '.\nCó muốn tiếp tục?'
+        );
+    }
 
     function renderSapTable(items) {
         sapItems = items;
@@ -793,6 +821,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const timeVal = item.gio.includes(' ') ? item.gio.split(' ')[1] : (item.gio || defaultTime);
 
             // Auto-assign sign from loai
+            applyLoaiDefaults(item);
             item.sign = loaiSignMap[item.loai] || '-';
 
             let loaiSelect = '<select class="form-select form-select-sm sap-edit" data-idx="' + idx + '" data-field="loai" style="font-size:0.78rem;padding:2px 4px;">';
@@ -821,8 +850,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (field === 'gio') {
                     sapItems[idx].gio = todayStr + ' ' + this.value;
                 } else if (field === 'loai') {
+                    const previousLoai = sapItems[idx].loai;
                     sapItems[idx].loai = this.value;
                     sapItems[idx].sign = loaiSignMap[this.value] || '-';
+                    applyLoaiDefaults(sapItems[idx], previousLoai);
+                    renderSapTable(sapItems);
+                    return;
                 } else {
                     sapItems[idx][field] = this.value;
                 }
@@ -1111,6 +1144,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const chungTuJson = document.getElementById('chung_tu_json').value;
         let chungTu = [];
         try { chungTu = JSON.parse(chungTuJson); } catch(e) {}
+        if (!confirmTaxDocNumbers(chungTu)) return;
+
         const ten_kh = tenKhValue.toUpperCase();
         const nguoiKi = document.querySelector('input[name="nguoi_ki"]:checked').value;
         const payload = {
@@ -1230,6 +1265,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const chungTuJson = document.getElementById('chung_tu_json').value;
         let chungTu = [];
         try { chungTu = JSON.parse(chungTuJson); } catch(e) {}
+        if (!confirmTaxDocNumbers(chungTu)) {
+            resetSaveButton();
+            return;
+        }
 
         // Resolve người ký
         const nguoiKi = document.querySelector('input[name="nguoi_ki"]:checked').value;
