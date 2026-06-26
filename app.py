@@ -453,7 +453,7 @@ def calc_tong_ck(chung_tu_list):
     """
     total = 0
     for r in chung_tu_list:
-        if r["loai"] in ("Hóa đơn", "Phải thu khác"):
+        if r["loai"] in ("Hóa đơn", "Phải thu khác", "Thuế TNCN"):
             total -= r["gia_tri"]
         else:
             total += r["gia_tri"]
@@ -782,7 +782,7 @@ def make_phieu_pdf(p):
             f"{abs(float(ct.get('gia_tri') or 0)):,.0f}",
             ct.get("gio", ""),
         ])
-    table_data.append(["TỔNG THANH TOÁN (BK+CỌC+HBTL-HĐ)", "", f"{float(p.get('tong_ck') or 0):,.0f}", ""])
+    table_data.append(["TỔNG THANH TOÁN", "", f"{float(p.get('tong_ck') or 0):,.0f}", ""])
     ct_table = Table(table_data, colWidths=[35 * mm, 36 * mm, 31 * mm, 32 * mm])
     ct_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), base_font),

@@ -395,7 +395,7 @@ textarea#sap_data {
                             </tbody>
                             <tfoot>
                                 <tr style="background:#FFFF00; font-weight:700;">
-                                    <td colspan="2"><strong>TỔNG THANH TOÁN (BK+CỌC+HBTL-HĐ)</strong></td>
+                                    <td colspan="2"><strong>TỔNG THANH TOÁN</strong></td>
                                     <td class="pv-tong_ck" style="text-align:right;">0</td>
                                     <td></td>
                                 </tr>
@@ -774,6 +774,7 @@ document.addEventListener('DOMContentLoaded', function() {
         { value: 'HBTL',           label: 'HBTL - Hàng bán trả lại', sign: '-' },
         { value: 'Phải CK khác',   label: 'CK khác - Phải CK khác', sign: '-' },
         { value: 'Phải thu khác',  label: 'Thu khác - Phải thu khác', sign: '+' },
+        { value: 'Thuế TNCN',      label: 'Thuế TNCN', sign: '+' },
     ];
     const loaiSignMap = {};
     loaiMap.forEach(l => loaiSignMap[l.value] = l.sign);
@@ -872,7 +873,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const summaryEl = document.getElementById('summaryContent');
         const summaryLabels = {
             'Bảng kê': 'Tổng BK', 'Biên nhận cọc': 'Tổng Cọc', 'HBTL': 'Tổng HBTL',
-            'Hóa đơn': 'Tổng HĐ', 'Phải CK khác': 'Tổng CK khác', 'Phải thu khác': 'Tổng Thu khác'
+            'Hóa đơn': 'Tổng HĐ', 'Phải CK khác': 'Tổng CK khác', 'Phải thu khác': 'Tổng Thu khác',
+            'Thuế TNCN': 'Tổng Thuế TNCN'
         };
         let html = '<div class="row">';
         for (const [loai, label] of Object.entries(summaryLabels)) {
