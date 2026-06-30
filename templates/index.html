@@ -177,14 +177,16 @@ textarea#sap_data {
                                 </div>
                             </div>
                             <div id="realAccountSuggestion" class="alert alert-warning py-2 px-2 mt-2 mb-0 d-none" style="font-size:0.82rem;">
-                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-2">
                                     <div class="flex-grow-1">
-                                        <i class="bi bi-info-circle"></i>
-                                        Ngân hàng trả về STK thật: <strong id="realAccountValue"></strong>.
-                                        Theo quy định mới, QT82 phải dùng số tài khoản thật.
+                                        ① Ngân hàng trả về STK thật: <strong id="realAccountValue"></strong>.
+                                        Theo quy định mới, QT82 phải dùng số tài khoản thật, không dùng SĐT, tên khác thay thế.
+                                        Bạn có muốn cập nhật về STK gốc?
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-success" id="btnUseRealAccount">YES</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnKeepAliasAccount">NO</button>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <button type="button" class="btn btn-sm btn-success" id="btnUseRealAccount">YES</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnKeepAliasAccount">NO</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
