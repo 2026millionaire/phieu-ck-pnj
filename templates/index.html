@@ -176,6 +176,17 @@ textarea#sap_data {
                                     <i class="bi bi-check-circle-fill"></i> Tên TK khớp tên KH!
                                 </div>
                             </div>
+                            <div id="realAccountSuggestion" class="alert alert-warning py-2 px-2 mt-2 mb-0 d-none" style="font-size:0.82rem;">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        <i class="bi bi-info-circle"></i>
+                                        Ngân hàng trả về STK thật: <strong id="realAccountValue"></strong>.
+                                        Theo quy định mới, QT82 phải dùng số tài khoản thật.
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-success" id="btnUseRealAccount">YES</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnKeepAliasAccount">NO</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-5">
                             <label class="form-label">Số tài khoản</label>
@@ -464,6 +475,19 @@ document.addEventListener('DOMContentLoaded', function() {
             displayName: match[1].trim(),
             realAccount: match[2].trim()
         };
+    }
+
+    function hideRealAccountSuggestion() {
+        const suggestionEl = document.getElementById('realAccountSuggestion');
+        suggestionEl.classList.add('d-none');
+        suggestionEl.dataset.realAccount = '';
+    }
+
+    function showRealAccountSuggestion(realAccount) {
+        const suggestionEl = document.getElementById('realAccountSuggestion');
+        suggestionEl.dataset.realAccount = realAccount;
+        document.getElementById('realAccountValue').textContent = realAccount;
+        suggestionEl.classList.remove('d-none');
     }
 
     const now = new Date();
@@ -970,6 +994,20 @@ document.addEventListener('DOMContentLoaded', function() {
         this.value = normalizeAccountNumber(this.value);
         updateQR();
     });
+    document.getElementById('so_tk').addEventListener('input', hideRealAccountSuggestion);
+
+    document.getElementById('btnUseRealAccount').addEventListener('click', function() {
+        const suggestionEl = document.getElementById('realAccountSuggestion');
+        const realAccount = suggestionEl.dataset.realAccount || '';
+        if (!realAccount) return;
+        const soTkEl = document.getElementById('so_tk');
+        soTkEl.value = realAccount;
+        soTkEl.dispatchEvent(new Event('input', { bubbles: true }));
+        updateQR();
+        hideRealAccountSuggestion();
+    });
+
+    document.getElementById('btnKeepAliasAccount').addEventListener('click', hideRealAccountSuggestion);
 
     // Auto lookup khi đủ STK + NH (chỉ lần đầu)
     let autoLookupDone = false;
@@ -1063,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const warnEl = document.getElementById('nameWarning');
         const matchEl = document.getElementById('nameMatch');
         const tenKh = document.getElementById('ten_kh').value.trim().toUpperCase();
-        const tenTk = nameEl.value.trim().toUpperCase();
+        const tenTk = splitLookupAccountName(nameEl.value).displayName.trim().toUpperCase();
 
         warnEl.classList.add('d-none');
         matchEl.classList.add('d-none');
@@ -1089,11 +1127,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const errEl = document.getElementById('lookupError');
         const nameEl = document.getElementById('ten_chu_tk');
         const warnEl = document.getElementById('nameWarning');
+        const matchEl = document.getElementById('nameMatch');
 
         errEl.classList.add('d-none');
         warnEl.classList.add('d-none');
+        matchEl.classList.add('d-none');
+        hideRealAccountSuggestion();
         nameEl.value = '';
-        nameEl.classList.remove('bg-danger-subtle');
+        nameEl.classList.remove('bg-danger-subtle', 'bg-success-subtle');
 
         if (!soTk) { errEl.textContent = 'Nhập số tài khoản trước.'; errEl.classList.remove('d-none'); return; }
         if (!bankBin) { errEl.textContent = 'Chọn ngân hàng trước.'; errEl.classList.remove('d-none'); return; }
@@ -1110,24 +1151,13 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.ok) {
                 const lookupName = splitLookupAccountName(data.accountName);
-                nameEl.value = lookupName.displayName;
+                nameEl.value = data.accountName;
                 nameEl.style.color = '#0369a1';
                 // Uncheck "Dùng tên KH" vì đã tra được
                 document.getElementById('cbUseTenKH').checked = false;
                 nameEl.readOnly = true;
                 if (lookupName.realAccount && lookupName.realAccount !== soTk) {
-                    const shouldReplaceAccount = confirm(
-                        'Ngân hàng trả về STK thật: ' + lookupName.realAccount
-                        + '\nSTK đang nhập hiện tại: ' + soTk
-                        + '\n\nTheo quy định mới, QT82 phải dùng số tài khoản thật, không dùng alias/SĐT.'
-                        + '\nBạn có muốn thay STK hiện tại bằng STK thật không?'
-                    );
-                    if (shouldReplaceAccount) {
-                        const soTkEl = document.getElementById('so_tk');
-                        soTkEl.value = lookupName.realAccount;
-                        soTkEl.dispatchEvent(new Event('input', { bubbles: true }));
-                        updateQR();
-                    }
+                    showRealAccountSuggestion(lookupName.realAccount);
                 }
                 checkNameMatch();
             } else {
@@ -1192,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', function() {
             so_tk: normalizeAccountNumber(document.getElementById('so_tk').value),
             ten_tk: document.getElementById('cbUseTenKH').checked
                 ? ten_kh
-                : (document.getElementById('ten_chu_tk').value.trim() || ten_kh),
+                : (splitLookupAccountName(document.getElementById('ten_chu_tk').value).displayName || ten_kh),
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: soBkValue,
             tvv_code: document.getElementById('tvv_code').value,
@@ -1323,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', function() {
             so_tk: normalizeAccountNumber(document.getElementById('so_tk').value),
             ten_tk: document.getElementById('cbUseTenKH').checked
                 ? ten_kh
-                : (document.getElementById('ten_chu_tk').value.trim() || ten_kh),
+                : (splitLookupAccountName(document.getElementById('ten_chu_tk').value).displayName || ten_kh),
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: document.getElementById('so_bk').value.trim(),
             tvv_code: document.getElementById('tvv_code').value,
