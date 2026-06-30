@@ -9,6 +9,7 @@ import io
 import os
 import re
 import sqlite3
+import urllib.parse
 import urllib.request
 import webbrowser
 from datetime import datetime, timedelta
@@ -484,6 +485,11 @@ def calc_ngay_tt(created_at_str=None):
         return candidate.strftime("%Y-%m-%d")
 
 
+def normalize_account_number(value):
+    """Giữ chữ/số tài khoản, chỉ bỏ khoảng trắng và viết hoa."""
+    return re.sub(r"\s+", "", str(value or "").strip()).upper()
+
+
 def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
     """
     Build VietQR image URL.
@@ -497,10 +503,11 @@ def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
             if key.upper() in nh_upper:
                 bin_code = val
                 break
-    if not bin_code or not so_tk:
+    account = normalize_account_number(so_tk)
+    if not bin_code or not account:
         return ""
 
-    url = f"https://img.vietqr.io/image/{bin_code}-{so_tk}-qr_only.png"
+    url = f"https://img.vietqr.io/image/{bin_code}-{urllib.parse.quote(account)}-qr_only.png"
 
     params = []
     if amount:
@@ -564,7 +571,7 @@ def find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck):
     """
     ma_kh = (data.get("ma_kh") or "").strip()
     cccd = (data.get("cccd") or "").strip()
-    so_tk = (data.get("so_tk") or "").strip()
+    so_tk = normalize_account_number(data.get("so_tk"))
     if not ma_kh or not so_bk:
         return None
     cutoff = (datetime.now() - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
@@ -646,8 +653,8 @@ def prepare_phieu_for_output(row, settings=None):
     raw_sdt = re.sub(r"\D", "", d.get("sdt", ""))
     d["sdt_fmt"] = f"{raw_sdt[:4]} {raw_sdt[4:7]} {raw_sdt[7:]}" if len(raw_sdt) == 10 else d.get("sdt", "")
 
-    raw_tk = re.sub(r"\D", "", d.get("so_tk", ""))
-    d["so_tk_fmt"] = " ".join([raw_tk[i:i+4] for i in range(0, len(raw_tk), 4)]) if raw_tk else d.get("so_tk", "")
+    raw_tk = normalize_account_number(d.get("so_tk", ""))
+    d["so_tk_fmt"] = " ".join([raw_tk[i:i+4] for i in range(0, len(raw_tk), 4)]) if raw_tk.isdigit() else raw_tk
 
     raw_cccd = re.sub(r"\D", "", d.get("cccd", ""))
     d["cccd_fmt"] = " ".join([raw_cccd[i:i+3] for i in range(0, len(raw_cccd), 3)]) if raw_cccd else d.get("cccd", "")
@@ -1025,7 +1032,7 @@ def eoffice_page(phieu_id):
     d["eo_ma_kh"] = d.get("ma_kh", "")
     d["eo_noi_dung"] = build_noi_dung(plant, so_bk, ngay_str, d.get("ten_kh", ""))
     d["eo_ten_tk"] = d.get("ten_tk", "") or d.get("ten_kh", "")
-    d["eo_so_tk"] = re.sub(r"\D", "", d.get("so_tk", ""))
+    d["eo_so_tk"] = normalize_account_number(d.get("so_tk", ""))
     # Mã NH eOffice: tìm từ BANK_LIST
     eo_ma_nh = ""
     for b in BANK_LIST:
@@ -1124,7 +1131,7 @@ def api_save():
 
     plant = data.get("plant", settings.get("plant", "1305"))
     ngan_hang = data.get("ngan_hang", "")
-    so_tk = data.get("so_tk", "")
+    so_tk = normalize_account_number(data.get("so_tk"))
     ten_kh = data.get("ten_kh", "")
     so_bk = data.get("so_bk", "")
 
@@ -1323,7 +1330,7 @@ def api_qr_url():
     data = request.get_json(force=True)
     url = build_qr_url(
         data.get("ngan_hang", ""),
-        data.get("so_tk", ""),
+        normalize_account_number(data.get("so_tk")),
         amount=data.get("amount"),
         memo=data.get("memo"),
     )
@@ -1349,7 +1356,7 @@ def api_lookup_account():
     """Tra cứu tên chủ tài khoản qua MBBank interbank lookup."""
     data = request.get_json(force=True)
     bin_code = data.get("bin", "")
-    account = data.get("accountNumber", "").strip()
+    account = normalize_account_number(data.get("accountNumber"))
     if not bin_code or not account:
         return jsonify({"ok": False, "error": "Thiếu BIN hoặc số tài khoản"})
 

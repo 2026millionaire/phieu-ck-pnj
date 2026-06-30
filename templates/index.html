@@ -450,6 +450,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
     const appUrl = (path) => appBasePath + path;
     const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_tk', 'ngan_hang'];
+    function normalizeAccountNumber(value) {
+        return (value || '').trim().replace(/\s+/g, '').toUpperCase();
+    }
+
     const now = new Date();
     const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
     const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
@@ -464,8 +468,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const el = document.getElementById(f);
         if (!el) return;
         el.addEventListener('input', function() {
+            if (f === 'so_tk') this.value = normalizeAccountNumber(this.value);
             let val = this.value || '___';
             if (f === 'ten_kh') val = val.toUpperCase();
+            if (f === 'so_tk') val = normalizeAccountNumber(this.value) || '___';
             document.querySelectorAll('.pv-' + f).forEach(function(pv) {
                 pv.textContent = val;
             });
@@ -939,22 +945,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateQR() {
-        const soTk = document.getElementById('so_tk').value.replace(/\D/g, '');
+        const soTk = normalizeAccountNumber(document.getElementById('so_tk').value);
         const bankBin = document.getElementById('bank_bin').value;
         if (soTk && bankBin) {
-            const qrUrl = 'https://img.vietqr.io/image/' + bankBin + '-' + soTk + '-compact.png';
+            const qrUrl = 'https://img.vietqr.io/image/' + bankBin + '-' + encodeURIComponent(soTk) + '-compact.png';
             document.getElementById('previewQR').innerHTML = '<img src="' + qrUrl + '" style="width:56px;height:56px;object-fit:contain;" alt="QR">';
         }
     }
 
     // Update QR when so_tk changes
-    document.getElementById('so_tk').addEventListener('blur', updateQR);
+    document.getElementById('so_tk').addEventListener('blur', function() {
+        this.value = normalizeAccountNumber(this.value);
+        updateQR();
+    });
 
     // Auto lookup khi đủ STK + NH (chỉ lần đầu)
     let autoLookupDone = false;
     function tryAutoLookup() {
         if (autoLookupDone) return;
-        const soTk = document.getElementById('so_tk').value.replace(/\D/g, '');
+        const soTk = normalizeAccountNumber(document.getElementById('so_tk').value);
         const bankBin = document.getElementById('bank_bin').value;
         if (soTk.length >= 6 && bankBin) {
             autoLookupDone = true;
@@ -1063,7 +1072,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.getElementById('btnLookup').addEventListener('click', function() {
-        const soTk = document.getElementById('so_tk').value.replace(/\D/g, '');
+        const soTk = normalizeAccountNumber(document.getElementById('so_tk').value);
         const bankBin = document.getElementById('bank_bin').value;
         const errEl = document.getElementById('lookupError');
         const nameEl = document.getElementById('ten_chu_tk');
@@ -1153,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ten_kh: ten_kh,
             sdt: document.getElementById('sdt').value.trim(),
             cccd: document.getElementById('cccd').value.trim(),
-            so_tk: document.getElementById('so_tk').value.trim(),
+            so_tk: normalizeAccountNumber(document.getElementById('so_tk').value),
             ten_tk: document.getElementById('cbUseTenKH').checked
                 ? ten_kh
                 : (document.getElementById('ten_chu_tk').value.trim() || ten_kh),
@@ -1284,7 +1293,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ten_kh: ten_kh,
             sdt: document.getElementById('sdt').value.trim(),
             cccd: document.getElementById('cccd').value.trim(),
-            so_tk: document.getElementById('so_tk').value.trim(),
+            so_tk: normalizeAccountNumber(document.getElementById('so_tk').value),
             ten_tk: document.getElementById('cbUseTenKH').checked
                 ? ten_kh
                 : (document.getElementById('ten_chu_tk').value.trim() || ten_kh),
