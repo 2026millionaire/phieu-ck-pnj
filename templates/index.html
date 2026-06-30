@@ -469,7 +469,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function splitLookupAccountName(accountName) {
         const rawName = (accountName || '').trim();
-        const match = rawName.match(/^(.+)_([0-9]+)$/);
+        const compactName = rawName.replace(/\s+/g, ' ');
+        const patterns = [
+            /^(.+?)\s*[_-]\s*([0-9]{6,})$/,
+            /^(.+?)\s*\(([0-9]{6,})\)$/,
+            /^(.+?)\s+([0-9]{6,})$/
+        ];
+        let match = null;
+        for (const pattern of patterns) {
+            match = compactName.match(pattern);
+            if (match) break;
+        }
         if (!match) {
             return { displayName: rawName, realAccount: '' };
         }
