@@ -454,6 +454,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return (value || '').trim().replace(/\s+/g, '').toUpperCase();
     }
 
+    function splitLookupAccountName(accountName) {
+        const rawName = (accountName || '').trim();
+        const match = rawName.match(/^(.+)_([0-9]+)$/);
+        if (!match) {
+            return { displayName: rawName, realAccount: '' };
+        }
+        return {
+            displayName: match[1].trim(),
+            realAccount: match[2].trim()
+        };
+    }
+
     const now = new Date();
     const dateStr = now.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
     const timeStr = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
@@ -1097,11 +1109,26 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                nameEl.value = data.accountName;
+                const lookupName = splitLookupAccountName(data.accountName);
+                nameEl.value = lookupName.displayName;
                 nameEl.style.color = '#0369a1';
                 // Uncheck "Dùng tên KH" vì đã tra được
                 document.getElementById('cbUseTenKH').checked = false;
                 nameEl.readOnly = true;
+                if (lookupName.realAccount && lookupName.realAccount !== soTk) {
+                    const shouldReplaceAccount = confirm(
+                        'Ngân hàng trả về STK thật: ' + lookupName.realAccount
+                        + '\nSTK đang nhập hiện tại: ' + soTk
+                        + '\n\nTheo quy định mới, QT82 phải dùng số tài khoản thật, không dùng alias/SĐT.'
+                        + '\nBạn có muốn thay STK hiện tại bằng STK thật không?'
+                    );
+                    if (shouldReplaceAccount) {
+                        const soTkEl = document.getElementById('so_tk');
+                        soTkEl.value = lookupName.realAccount;
+                        soTkEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        updateQR();
+                    }
+                }
                 checkNameMatch();
             } else {
                 errEl.textContent = data.error || 'Không tìm thấy tài khoản';
