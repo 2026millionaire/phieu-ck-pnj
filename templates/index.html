@@ -998,6 +998,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('so_tk').addEventListener('input', hideRealAccountSuggestion);
 
+    let skipNextRealAccountSuggestion = false;
     document.getElementById('btnUseRealAccount').addEventListener('click', function() {
         const suggestionEl = document.getElementById('realAccountSuggestion');
         const realAccount = suggestionEl.dataset.realAccount || '';
@@ -1007,6 +1008,8 @@ document.addEventListener('DOMContentLoaded', function() {
         soTkEl.dispatchEvent(new Event('input', { bubbles: true }));
         updateQR();
         hideRealAccountSuggestion();
+        skipNextRealAccountSuggestion = true;
+        document.getElementById('btnLookup').click();
     });
 
     document.getElementById('btnKeepAliasAccount').addEventListener('click', hideRealAccountSuggestion);
@@ -1158,16 +1161,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Uncheck "Dùng tên KH" vì đã tra được
                 document.getElementById('cbUseTenKH').checked = false;
                 nameEl.readOnly = true;
-                if (lookupName.realAccount && lookupName.realAccount !== soTk) {
+                if (lookupName.realAccount && lookupName.realAccount !== soTk && !skipNextRealAccountSuggestion) {
                     showRealAccountSuggestion(lookupName.realAccount);
                 }
+                skipNextRealAccountSuggestion = false;
                 checkNameMatch();
             } else {
+                skipNextRealAccountSuggestion = false;
                 errEl.textContent = data.error || 'Không tìm thấy tài khoản';
                 errEl.classList.remove('d-none');
             }
         })
-        .catch(err => { errEl.textContent = 'Lỗi kết nối: ' + err; errEl.classList.remove('d-none'); })
+        .catch(err => {
+            skipNextRealAccountSuggestion = false;
+            errEl.textContent = 'Lỗi kết nối: ' + err;
+            errEl.classList.remove('d-none');
+        })
         .finally(() => { this.disabled = false; this.innerHTML = '<i class="bi bi-search"></i> Kiểm tra TK'; });
     });
 
