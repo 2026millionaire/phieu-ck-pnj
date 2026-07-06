@@ -8,7 +8,10 @@ import json
 import io
 import os
 import re
+import shutil
 import sqlite3
+import subprocess
+import tempfile
 import unicodedata
 import urllib.parse
 import urllib.request
@@ -519,6 +522,84 @@ def ascii_filename_part(value, max_length=32):
     text = re.sub(r"[^A-Z0-9]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:max_length].strip() or "PHIEU"
+
+
+def print_html_for_pdf(html):
+    """Chuẩn hóa HTML in trực tiếp để renderer server xuất PDF từ cùng template."""
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static").replace("\\", "/")
+    static_url = "file:///" + static_dir.lstrip("/")
+    html = html.replace('src="/static/', f'src="{static_url}/')
+    html = html.replace("src='/static/", f"src='{static_url}/")
+    html = html.replace('href="/static/', f'href="{static_url}/')
+    html = html.replace("href='/static/", f"href='{static_url}/")
+    pdf_css = """
+    <style>
+        .no-print { display: none !important; }
+        body { background: #fff !important; border: 0 !important; box-shadow: none !important; }
+    </style>
+    """
+    return html.replace("</head>", pdf_css + "</head>", 1)
+
+
+def find_pdf_renderer():
+    """Tìm browser/renderer dùng để xuất PDF từ print.html."""
+    env_path = os.environ.get("PDF_RENDERER_PATH")
+    if env_path and os.path.exists(env_path):
+        return env_path
+    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "wkhtmltopdf"):
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
+def make_pdf_from_print_html(html):
+    """Xuất PDF từ chính HTML của trang in để tránh lệch layout giữa In và Tải PDF."""
+    renderer = find_pdf_renderer()
+    if not renderer:
+        raise RuntimeError("PDF_RENDERER_MISSING")
+
+    with tempfile.TemporaryDirectory(prefix="phieu_ck_pdf_") as tmpdir:
+        html_path = os.path.join(tmpdir, "print.html")
+        pdf_path = os.path.join(tmpdir, "print.pdf")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(print_html_for_pdf(html))
+
+        renderer_name = os.path.basename(renderer).lower()
+        if "wkhtmltopdf" in renderer_name:
+            cmd = [
+                renderer,
+                "--quiet",
+                "--encoding", "utf-8",
+                "--print-media-type",
+                "--enable-local-file-access",
+                "--page-size", "A5",
+                "--orientation", "Portrait",
+                "--margin-top", "6mm",
+                "--margin-bottom", "6mm",
+                "--margin-left", "8mm",
+                "--margin-right", "8mm",
+                html_path,
+                pdf_path,
+            ]
+        else:
+            cmd = [
+                renderer,
+                "--headless",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--no-pdf-header-footer",
+                f"--print-to-pdf={pdf_path}",
+                html_path,
+            ]
+
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        if result.returncode != 0 or not os.path.exists(pdf_path):
+            raise RuntimeError("PDF_RENDER_FAILED")
+        with open(pdf_path, "rb") as f:
+            buf = io.BytesIO(f.read())
+        buf.seek(0)
+        return buf
 
 
 def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
@@ -1383,9 +1464,13 @@ def api_pdf(phieu_id):
 
     p = prepare_phieu_for_output(row, get_settings())
     try:
-        pdf = make_phieu_pdf(p)
+        html = render_template("print.html", p=p, staff=STAFF)
+        pdf = make_pdf_from_print_html(html)
     except RuntimeError:
-        return "Server ch\u01b0a c\u00e0i th\u01b0 vi\u1ec7n xu\u1ea5t PDF. Vui l\u00f2ng b\u00e1o admin c\u00e0i reportlab.", 500
+        try:
+            pdf = make_phieu_pdf(p)
+        except RuntimeError:
+            return "Server ch\u01b0a c\u00e0i th\u01b0 vi\u1ec7n xu\u1ea5t PDF. Vui l\u00f2ng b\u00e1o admin c\u00e0i reportlab.", 500
 
     filename = f"{p.get('file_title') or ('CK ' + ascii_filename_part(p.get('ten_kh'), 30) + ' ' + str(p.get('id')))}.pdf"
     return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
