@@ -9,6 +9,7 @@ import io
 import os
 import re
 import sqlite3
+import unicodedata
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -490,6 +491,36 @@ def normalize_account_number(value):
     return re.sub(r"\s+", "", str(value or "").strip()).upper()
 
 
+def remove_all_whitespace(value):
+    """Bỏ toàn bộ ký tự trắng trong các mã định danh để tránh trùng do khoảng trắng."""
+    return re.sub(r"\s+", "", str(value or "").strip())
+
+
+def sanitize_chung_tu_list(chung_tu_list):
+    """Chuẩn hóa chứng từ trước khi lưu/in: mã số bỏ khoảng trắng, nội dung khác chỉ trim."""
+    cleaned = []
+    for item in chung_tu_list or []:
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        row["loai"] = str(row.get("loai", "")).strip()
+        row["doc_num"] = remove_all_whitespace(row.get("doc_num", ""))
+        row["so_ct"] = remove_all_whitespace(row.get("so_ct", ""))
+        row["gio"] = str(row.get("gio", "")).strip()
+        cleaned.append(row)
+    return cleaned
+
+
+def ascii_filename_part(value, max_length=32):
+    """Chuyển tiếng Việt có dấu sang ASCII an toàn cho tên file tải xuống."""
+    text = str(value or "").strip().upper().replace("Đ", "D").replace("đ", "d")
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = re.sub(r"[^A-Z0-9]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:max_length].strip() or "PHIEU"
+
+
 def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
     """
     Build VietQR image URL.
@@ -569,8 +600,8 @@ def find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck):
     repeatedly. This protects iPhone/Safari flows where opening the print page
     can fail silently and users tap Save again.
     """
-    ma_kh = (data.get("ma_kh") or "").strip()
-    cccd = (data.get("cccd") or "").strip()
+    ma_kh = remove_all_whitespace(data.get("ma_kh"))
+    cccd = remove_all_whitespace(data.get("cccd"))
     so_tk = normalize_account_number(data.get("so_tk"))
     if not ma_kh or not so_bk:
         return None
@@ -635,6 +666,12 @@ def prepare_phieu_for_output(row, settings=None):
         d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
     except (json.JSONDecodeError, TypeError):
         d["chung_tu"] = []
+    d["chung_tu"] = sanitize_chung_tu_list(d["chung_tu"])
+    d["ma_kh"] = remove_all_whitespace(d.get("ma_kh", ""))
+    d["sdt"] = remove_all_whitespace(d.get("sdt", ""))
+    d["cccd"] = remove_all_whitespace(d.get("cccd", ""))
+    d["so_bk"] = remove_all_whitespace(d.get("so_bk", ""))
+    d["plant"] = remove_all_whitespace(d.get("plant", ""))
 
     try:
         dt = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
@@ -693,6 +730,7 @@ def prepare_phieu_for_output(row, settings=None):
     }
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
     d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
+    d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
 
 
@@ -857,14 +895,16 @@ def make_phieu_pdf(p):
         ("BACKGROUND", (0, 0), (-1, 0), colors.yellow),
         ("BACKGROUND", (0, -1), (-1, -1), colors.yellow),
         ("SPAN", (0, -1), (1, -1)),
+        ("ALIGN", (0, 1), (0, -2), "CENTER"),
         ("ALIGN", (2, 1), (2, -1), "RIGHT"),
+        ("ALIGN", (3, 1), (3, -2), "CENTER"),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
     ]))
     story.append(ct_table)
-    story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.", small))
+    story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.", normal))
     if p.get("show_payment_time"):
-        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('ngay_tt_fmt') or p.get('ngay_tt') or ''}", small))
-    story.append(Paragraph("<b>Lưu ý:</b><br/>1. Các giao dịch phát sinh từ T2-T6 trước 16h30: Thanh toán trong ngày (T)<br/>2. Các giao dịch phát sinh từ T2-T6 sau 16h30, T7; CN, Lễ, Tết: Thanh toán vào ngày kế tiếp (T+1)<br/>* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", small))
+        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('ngay_tt_fmt') or p.get('ngay_tt') or ''}", normal))
+    story.append(Paragraph("<b>Lưu ý:</b><br/>1. Các giao dịch phát sinh từ T2-T6 trước 16h30: Thanh toán trong ngày (T)<br/>2. Các giao dịch phát sinh từ T2-T6 sau 16h30, T7; CN, Lễ, Tết: Thanh toán vào ngày kế tiếp (T+1)<br/>* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
     story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
     story.append(Spacer(1, 4 * mm))
     story.append(Table([
@@ -1158,6 +1198,7 @@ def api_save():
     if isinstance(chung_tu_list, str):
         # Might be raw SAP paste text
         chung_tu_list = parse_sap_paste(chung_tu_list)
+    chung_tu_list = sanitize_chung_tu_list(chung_tu_list)
 
     created_at = build_created_at_from_form(data, chung_tu_list)
 
@@ -1186,11 +1227,14 @@ def api_save():
         else:
             ngay_tt = calc_ngay_tt(created_at)
 
-    plant = data.get("plant", settings.get("plant", "1305"))
-    ngan_hang = data.get("ngan_hang", "")
+    plant = remove_all_whitespace(data.get("plant", settings.get("plant", "1305")))
+    ngan_hang = str(data.get("ngan_hang", "")).strip()
     so_tk = normalize_account_number(data.get("so_tk"))
-    ten_kh = data.get("ten_kh", "")
-    so_bk = data.get("so_bk", "")
+    ten_kh = str(data.get("ten_kh", "")).strip()
+    ma_kh = remove_all_whitespace(data.get("ma_kh", ""))
+    sdt = remove_all_whitespace(data.get("sdt", ""))
+    cccd = remove_all_whitespace(data.get("cccd", ""))
+    so_bk = remove_all_whitespace(data.get("so_bk", ""))
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
@@ -1230,17 +1274,17 @@ def api_save():
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
-        data.get("ma_kh", ""),
+        ma_kh,
         ten_kh,
-        data.get("sdt", ""),
-        data.get("cccd", ""),
+        sdt,
+        cccd,
         so_tk,
-        data.get("ten_tk", ""),
+        str(data.get("ten_tk", "")).strip(),
         ngan_hang,
         so_bk,
-        data.get("tvv_code", ""),
-        data.get("tvv_name_real", "") or data.get("tvv_name", ""),
-        data.get("cht_name", STAFF["cua_hang_truong"]),
+        remove_all_whitespace(data.get("tvv_code", "")),
+        str(data.get("tvv_name_real", "") or data.get("tvv_name", "")).strip(),
+        str(data.get("cht_name", STAFF["cua_hang_truong"])).strip(),
         plant,
         chung_tu_json,
         tong_ck,
@@ -1321,8 +1365,7 @@ def api_pdf(phieu_id):
     except RuntimeError:
         return "Server ch\u01b0a c\u00e0i th\u01b0 vi\u1ec7n xu\u1ea5t PDF. Vui l\u00f2ng b\u00e1o admin c\u00e0i reportlab.", 500
 
-    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", (p.get("ten_kh") or "phieu_ck").strip())[:40] or "phieu_ck"
-    filename = f"phieu_ck_{p.get('id')}_{safe_name}.pdf"
+    filename = f"{p.get('file_title') or ('CK ' + ascii_filename_part(p.get('ten_kh'), 30) + ' ' + str(p.get('id')))}.pdf"
     return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 
