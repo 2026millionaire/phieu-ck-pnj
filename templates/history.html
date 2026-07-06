@@ -91,6 +91,7 @@
                         <tr>
                             <th class="text-center" style="width:40px;">STT</th>
                             <th>Ngày tạo</th>
+                            <th class="admin-owner-col d-none">User tạo</th>
                             <th>Mã KH</th>
                             <th>Tên KH</th>
                             <th>TVV</th>
@@ -124,6 +125,7 @@
 {% block scripts %}
 <script>
 var allData = [];
+var isAdminHistory = false;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadHistory();
@@ -141,6 +143,10 @@ function loadHistory() {
             document.getElementById('loadingState').classList.add('d-none');
             if (json.ok && json.data && json.data.length > 0) {
                 allData = json.data;
+                isAdminHistory = !!json.admin;
+                document.querySelectorAll('.admin-owner-col').forEach(function(el) {
+                    el.classList.toggle('d-none', !isAdminHistory);
+                });
                 renderTable(allData);
             } else {
                 document.getElementById('emptyState').classList.remove('d-none');
@@ -160,7 +166,8 @@ function filterData() {
     }
     var filtered = allData.filter(function(p) {
         return (p.ten_kh && p.ten_kh.toUpperCase().indexOf(q) >= 0) ||
-               (p.ma_kh && p.ma_kh.toUpperCase().indexOf(q) >= 0);
+               (p.ma_kh && p.ma_kh.toUpperCase().indexOf(q) >= 0) ||
+               (p.owner_name && p.owner_name.toUpperCase().indexOf(q) >= 0);
     });
     renderTable(filtered);
 }
@@ -198,26 +205,32 @@ function renderTable(data) {
         var tongCk = p.tong_ck ? Math.round(p.tong_ck).toLocaleString('vi-VN') : '0';
 
         var checked = p.da_trinh ? 'checked' : '';
+        var manageDisabled = p.can_manage === false ? 'disabled title="Chỉ chủ phiếu được cập nhật"' : '';
+        var deleteAction = p.can_manage === false
+            ? ''
+            : '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', \'' + (p.ten_kh || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>';
 
         var refillAction = '<a href="./?draft_id=' + p.id + '" class="action-btn view" title="Điền lại phiếu"><i class="bi bi-pencil-square"></i></a> ';
+        var ownerCell = isAdminHistory ? '<td style="font-size:0.8rem;">' + (p.owner_name || ('User ' + (p.user_id || ''))) + '</td>' : '';
         var tr = document.createElement('tr');
         tr.innerHTML =
             '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
             '<td style="white-space:nowrap;">' + (p.created_at || '') + '</td>' +
+            ownerCell +
             '<td><code>' + (p.ma_kh || '') + '</code></td>' +
             '<td><strong>' + (p.ten_kh || '') + '</strong></td>' +
             '<td style="font-size:0.8rem;">' + (p.tvv_name || '') + '</td>' +
             '<td>' + (p.so_bk || '') + '</td>' +
             '<td class="amount">' + tongCk + '</td>' +
             '<td class="text-center">' + statusBadge + '</td>' +
-            '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + '></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + ' ' + manageDisabled + '></td>' +
             '<td class="text-center">' +
                 '<a href="eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a> ' +
                 refillAction +
                 '<a href="api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a> ' +
                 '<a href="api/pdf/' + p.id + (p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '') + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a> ' +
                 '<a href="api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a> ' +
-                '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', \'' + (p.ten_kh || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>' +
+                deleteAction +
             '</td>';
         tbody.appendChild(tr);
     });

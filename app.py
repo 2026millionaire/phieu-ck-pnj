@@ -995,9 +995,30 @@ def is_admin():
         return True
     uid = session.get("user_id")
     if uid:
-        user = shared_auth.get_user(uid)
+        try:
+            user = shared_auth.get_user(uid)
+        except Exception:
+            return False
         return bool(user and user.get("role") == "admin")
     return False
+
+
+def get_accessible_phieu(db, phieu_id):
+    """Return a phieu row the current user may read."""
+    if is_admin():
+        return db.execute("SELECT * FROM phieu WHERE id = ?", (phieu_id,)).fetchone()
+    return db.execute(
+        "SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+        (phieu_id, current_user_id()),
+    ).fetchone()
+
+
+def get_owned_phieu(db, phieu_id):
+    """Return a phieu row owned by the current user."""
+    return db.execute(
+        "SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+        (phieu_id, current_user_id()),
+    ).fetchone()
 
 
 @app.route("/")
@@ -1097,8 +1118,7 @@ def eoffice_index():
 def eoffice_page(phieu_id):
     """eOffice QT82 page with copyable fields."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
-                     (phieu_id, current_user_id())).fetchone()
+    row = get_accessible_phieu(db, phieu_id)
     if not row:
         return render_template("eoffice.html", phieu=None)
 
@@ -1182,6 +1202,9 @@ def api_da_trinh(phieu_id):
     """Toggle da_trinh status."""
     data = request.get_json(force=True)
     db = get_db()
+    row = get_owned_phieu(db, phieu_id)
+    if not row:
+        return jsonify({"ok": False, "error": "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu"}), 404
     db.execute("UPDATE phieu SET da_trinh = ? WHERE id = ? AND user_id = ?",
                (1 if data.get("da_trinh") else 0, phieu_id, current_user_id()))
     db.commit()
@@ -1314,8 +1337,7 @@ def api_save():
 def api_get_phieu(phieu_id):
     """Get a single phieu as JSON."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
-                     (phieu_id, current_user_id())).fetchone()
+    row = get_accessible_phieu(db, phieu_id)
     if not row:
         return jsonify({"ok": False, "error": "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu"}), 404
 
@@ -1333,14 +1355,13 @@ def api_get_phieu(phieu_id):
 def api_print(phieu_id):
     """Return printable HTML for a specific phieu."""
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
-                     (phieu_id, current_user_id())).fetchone()
+    row = get_accessible_phieu(db, phieu_id)
     if not row:
         return "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu", 404
 
     settings = get_settings()
     d = prepare_phieu_for_output(row, settings)
-    d["pdf_token"] = create_pdf_token(phieu_id, current_user_id())
+    d["pdf_token"] = create_pdf_token(phieu_id, row["user_id"])
     return render_template("print.html", p=d, staff=STAFF)
 
 
@@ -1354,8 +1375,9 @@ def api_pdf(phieu_id):
         row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
                          (phieu_id, int(token_payload["user_id"]))).fetchone()
     else:
-        row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
-                         (phieu_id, current_user_id())).fetchone()
+        row = get_accessible_phieu(db, phieu_id)
+    if not row:
+        row = get_accessible_phieu(db, phieu_id) if is_admin() else None
     if not row:
         return "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu", 404
 
@@ -1371,10 +1393,19 @@ def api_pdf(phieu_id):
 
 @app.route("/api/history")
 def api_history():
-    """JSON list of all phieu, newest first (filtered by current user)."""
+    """JSON list of phieu, newest first. Admin can see all users."""
     db = get_db()
-    rows = db.execute("SELECT * FROM phieu WHERE user_id = ? ORDER BY id DESC",
-                      (current_user_id(),)).fetchall()
+    admin = is_admin()
+    if admin:
+        rows = db.execute("SELECT * FROM phieu ORDER BY id DESC").fetchall()
+        try:
+            users = {u["id"]: (u.get("full_name") or u.get("username") or f"User {u['id']}") for u in shared_auth.list_users()}
+        except Exception:
+            users = {}
+    else:
+        rows = db.execute("SELECT * FROM phieu WHERE user_id = ? ORDER BY id DESC",
+                          (current_user_id(),)).fetchall()
+        users = {}
     result = []
     for row in rows:
         d = row_to_dict(row)
@@ -1383,17 +1414,19 @@ def api_history():
             d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
         except (json.JSONDecodeError, TypeError):
             d["chung_tu"] = []
-        d["pdf_token"] = create_pdf_token(d["id"], current_user_id())
+        d["pdf_token"] = create_pdf_token(d["id"], d.get("user_id") or current_user_id())
+        d["can_manage"] = int(d.get("user_id") or 0) == int(current_user_id())
+        if admin:
+            d["owner_name"] = users.get(d.get("user_id"), f"User {d.get('user_id')}")
         result.append(d)
-    return jsonify({"ok": True, "data": result})
+    return jsonify({"ok": True, "data": result, "admin": admin})
 
 
 @app.route("/api/delete/<int:phieu_id>", methods=["DELETE"])
 def api_delete(phieu_id):
     """Delete a phieu."""
     db = get_db()
-    row = db.execute("SELECT id FROM phieu WHERE id = ? AND user_id = ?",
-                     (phieu_id, current_user_id())).fetchone()
+    row = get_owned_phieu(db, phieu_id)
     if not row:
         return jsonify({"ok": False, "error": "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu"}), 404
 
@@ -1662,8 +1695,7 @@ def api_template_tt(phieu_id):
     import tempfile
 
     db = get_db()
-    row = db.execute("SELECT * FROM phieu WHERE id = ? AND user_id = ?",
-                     (phieu_id, current_user_id())).fetchone()
+    row = get_accessible_phieu(db, phieu_id)
     if not row:
         return "Không tìm thấy phiếu", 404
 
