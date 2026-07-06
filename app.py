@@ -706,28 +706,85 @@ def make_phieu_pdf(p):
         from reportlab.lib.units import mm
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.pdfbase.pdfmetrics import registerFontFamily
         from reportlab.platypus import (
             Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
         )
     except ImportError as exc:
         raise RuntimeError("REPORTLAB_MISSING") from exc
 
-    font_candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-        r"C:\Windows\Fonts\times.ttf",
-        r"C:\Windows\Fonts\timesbd.ttf",
+    font_sets = [
+        {
+            "regular": r"C:\Windows\Fonts\times.ttf",
+            "bold": r"C:\Windows\Fonts\timesbd.ttf",
+            "italic": r"C:\Windows\Fonts\timesi.ttf",
+            "bold_italic": r"C:\Windows\Fonts\timesbi.ttf",
+        },
+        {
+            "regular": "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf",
+            "bold": "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Bold.ttf",
+            "italic": "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Italic.ttf",
+            "bold_italic": "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Bold_Italic.ttf",
+        },
+        {
+            "regular": "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+            "bold": "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+            "italic": "/usr/share/fonts/truetype/liberation2/LiberationSerif-Italic.ttf",
+            "bold_italic": "/usr/share/fonts/truetype/liberation2/LiberationSerif-BoldItalic.ttf",
+        },
+        {
+            "regular": "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+            "bold": "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+            "italic": "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf",
+            "bold_italic": "/usr/share/fonts/truetype/liberation/LiberationSerif-BoldItalic.ttf",
+        },
+        {
+            "regular": "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+            "bold": "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
+            "italic": "/usr/share/fonts/truetype/freefont/FreeSerifItalic.ttf",
+            "bold_italic": "/usr/share/fonts/truetype/freefont/FreeSerifBoldItalic.ttf",
+        },
+        {
+            "regular": "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
+            "bold": "/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf",
+            "italic": "/usr/share/fonts/truetype/noto/NotoSerif-Italic.ttf",
+            "bold_italic": "/usr/share/fonts/truetype/noto/NotoSerif-BoldItalic.ttf",
+        },
+        {
+            "regular": "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+            "bold": "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "italic": "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
+            "bold_italic": "/usr/share/fonts/truetype/dejavu/DejaVuSerif-BoldItalic.ttf",
+        },
     ]
-    regular_font = next((p for p in font_candidates if os.path.exists(p) and not p.lower().endswith("bold.ttf") and "bd" not in p.lower()), None)
-    bold_font = next((p for p in font_candidates if os.path.exists(p) and (p.lower().endswith("bold.ttf") or "bd" in p.lower())), regular_font)
-    if regular_font:
-        pdfmetrics.registerFont(TTFont("PNJSerif", regular_font))
-        pdfmetrics.registerFont(TTFont("PNJSerif-Bold", bold_font or regular_font))
+    base_font = "Times-Roman"
+    bold = "Times-Bold"
+    italic = "Times-Italic"
+    for font_paths in font_sets:
+        if not os.path.exists(font_paths["regular"]):
+            continue
+        regular_font = font_paths["regular"]
+        bold_font = font_paths["bold"] if os.path.exists(font_paths["bold"]) else regular_font
+        italic_font = font_paths["italic"] if os.path.exists(font_paths["italic"]) else regular_font
+        bold_italic_font = font_paths["bold_italic"] if os.path.exists(font_paths["bold_italic"]) else bold_font
+        try:
+            pdfmetrics.registerFont(TTFont("PNJSerif", regular_font))
+            pdfmetrics.registerFont(TTFont("PNJSerif-Bold", bold_font))
+            pdfmetrics.registerFont(TTFont("PNJSerif-Italic", italic_font))
+            pdfmetrics.registerFont(TTFont("PNJSerif-BoldItalic", bold_italic_font))
+            registerFontFamily(
+                "PNJSerif",
+                normal="PNJSerif",
+                bold="PNJSerif-Bold",
+                italic="PNJSerif-Italic",
+                boldItalic="PNJSerif-BoldItalic",
+            )
+        except Exception:
+            continue
         base_font = "PNJSerif"
         bold = "PNJSerif-Bold"
-    else:
-        base_font = "Times-Roman"
-        bold = "Times-Bold"
+        italic = "PNJSerif-Italic"
+        break
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -744,7 +801,7 @@ def make_phieu_pdf(p):
     bold_style = ParagraphStyle("BoldPNJ", parent=normal, fontName=bold)
     center_bold = ParagraphStyle("CenterBoldPNJ", parent=bold_style, alignment=TA_CENTER)
     title_style = ParagraphStyle("TitlePNJ", parent=center_bold, fontSize=10.8, leading=13, spaceBefore=3, spaceAfter=5)
-    right_italic = ParagraphStyle("RightItalicPNJ", parent=normal, alignment=TA_RIGHT, italic=True)
+    right_italic = ParagraphStyle("RightItalicPNJ", parent=normal, fontName=italic, alignment=TA_RIGHT)
     story = []
 
     logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "logo_pnj.webp")
