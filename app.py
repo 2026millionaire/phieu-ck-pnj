@@ -563,7 +563,7 @@ def make_pdf_from_print_html(html):
         HTML(string=html, base_url=os.path.dirname(os.path.abspath(__file__))).write_pdf(buf)
         buf.seek(0)
         return buf
-    except ImportError:
+    except Exception:
         pass
 
     renderer = find_pdf_renderer()
