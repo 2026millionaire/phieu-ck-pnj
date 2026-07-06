@@ -555,6 +555,17 @@ def find_pdf_renderer():
 
 def make_pdf_from_print_html(html):
     """Xuất PDF từ chính HTML của trang in để tránh lệch layout giữa In và Tải PDF."""
+    html = print_html_for_pdf(html)
+    try:
+        from weasyprint import HTML
+
+        buf = io.BytesIO()
+        HTML(string=html, base_url=os.path.dirname(os.path.abspath(__file__))).write_pdf(buf)
+        buf.seek(0)
+        return buf
+    except ImportError:
+        pass
+
     renderer = find_pdf_renderer()
     if not renderer:
         raise RuntimeError("PDF_RENDERER_MISSING")
@@ -563,7 +574,7 @@ def make_pdf_from_print_html(html):
         html_path = os.path.join(tmpdir, "print.html")
         pdf_path = os.path.join(tmpdir, "print.pdf")
         with open(html_path, "w", encoding="utf-8") as f:
-            f.write(print_html_for_pdf(html))
+            f.write(html)
 
         renderer_name = os.path.basename(renderer).lower()
         if "wkhtmltopdf" in renderer_name:
