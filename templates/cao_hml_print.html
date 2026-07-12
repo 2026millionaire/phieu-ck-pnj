@@ -248,5 +248,14 @@
             </tr>
         </table>
     </div>
+
+    <script>
+        // Auto-print only when opened from the form with ?print=1.
+        if (new URLSearchParams(window.location.search).has('print')) {
+            window.addEventListener('load', function() {
+                setTimeout(function() { window.print(); }, 500);
+            });
+        }
+    </script>
 </body>
 </html>

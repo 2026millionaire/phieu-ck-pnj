@@ -528,6 +528,7 @@ document.getElementById('btnPrintCaoHml').addEventListener('click', function() {
         plan: document.getElementById('hml_plan').value.trim(),
         product_codes: codes.join('\n'),
         blank_rows: Math.max(0, hmlRows.length - codes.length),
+        print: '1',
     });
     window.open('/cao-hml/print?' + params.toString(), '_blank');
 });
