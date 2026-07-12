@@ -51,6 +51,12 @@
                         <strong>F2</strong> — Đề nghị khóa dữ liệu cá nhân
                     </label>
                 </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="radio" name="formType" id="rbCaoHml" value="cao_hml">
+                    <label class="form-check-label" for="rbCaoHml">
+                        <strong>CAO</strong> — Mẫu kiểm tra HML
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -105,6 +111,13 @@
                         </select>
                         <input type="text" class="form-control mt-2 d-none" id="lyDoCustom"
                                placeholder="Nhập lý do khác...">
+                    </div>
+
+                    <!-- Tên KH -->
+                    <div class="form-group">
+                        <label for="tenKhHuy"><i class="bi bi-person-vcard"></i> Tên KH</label>
+                        <input type="text" class="form-control" id="tenKhHuy"
+                               placeholder="(Cần thì nhập)" style="text-transform:uppercase;">
                     </div>
 
                     <!-- CHT -->
@@ -215,6 +228,59 @@
                 </button>
             </div>
         </div>
+
+        <!-- ═══ CAO: Mẫu kiểm tra HML ═══ -->
+        <div id="sectionCaoHml" style="display:none;">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-clipboard-check"></i> CAO - Mẫu kiểm tra HML
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-8">
+                            <label class="form-label">Cửa hàng</label>
+                            <input type="text" class="form-control form-control-sm" id="hml_store"
+                                   value="CAO 27 HÀ NỘI - HUẾ" style="text-transform:uppercase;">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Plan</label>
+                            <input type="text" class="form-control form-control-sm" id="hml_plan"
+                                   value="2122">
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <label class="form-label mb-0">Mã sản phẩm</label>
+                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" id="btnAddHmlRow">
+                                    <i class="bi bi-plus-circle"></i> Thêm dòng
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0" style="font-size:0.86rem;">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:52px;">STT</th>
+                                            <th>Mã sản phẩm</th>
+                                            <th style="width:52px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hmlProductBody"></tbody>
+                                </table>
+                            </div>
+                            <small class="text-muted">Mã SP sẽ tự in hoa và xóa khoảng trắng khi in. Chuẩn kiểm tra: 17 ký tự.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintCaoHml">
+                    <i class="bi bi-printer"></i> In mẫu HML
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClearCaoHml">
+                    <i class="bi bi-eraser"></i> Xóa form
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -236,6 +302,7 @@ document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
         document.getElementById('sectionBBHuy').style.display = this.value === 'bbhuy' ? '' : 'none';
         document.getElementById('sectionF1').style.display = this.value === 'f1' ? '' : 'none';
         document.getElementById('sectionF2').style.display = this.value === 'f2' ? '' : 'none';
+        document.getElementById('sectionCaoHml').style.display = this.value === 'cao_hml' ? '' : 'none';
     });
 });
 
@@ -358,14 +425,62 @@ document.getElementById('btnPrintBBHuy').addEventListener('click', function() {
     let lyDo = (lyDoSel === '__custom__') ? formatLydo(lyDoCustom) : lyDoSel;
 
     const kt = document.getElementById('ktSelect').value;
+    const tenKh = document.getElementById('tenKhHuy').value.trim().toUpperCase();
 
     if (!tvv) { alert('Vui lòng chọn hoặc nhập tên Tư vấn viên!'); return; }
     if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return; }
 
     const d = document.getElementById('ngayLap').value.split('-');
-    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt, ngay: d[2]||'', thang: d[1]||'', nam: d[0]||'' });
+    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt, ten_kh: tenKh, ngay: d[2]||'', thang: d[1]||'', nam: d[0]||'' });
     window.open('/bb-huy/print?' + params.toString(), '_blank');
 });
+
+// ══════════════════════════════════════
+// CAO - MẪU KIỂM TRA HML
+// ══════════════════════════════════════
+let hmlRows = ['', '', ''];
+
+function normalizeHmlCode(value) {
+    return (value || '').replace(/\s+/g, '').toUpperCase();
+}
+
+function renderHmlRows() {
+    const tbody = document.getElementById('hmlProductBody');
+    tbody.innerHTML = '';
+    hmlRows.forEach(function(code, idx) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="text-center align-middle">' + (idx + 1) + '</td>' +
+            '<td><input type="text" class="form-control form-control-sm hml-code-input font-monospace" data-idx="' + idx + '" value="' + code + '" placeholder="Nhập mã sản phẩm"></td>' +
+            '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 hml-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.hml-code-input').forEach(function(input) {
+        input.addEventListener('input', function() {
+            const idx = parseInt(this.dataset.idx);
+            hmlRows[idx] = this.value.toUpperCase();
+        });
+        input.addEventListener('blur', function() {
+            const idx = parseInt(this.dataset.idx);
+            hmlRows[idx] = normalizeHmlCode(this.value);
+            this.value = hmlRows[idx];
+        });
+    });
+    tbody.querySelectorAll('.hml-del-row').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            hmlRows.splice(parseInt(this.dataset.idx), 1);
+            if (!hmlRows.length) hmlRows.push('');
+            renderHmlRows();
+        });
+    });
+}
+
+document.getElementById('btnAddHmlRow').addEventListener('click', function() {
+    hmlRows.push('');
+    renderHmlRows();
+});
+
+renderHmlRows();
 
 // ══════════════════════════════════════
 // F1 + F2
@@ -397,6 +512,26 @@ document.getElementById('btnPrintF2').addEventListener('click', function() {
     window.open('/doi-thongtin/print-f2?' + params.toString(), '_blank');
 });
 
+document.getElementById('btnPrintCaoHml').addEventListener('click', function() {
+    const codes = hmlRows.map(normalizeHmlCode).filter(Boolean);
+    const invalidCodes = codes.filter(function(code) { return code.length !== 17; });
+    if (invalidCodes.length) {
+        const ok = confirm(
+            'Mã sản phẩm HML thường gồm 17 ký tự.\n'
+            + 'Các mã chưa đúng 17 ký tự: ' + invalidCodes.join(', ')
+            + '\nBạn có muốn tiếp tục in không?'
+        );
+        if (!ok) return;
+    }
+    const params = new URLSearchParams({
+        store: document.getElementById('hml_store').value.trim().toUpperCase(),
+        plan: document.getElementById('hml_plan').value.trim(),
+        product_codes: codes.join('\n'),
+        blank_rows: Math.max(0, hmlRows.length - codes.length),
+    });
+    window.open('/cao-hml/print?' + params.toString(), '_blank');
+});
+
 document.getElementById('btnClearF1').addEventListener('click', function() {
     ['f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
         document.getElementById(id).value = '';
@@ -406,6 +541,10 @@ document.getElementById('btnClearF2').addEventListener('click', function() {
     ['f2_ho_ten','f2_sdt','f2_cccd','f2_ma_kh'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
+});
+document.getElementById('btnClearCaoHml').addEventListener('click', function() {
+    hmlRows = ['', '', ''];
+    renderHmlRows();
 });
 </script>
 {% endblock %}

@@ -133,6 +133,7 @@
             text-align: center;
         }
         .sig-col { width: 32%; }
+        .signatures.has-customer .sig-col { width: 24%; }
         .sig-title {
             font-weight: bold;
             font-size: 15.5px;
@@ -208,6 +209,13 @@
                 <span class="role">Tư Vấn Viên:</span>
                 <span class="pname">{{ tvv_name }}</span>
             </div>
+            {% if ten_kh %}
+            <div class="person-row">
+                <span class="num">4.</span>
+                <span class="role">Khách hàng:</span>
+                <span class="pname">{{ ten_kh }}</span>
+            </div>
+            {% endif %}
 
             <div class="field-row">
                 <span class="field-label">Nội dung ghi nhận:</span>&nbsp;&nbsp;
@@ -226,7 +234,7 @@
         </div>
 
         <!-- Signatures -->
-        <div class="signatures">
+        <div class="signatures {% if ten_kh %}has-customer{% endif %}">
             <div class="sig-col">
                 <div class="sig-title">Cửa Hàng Trưởng</div>
                 <div class="sig-name">{{ cht_name }}</div>
@@ -239,6 +247,12 @@
                 <div class="sig-title">Tư Vấn Viên</div>
                 <div class="sig-name">{{ tvv_name }}</div>
             </div>
+            {% if ten_kh %}
+            <div class="sig-col">
+                <div class="sig-title">Khách Hàng</div>
+                <div class="sig-name">{{ ten_kh }}</div>
+            </div>
+            {% endif %}
         </div>
     </div>
 

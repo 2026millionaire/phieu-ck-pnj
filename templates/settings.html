@@ -22,20 +22,35 @@
             </div>
             <div class="card-body">
                 <div class="row g-2">
-                    <div class="col-12">
+                    <div class="col-md-8">
                         <label class="form-label">Cửa hàng trưởng (CHT)</label>
                         <input type="text" class="form-control form-control-sm" id="s_cht_name"
                                value="{{ settings.get('cht_name', '') }}" style="text-transform:uppercase;">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label">Tên tắt CHT</label>
+                        <input type="text" class="form-control form-control-sm" id="s_cht_short_name"
+                               value="{{ settings.get('cht_short_name', 'Hà My') }}">
+                    </div>
+                    <div class="col-md-8">
                         <label class="form-label">Kế toán 1</label>
                         <input type="text" class="form-control form-control-sm" id="s_kt1_name"
                                value="{{ settings.get('kt1_name', '') }}" style="text-transform:uppercase;">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label">Tên tắt KT1</label>
+                        <input type="text" class="form-control form-control-sm" id="s_kt1_short_name"
+                               value="{{ settings.get('kt1_short_name', 'Khoa') }}">
+                    </div>
+                    <div class="col-md-8">
                         <label class="form-label">Kế toán 2</label>
                         <input type="text" class="form-control form-control-sm" id="s_kt2_name"
                                value="{{ settings.get('kt2_name', '') }}" style="text-transform:uppercase;">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Tên tắt KT2</label>
+                        <input type="text" class="form-control form-control-sm" id="s_kt2_short_name"
+                               value="{{ settings.get('kt2_short_name', 'Tuyền') }}">
                     </div>
                 </div>
             </div>
@@ -189,8 +204,11 @@
 document.getElementById('btnSaveSettings').addEventListener('click', function() {
     const payload = {
         cht_name: document.getElementById('s_cht_name').value.trim().toUpperCase(),
+        cht_short_name: document.getElementById('s_cht_short_name').value.trim(),
         kt1_name: document.getElementById('s_kt1_name').value.trim().toUpperCase(),
+        kt1_short_name: document.getElementById('s_kt1_short_name').value.trim(),
         kt2_name: document.getElementById('s_kt2_name').value.trim().toUpperCase(),
+        kt2_short_name: document.getElementById('s_kt2_short_name').value.trim(),
         thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
         show_payment_time: document.getElementById('s_show_payment_time').checked ? '1' : '0',
         plant: document.getElementById('s_plant').value.trim(),

@@ -227,8 +227,11 @@ def init_db():
     # Default settings
     defaults = {
         "cht_name": "HỒ THỊ HÀ MY",
+        "cht_short_name": "Hà My",
         "kt1_name": "CHÂU ĐĂNG KHOA",
+        "kt1_short_name": "Khoa",
         "kt2_name": "LÊ THỊ MỸ TUYỀN",
+        "kt2_short_name": "Tuyền",
         "thoi_gian_ck": "48",
         "show_payment_time": "1",
         "plant": "1305",
@@ -1148,6 +1151,7 @@ def bb_huy_print():
     so_bk = request.args.get("so_bk", "")
     tvv_name = request.args.get("tvv", "")
     ly_do = request.args.get("ly_do", "")
+    ten_kh = request.args.get("ten_kh", "").strip()
     kt_name = request.args.get("kt", settings.get("kt1_name", ""))
     cht_name = settings.get("cht_name", "")
     plant = settings.get("plant", "1305")
@@ -1160,6 +1164,7 @@ def bb_huy_print():
 
     return render_template("bb_huy_print.html",
         so_bk=so_bk, tvv_name=tvv_name, ly_do=ly_do,
+        ten_kh=ten_kh,
         kt_name=kt_name, cht_name=cht_name,
         ngay_str=ngay_str, plant=plant)
 
@@ -1198,6 +1203,25 @@ def doi_thongtin_print_f2():
         ngay=request.args.get("ngay", now.strftime("%d")),
         thang=request.args.get("thang", now.strftime("%m")),
         nam=request.args.get("nam", now.strftime("%Y")))
+
+
+@app.route("/cao-hml/print")
+def cao_hml_print():
+    """CAO — Mẫu kiểm tra HML printable HTML."""
+    product_codes_raw = request.args.get("product_codes", "")
+    product_codes = [remove_all_whitespace(line).upper() for line in product_codes_raw.splitlines() if line.strip()]
+    try:
+        blank_rows = int(request.args.get("blank_rows", "2"))
+    except ValueError:
+        blank_rows = 2
+    blank_rows = max(0, min(blank_rows, 20))
+    rows = product_codes + [""] * blank_rows
+    if not rows:
+        rows = ["", ""]
+    return render_template("cao_hml_print.html",
+        store=request.args.get("store", "CAO 27 HÀ NỘI - HUẾ").strip().upper(),
+        plan=request.args.get("plan", "2122").strip(),
+        rows=rows)
 
 
 @app.route("/eoffice")

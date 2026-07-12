@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>CAO - Mẫu kiểm tra HML</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 12mm 12mm 12mm 24mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            color: #000;
+            font-family: "Times New Roman", Times, serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-size: 18.2px;
+            line-height: 1.35;
+            margin: 0 auto;
+            width: 273mm;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        @media screen {
+            body {
+                background: #d1d5db;
+                padding: 12mm;
+            }
+            .page {
+                background: #fff;
+                border-radius: 4px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+                min-height: 186mm;
+                padding: 12mm;
+            }
+        }
+
+        @media print {
+            body { background: #fff; padding: 0; }
+            .page { padding: 0; }
+            .no-print { display: none !important; }
+            div[style*="position: fixed"] { display: none !important; }
+        }
+
+        .action-bar {
+            font-family: "Segoe UI", sans-serif;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .action-bar .btn {
+            background: #0ea5e9;
+            border: 0;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 18px;
+            padding: 8px 24px;
+        }
+
+        .title {
+            font-size: 23.4px;
+            font-weight: 700;
+            margin: 12px 0 2px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .form-header {
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 0;
+            width: 100%;
+        }
+        .form-header td {
+            border: 1px solid #000;
+            height: 36px;
+            padding: 4px 10px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .form-header .logo-cell {
+            padding: 2px 8px;
+            width: 15%;
+        }
+        .form-header .ms-cell {
+            color: #000;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18.2px;
+            font-weight: 700;
+            text-align: center;
+            width: 43%;
+        }
+        .form-header .lsx-cell {
+            color: #000;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18.2px;
+            font-weight: 700;
+            text-align: center;
+            width: 42%;
+        }
+        .caf-logo {
+            display: block;
+            height: auto;
+            margin: 0 auto;
+            width: 105px;
+        }
+        .subtitle {
+            font-size: 16.9px;
+            font-style: italic;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .store-line {
+            font-size: 18.2px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            min-height: 18px;
+            padding-left: 8%;
+            position: relative;
+        }
+        .store-line .plan {
+            left: 44%;
+            position: absolute;
+            top: 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .check-table th,
+        .check-table td {
+            border: 1.4px solid #000;
+            min-height: 26px;
+            padding: 5px 6px;
+            vertical-align: middle;
+        }
+        .check-table th {
+            font-size: 16.9px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .check-table td {
+            font-size: 16.9px;
+            height: 30px;
+        }
+        .col-stt { text-align: center; width: 8%; }
+        .col-ma { width: 20%; }
+        .col-result { text-align: center; width: 8%; }
+        .col-desc { width: 31%; }
+        .col-note { width: 25%; }
+        .note-header {
+            display: block;
+            font-size: 13.6px;
+            font-weight: 400;
+            line-height: 1.15;
+            margin-top: 2px;
+        }
+
+        .signature-table {
+            margin-top: 18px;
+        }
+        .signature-table td {
+            border: 1.4px solid #000;
+            height: 190px;
+            padding: 6px;
+            text-align: center;
+            vertical-align: top;
+        }
+        .signature-title {
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .signature-note {
+            font-size: 15.6px;
+            font-style: italic;
+            margin-top: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="action-bar no-print">
+        <button class="btn" onclick="window.print()">&#128424; In mẫu HML</button>
+    </div>
+
+    <div class="page">
+        <table class="form-header">
+            <tr>
+                <td class="logo-cell"><img class="caf-logo" src="{{ url_for('static', filename='caf_logo.png') }}" alt="CAF"></td>
+                <td class="ms-cell">MS: CAF-QYĐ-PKD-TMTSDR-F3</td>
+                <td class="lsx-cell">LSX: 0/0</td>
+            </tr>
+        </table>
+        <div class="title">PHIẾU KIỂM TRA SẢN PHẨM MUA LẠI TỪ KHÁCH HÀNG</div>
+        <div class="subtitle">(Biểu mẫu này dùng để xác nhận kết quả kiểm tra tất cả các trường hợp sản phẩm mua lại)</div>
+
+        <div class="store-line">
+            CỬA HÀNG: {{ store }}
+            <span class="plan">PLAN: {{ plan }}</span>
+        </div>
+
+        <table class="check-table">
+            <thead>
+                <tr>
+                    <th class="col-stt" rowspan="2">STT</th>
+                    <th class="col-ma" rowspan="2">MÃ SẢN PHẨM</th>
+                    <th colspan="2">KẾT QUẢ</th>
+                    <th class="col-desc" rowspan="2">MÔ TẢ CHI TIẾT NẾU KHÔNG ĐẠT</th>
+                    <th class="col-note" rowspan="2">
+                        GHI CHÚ
+                        <span class="note-header">(Để P.CU nhận biết SP trị giá &gt;= 300tr thì CH ghi chú “SP &gt;= 300” vào ô Ghi chú bên dưới)</span>
+                    </th>
+                </tr>
+                <tr>
+                    <th class="col-result">ĐẠT</th>
+                    <th class="col-result">KHÔNG ĐẠT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for code in rows %}
+                <tr>
+                    <td class="col-stt">{{ loop.index }}</td>
+                    <td class="col-ma">{{ code }}</td>
+                    <td class="col-result"></td>
+                    <td class="col-result"></td>
+                    <td class="col-desc"></td>
+                    <td class="col-note"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <table class="signature-table">
+            <tr>
+                <td style="width:24%;">
+                    <div class="signature-title">Xác nhận kết quả kiểm tra sản phẩm:</div>
+                    <div class="signature-note">(Các chức danh ký &amp; ghi rõ họ tên)</div>
+                </td>
+                <td style="width:19%;"><div class="signature-title">TVV CH</div></td>
+                <td style="width:19%;"><div class="signature-title">Thợ nữ trang CH</div></td>
+                <td style="width:19%;"><div class="signature-title">CHT/KT</div></td>
+                <td style="width:19%;"><div class="signature-title">NV/CV-Kiểm tra chất lượng CU CAF</div></td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

@@ -51,6 +51,51 @@
 .action-btn.view { color: #0ea5e9; }
 .action-btn.print { color: #10b981; }
 .action-btn.delete { color: #ef4444; }
+.action-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 30px);
+    gap: 4px;
+    justify-content: center;
+}
+.mobile-only { display: none; }
+.mobile-inline { display: none; }
+.history-main {
+    font-weight: 700;
+    line-height: 1.25;
+}
+.history-sub {
+    color: #64748b;
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+.history-date {
+    white-space: nowrap;
+    line-height: 1.25;
+}
+.history-owner {
+    color: #475569;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    margin-top: 6px;
+}
+.history-customer {
+    font-weight: 700;
+    line-height: 1.25;
+}
+.history-ma-kh {
+    color: #db2777;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.history-amount {
+    color: #0369a1;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+}
 
 .empty-state {
     text-align: center;
@@ -61,6 +106,89 @@
 .empty-state i {
     font-size: 3rem;
     margin-bottom: 12px;
+}
+@media (max-width: 768px) {
+    .search-bar {
+        max-width: none;
+        width: 100%;
+    }
+    .table-responsive {
+        overflow-x: hidden;
+    }
+    .table-history {
+        table-layout: fixed;
+        width: 100%;
+    }
+    .table-history th,
+    .table-history td {
+        font-size: 0.8rem;
+        padding: 14px 6px;
+    }
+    .table-history th {
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .desktop-only,
+    .admin-owner-col {
+        display: none !important;
+    }
+    .mobile-only {
+        display: table-cell;
+    }
+    .mobile-inline {
+        display: block;
+    }
+    .table-history th:nth-child(1),
+    .table-history td:nth-child(1) {
+        display: none;
+    }
+    .table-history th:nth-child(2),
+    .table-history td:nth-child(2) {
+        width: 92px;
+    }
+    .table-history th:last-child,
+    .table-history td:last-child {
+        width: 96px;
+    }
+    .amount {
+        text-align: left !important;
+    }
+    .action-btn {
+        align-items: center;
+        border-radius: 6px;
+        display: inline-flex;
+        font-size: 1rem;
+        height: 30px;
+        justify-content: center;
+        padding: 0;
+        width: 30px;
+    }
+    .badge-status {
+        font-size: 0.68rem;
+        padding: 0.28em 0.58em;
+    }
+    .history-date {
+        color: #0f172a;
+        font-size: 0.82rem;
+        font-weight: 500;
+        line-height: 1.35;
+    }
+    .history-owner {
+        color: #475569;
+        font-size: 0.76rem;
+        line-height: 1.35;
+        margin-top: 7px;
+    }
+    .history-customer {
+        color: #020617;
+        font-size: 0.86rem;
+        line-height: 1.24;
+        margin-top: 1px;
+    }
+    .history-sub {
+        font-size: 0.76rem;
+    }
 }
 {% endblock %}
 
@@ -89,16 +217,17 @@
                 <table class="table table-hover table-history mb-0">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width:40px;">STT</th>
-                            <th>Ngày tạo</th>
-                            <th class="admin-owner-col d-none">User tạo</th>
-                            <th>Mã KH</th>
-                            <th>Tên KH</th>
-                            <th>TVV</th>
-                            <th>Số BK</th>
-                            <th class="text-end">Số tiền CK</th>
-                            <th class="text-center">Trạng thái</th>
-                            <th class="text-center" style="width:60px;">Đã Trình</th>
+                            <th class="text-center desktop-stt" style="width:40px;">STT</th>
+                            <th>Ngày giờ<br><span class="text-muted">Người tạo</span></th>
+                            <th class="admin-owner-col d-none desktop-only">User tạo</th>
+                            <th class="desktop-only">Mã KH</th>
+                            <th class="desktop-only">Tên KH</th>
+                            <th class="desktop-only">TVV</th>
+                            <th class="desktop-only">Số BK</th>
+                            <th class="text-end desktop-only">Số tiền CK</th>
+                            <th class="text-center desktop-only">Trạng thái</th>
+                            <th class="text-center desktop-only" style="width:60px;">Đã Trình</th>
+                            <th class="mobile-only">Thông tin BK</th>
                             <th class="text-center" style="width:100px;">Thao tác</th>
                         </tr>
                     </thead>
@@ -172,6 +301,26 @@ function filterData() {
     renderTable(filtered);
 }
 
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function(ch) {
+        return ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[ch];
+    });
+}
+
+function formatCreatedAtParts(value) {
+    var raw = String(value || '').trim();
+    var parts = raw.split(/\s+/);
+    return {
+        date: parts[0] || '',
+        time: (parts[1] || '').replace(/:00$/, '')
+    };
+}
+
+function shortTvvCode(value) {
+    var raw = String(value || '').replace(/\s+/g, '');
+    return raw ? raw.slice(-5) : '';
+}
+
 function renderTable(data) {
     var tbody = document.getElementById('historyBody');
     tbody.innerHTML = '';
@@ -205,33 +354,47 @@ function renderTable(data) {
         var tongCk = p.tong_ck ? Math.round(p.tong_ck).toLocaleString('vi-VN') : '0';
 
         var checked = p.da_trinh ? 'checked' : '';
+        var daTrinhText = p.da_trinh ? 'Đã trình' : 'Chưa trình';
         var manageDisabled = p.can_manage === false ? 'disabled title="Chỉ chủ phiếu được cập nhật"' : '';
+        var deleteNameArg = JSON.stringify(p.ten_kh || '');
         var deleteAction = p.can_manage === false
             ? ''
-            : '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', \'' + (p.ten_kh || '').replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>';
+            : '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', ' + escapeHtml(deleteNameArg) + ')"><i class="bi bi-trash"></i></button>';
 
-        var refillAction = '<a href="./?draft_id=' + p.id + '" class="action-btn view" title="Điền lại phiếu"><i class="bi bi-pencil-square"></i></a> ';
-        var ownerCell = isAdminHistory ? '<td style="font-size:0.8rem;">' + (p.owner_name || ('User ' + (p.user_id || ''))) + '</td>' : '';
+        var refillAction = '<a href="./?draft_id=' + p.id + '" class="action-btn view" title="Điền lại phiếu"><i class="bi bi-pencil-square"></i></a>';
+        var ownerName = p.owner_name || ('User ' + (p.user_id || ''));
+        var tvvCode = shortTvvCode(p.tvv_code || p.tvv_name);
+        var createdAt = formatCreatedAtParts(p.created_at);
+        var ownerCell = isAdminHistory ? '<td class="desktop-only" style="font-size:0.8rem;">' + escapeHtml(ownerName) + '</td>' : '';
+        var mobileOwner = '<div class="history-owner mobile-inline">' + escapeHtml(ownerName) + (tvvCode ? '<br>' + escapeHtml(tvvCode) : '') + '</div>';
+        var mobileInfo =
+            '<div class="history-ma-kh">' + escapeHtml(p.ma_kh) + '</div>' +
+            '<div class="history-customer">' + escapeHtml(p.ten_kh) + '</div>' +
+            '<div class="history-amount mt-1">' + tongCk + '</div>' +
+            '<div class="history-sub mt-1">' + statusBadge + ' - ' + daTrinhText + '</div>';
+        var actionGrid =
+            '<div class="action-grid">' +
+                '<a href="eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a>' +
+                refillAction +
+                '<a href="api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a>' +
+                '<a href="api/pdf/' + p.id + (p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '') + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a>' +
+                '<a href="api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a>' +
+                deleteAction +
+            '</div>';
         var tr = document.createElement('tr');
         tr.innerHTML =
-            '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
-            '<td style="white-space:nowrap;">' + (p.created_at || '') + '</td>' +
+            '<td class="text-center text-muted desktop-stt">' + (idx + 1) + '</td>' +
+            '<td class="history-date">' + escapeHtml(createdAt.date) + '<br><span class="text-muted">' + escapeHtml(createdAt.time) + '</span>' + mobileOwner + '</td>' +
             ownerCell +
-            '<td><code>' + (p.ma_kh || '') + '</code></td>' +
-            '<td><strong>' + (p.ten_kh || '') + '</strong></td>' +
-            '<td style="font-size:0.8rem;">' + (p.tvv_name || '') + '</td>' +
-            '<td>' + (p.so_bk || '') + '</td>' +
-            '<td class="amount">' + tongCk + '</td>' +
-            '<td class="text-center">' + statusBadge + '</td>' +
-            '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + ' ' + manageDisabled + '></td>' +
-            '<td class="text-center">' +
-                '<a href="eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a> ' +
-                refillAction +
-                '<a href="api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a> ' +
-                '<a href="api/pdf/' + p.id + (p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '') + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a> ' +
-                '<a href="api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a> ' +
-                deleteAction +
-            '</td>';
+            '<td class="desktop-only"><code>' + escapeHtml(p.ma_kh) + '</code></td>' +
+            '<td class="desktop-only"><strong>' + escapeHtml(p.ten_kh) + '</strong></td>' +
+            '<td class="desktop-only" style="font-size:0.8rem;">' + escapeHtml(p.tvv_name) + '</td>' +
+            '<td class="desktop-only">' + escapeHtml(p.so_bk) + '</td>' +
+            '<td class="amount desktop-only">' + tongCk + '</td>' +
+            '<td class="text-center desktop-only">' + statusBadge + '</td>' +
+            '<td class="text-center desktop-only"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + ' ' + manageDisabled + '></td>' +
+            '<td class="mobile-only">' + mobileInfo + '</td>' +
+            '<td class="text-center">' + actionGrid + '</td>';
         tbody.appendChild(tr);
     });
 }

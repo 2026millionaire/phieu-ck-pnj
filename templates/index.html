@@ -307,22 +307,22 @@ textarea#sap_data {
                     <i class="bi bi-pen"></i> Người ký xác nhận (phía cửa hàng)
                 </div>
                 <div class="card-body py-2">
-                    <div class="d-flex gap-3 flex-wrap">
+                    <div class="d-flex gap-2 flex-wrap">
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_tvv" value="tvv" checked>
-                            <label class="form-check-label" for="nk_tvv">TVV</label>
+                            <label class="form-check-label" for="nk_tvv">Tư Vấn Viên</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_cht" value="cht">
-                            <label class="form-check-label" for="nk_cht">CHT - {{ settings.get('cht_name', 'HỒ THỊ HÀ MY') }}</label>
+                            <label class="form-check-label" for="nk_cht">CHT - {{ settings.get('cht_short_name', 'Hà My') }}</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_kt1" value="kt1">
-                            <label class="form-check-label" for="nk_kt1">KT - {{ settings.get('kt1_name', 'CHÂU ĐĂNG KHOA') }}</label>
+                            <label class="form-check-label" for="nk_kt1">KT - {{ settings.get('kt1_short_name', 'Khoa') }}</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="nguoi_ki" id="nk_kt2" value="kt2">
-                            <label class="form-check-label" for="nk_kt2">KT - {{ settings.get('kt2_name', 'LÊ THỊ MỸ TUYỀN') }}</label>
+                            <label class="form-check-label" for="nk_kt2">KT - {{ settings.get('kt2_short_name', 'Tuyền') }}</label>
                         </div>
                     </div>
                 </div>
@@ -834,13 +834,27 @@ document.addEventListener('DOMContentLoaded', function() {
     loaiMap.forEach(l => loaiSignMap[l.value] = l.sign);
     const taxDocPrefix = '4800';
     const taxDocLength = 10;
+    const docTypePrefixes = {
+        'Bảng kê': '{{ bk_prefix }}',
+        'Hóa đơn': '901',
+        'Biên nhận cọc': '16',
+        'HBTL': '990',
+        'Thuế TNCN': taxDocPrefix,
+        'Phải CK khác': '',
+        'Phải thu khác': ''
+    };
 
     function applyLoaiDefaults(item, previousLoai) {
-        if (item.loai === 'Thuế TNCN') {
-            const currentSoCt = (item.so_ct || '').trim();
-            if (!currentSoCt || currentSoCt === '{{ bk_prefix }}' || previousLoai === 'Bảng kê') {
-                item.so_ct = taxDocPrefix;
-            }
+        const currentSoCt = (item.so_ct || '').trim();
+        const previousPrefix = previousLoai ? docTypePrefixes[previousLoai] : '';
+        const knownPrefixes = Object.values(docTypePrefixes).filter(Boolean);
+        const shouldReplace = !currentSoCt
+            || (previousPrefix && currentSoCt === previousPrefix)
+            || knownPrefixes.includes(currentSoCt);
+        if (!shouldReplace) return;
+
+        if (Object.prototype.hasOwnProperty.call(docTypePrefixes, item.loai)) {
+            item.so_ct = docTypePrefixes[item.loai] || '';
         }
     }
 
