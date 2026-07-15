@@ -355,7 +355,7 @@ function renderTable(data) {
 
         var checked = p.da_trinh ? 'checked' : '';
         var daTrinhText = p.da_trinh ? 'Đã trình' : 'Chưa trình';
-        var manageDisabled = p.can_manage === false ? 'disabled title="Chỉ chủ phiếu được cập nhật"' : '';
+        var daTrinhDisabled = p.can_update_da_trinh === false ? 'disabled title="Chỉ chủ phiếu hoặc admin được cập nhật"' : '';
         var deleteNameArg = JSON.stringify(p.ten_kh || '');
         var deleteAction = p.can_manage === false
             ? ''
@@ -392,7 +392,7 @@ function renderTable(data) {
             '<td class="desktop-only">' + escapeHtml(p.so_bk) + '</td>' +
             '<td class="amount desktop-only">' + tongCk + '</td>' +
             '<td class="text-center desktop-only">' + statusBadge + '</td>' +
-            '<td class="text-center desktop-only"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + ' ' + manageDisabled + '></td>' +
+            '<td class="text-center desktop-only"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + ' ' + daTrinhDisabled + '></td>' +
             '<td class="mobile-only">' + mobileInfo + '</td>' +
             '<td class="text-center">' + actionGrid + '</td>';
         tbody.appendChild(tr);

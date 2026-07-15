@@ -1318,11 +1318,12 @@ def api_da_trinh(phieu_id):
     """Toggle da_trinh status."""
     data = request.get_json(force=True)
     db = get_db()
-    row = get_owned_phieu(db, phieu_id)
+    # User thường chỉ thao tác phiếu của mình; admin được thao tác mọi phiếu.
+    row = get_accessible_phieu(db, phieu_id)
     if not row:
         return jsonify({"ok": False, "error": "Kh\u00f4ng t\u00ecm th\u1ea5y phi\u1ebfu"}), 404
-    db.execute("UPDATE phieu SET da_trinh = ? WHERE id = ? AND user_id = ?",
-               (1 if data.get("da_trinh") else 0, phieu_id, current_user_id()))
+    db.execute("UPDATE phieu SET da_trinh = ? WHERE id = ?",
+               (1 if data.get("da_trinh") else 0, phieu_id))
     db.commit()
     return jsonify({"ok": True})
 
@@ -1536,6 +1537,7 @@ def api_history():
             d["chung_tu"] = []
         d["pdf_token"] = create_pdf_token(d["id"], d.get("user_id") or current_user_id())
         d["can_manage"] = int(d.get("user_id") or 0) == int(current_user_id())
+        d["can_update_da_trinh"] = admin or d["can_manage"]
         if admin:
             d["owner_name"] = users.get(d.get("user_id"), f"User {d.get('user_id')}")
         result.append(d)
