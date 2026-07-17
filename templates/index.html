@@ -60,6 +60,10 @@ textarea#sap_data {
     font-size: 0.8rem;
 }
 
+.sap-toggle .when-expanded { display: none; }
+.sap-toggle[aria-expanded="true"] .when-collapsed { display: none; }
+.sap-toggle[aria-expanded="true"] .when-expanded { display: inline; }
+
 .form-label {
     font-weight: 600;
     font-size: 0.85rem;
@@ -153,6 +157,29 @@ textarea#sap_data {
                 </div>
                 <div class="card-body">
                     <div class="row g-2">
+                        <div class="col-md-5">
+                            <label class="form-label">Số tài khoản</label>
+                            <input type="text" class="form-control form-control-sm" id="so_tk" name="so_tk"
+                                   value="" placeholder="Số TK thụ hưởng">
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">Ngân hàng</label>
+                            <div class="position-relative">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="bank_search"
+                                           autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
+                                    <button class="btn btn-outline-secondary d-none" type="button" id="btnClearBank" title="Xóa ngân hàng">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <div id="bankDropdown" class="dropdown-menu w-100" style="max-height:250px;overflow-y:auto;font-size:0.8rem;"></div>
+                            </div>
+                            <div id="bankFullName" class="text-muted small mt-1 d-none" style="font-size:0.78rem;">
+                                <i class="bi bi-bank"></i> <span id="bankFullNameText"></span>
+                            </div>
+                            <input type="hidden" id="ngan_hang" name="ngan_hang" value="">
+                            <input type="hidden" id="bank_bin" name="bank_bin" value="">
+                        </div>
                         <!-- Tên chủ TK (kết quả tra cứu + cảnh báo) -->
                         <div class="col-12">
                             <label class="form-label mb-1">Tên tài khoản thụ hưởng</label>
@@ -190,35 +217,14 @@ textarea#sap_data {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-5">
-                            <label class="form-label">Số tài khoản</label>
-                            <input type="text" class="form-control form-control-sm" id="so_tk" name="so_tk"
-                                   value="" placeholder="Số TK thụ hưởng">
-                        </div>
-                        <div class="col-md-7">
-                            <label class="form-label">Ngân hàng</label>
-                            <div class="position-relative">
-                                <div class="input-group input-group-sm">
-                                    <input type="text" class="form-control" id="bank_search"
-                                           autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
-                                    <button class="btn btn-outline-secondary d-none" type="button" id="btnClearBank" title="Xóa ngân hàng">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
-                                <div id="bankDropdown" class="dropdown-menu w-100" style="max-height:250px;overflow-y:auto;font-size:0.8rem;"></div>
-                            </div>
-                            <div id="bankFullName" class="text-muted small mt-1 d-none" style="font-size:0.78rem;">
-                                <i class="bi bi-bank"></i> <span id="bankFullNameText"></span>
-                            </div>
-                            <input type="hidden" id="ngan_hang" name="ngan_hang" value="">
-                            <input type="hidden" id="bank_bin" name="bank_bin" value="">
-                        </div>
+                        {% if admin %}
                         <div class="col-md-5">
                             <label class="form-label">Mã eOffice NH</label>
                             <input type="text" class="form-control form-control-sm bg-light" id="bank_eoffice" readonly
                                    placeholder="Tự động">
                         </div>
-                        <div class="col-md-7">
+                        {% endif %}
+                        <div class="{% if admin %}col-md-7{% else %}col-12{% endif %}">
                             <label class="form-label">TVV - Tư vấn viên</label>
                             <div class="position-relative">
                                 <input type="text" class="form-control form-control-sm" id="tvv_search"
@@ -275,19 +281,26 @@ textarea#sap_data {
                 </div>
             </div>
 
-            <!-- 4. Dữ liệu SAP -->
+            <!-- 4. Dữ liệu SAP: thu gọn mặc định, người dùng chủ động ẩn/hiện -->
             <div class="card mb-3">
-                <div class="card-header py-2">
-                    <i class="bi bi-table"></i> 4. Dữ liệu SAP (ZFIE0029)
-                    <small class="text-muted fw-normal ms-2">— bỏ qua nếu đã nhập ở mục 3</small>
-                </div>
-                <div class="card-body">
-                    <label class="form-label">Dán dữ liệu SAP</label>
-                    <textarea class="form-control" id="sap_data" rows="5"
-                              placeholder="Dán các dòng từ SAP ZFIE0029 vào đây (tab-separated)..."></textarea>
-                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnParseSap">
-                        <i class="bi bi-gear"></i> Xử lý SAP
+                <div class="card-header p-0">
+                    <button type="button" class="btn w-100 text-start py-2 px-3 sap-toggle collapsed"
+                            data-bs-toggle="collapse" data-bs-target="#sapDataCollapse"
+                            aria-expanded="false" aria-controls="sapDataCollapse">
+                        <i class="bi bi-table"></i>
+                        <span class="when-collapsed">Hiện</span><span class="when-expanded">Ẩn</span>
+                        4. Tự nhập dữ liệu SAP (ZFIE0029)
                     </button>
+                </div>
+                <div class="collapse" id="sapDataCollapse">
+                    <div class="card-body">
+                        <label class="form-label">Dán dữ liệu SAP</label>
+                        <textarea class="form-control" id="sap_data" rows="5"
+                                  placeholder="Dán các dòng từ SAP ZFIE0029 vào đây (tab-separated)..."></textarea>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnParseSap">
+                            <i class="bi bi-gear"></i> Xử lý SAP
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -615,7 +628,9 @@ document.addEventListener('DOMContentLoaded', function() {
         bankDropdown.innerHTML = matches.map(b =>
             `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-eoffice="${b.eoffice}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}">
                 <strong>${b.ten_gd}</strong> <small class="text-muted">(${b.code})</small><br>
+                {% if admin %}
                 <small class="text-secondary">${b.eoffice}</small>
+                {% endif %}
             </a>`
         ).join('');
         bankDropdown.classList.add('show');
@@ -633,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bankSearch.value = code;  // short name in input
         document.getElementById('ngan_hang').value = ten;
         document.getElementById('bank_bin').value = bin;
-        bankEoffice.value = eoffice;
+        if (bankEoffice) bankEoffice.value = eoffice;
         // Show full name below
         document.getElementById('bankFullNameText').textContent = ten;
         document.getElementById('bankFullName').classList.remove('d-none');
@@ -646,7 +661,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bankSearch.value = '';
         document.getElementById('ngan_hang').value = '';
         document.getElementById('bank_bin').value = '';
-        bankEoffice.value = '';
+        if (bankEoffice) bankEoffice.value = '';
         document.getElementById('bankFullName').classList.add('d-none');
         document.getElementById('btnClearBank').classList.add('d-none');
         document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = '___');

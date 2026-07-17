@@ -1121,7 +1121,14 @@ def index():
     """Main page with input form."""
     settings = get_settings()
     bk_prefix = settings.get("bk_prefix", "4403")
-    return render_template("index.html", staff=STAFF, bank_list=sorted(BANK_BINS.keys()), settings=settings, bk_prefix=bk_prefix)
+    return render_template(
+        "index.html",
+        staff=STAFF,
+        bank_list=sorted(BANK_BINS.keys()),
+        settings=settings,
+        bk_prefix=bk_prefix,
+        admin=is_admin(),
+    )
 
 
 @app.route("/history")
@@ -1871,7 +1878,12 @@ def api_template_tt(phieu_id):
 @app.route("/api/banks")
 def api_banks():
     """Return full bank list for dropdown search."""
-    return jsonify({"ok": True, "data": BANK_LIST})
+    if is_admin():
+        data = BANK_LIST
+    else:
+        # Mã eOffice chỉ phục vụ ADMIN; không gửi xuống trình duyệt user thường.
+        data = [{**bank, "eoffice": ""} for bank in BANK_LIST]
+    return jsonify({"ok": True, "data": data})
 
 
 @app.route("/api/tvv")
