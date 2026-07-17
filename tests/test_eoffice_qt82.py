@@ -5,6 +5,7 @@ import io
 import re
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 import app as app_module
@@ -78,10 +79,39 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(self.client.get("/eoffice").status_code, 403)
         self.assertEqual(self.client.get(f"/eoffice/{phieu_id}").status_code, 403)
         self.assertEqual(self.client.get(f"/api/template-tt/{phieu_id}").status_code, 403)
+        self.assertEqual(self.client.get("/api/qt82-extension").status_code, 403)
         self.assertNotIn("eOffice QT82", self.client.get("/").get_data(as_text=True))
         history_html = self.client.get("/history").get_data(as_text=True)
         self.assertNotIn('title="eOffice QT82"', history_html)
         self.assertNotIn('title="Tải template TT"', history_html)
+
+    def test_admin_can_download_current_qt82_extension_zip(self):
+        self.login(role="admin")
+        response = self.client.get("/api/qt82-extension")
+        current_manifest = json.loads(
+            (app_module.QT82_EXTENSION_DIR / "manifest.json").read_text(encoding="utf-8")
+        )
+        current_version = current_manifest["version"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("Cache-Control"), "no-store, max-age=0")
+        self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertIn(
+            f"PNJ-QT82-Draft-Helper-v{current_version}.zip",
+            response.headers.get("Content-Disposition", ""),
+        )
+
+        with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+            names = set(archive.namelist())
+            expected = {
+                f"PNJ-QT82-Draft-Helper/{name}"
+                for name in app_module.QT82_EXTENSION_FILES
+            }
+            self.assertEqual(names, expected)
+            manifest = json.loads(
+                archive.read("PNJ-QT82-Draft-Helper/manifest.json").decode("utf-8")
+            )
+            self.assertEqual(manifest["version"], current_version)
 
     def test_missing_sap_document_uses_1234_without_falling_back_to_bk(self):
         self.login(role="admin")

@@ -10,7 +10,17 @@ Tiện ích này nhận bản nháp từ trang eOffice QT82 của ứng dụng `
 - Template TT được kiểm tra SHA-256, giữ trong bộ nhớ phiên tối đa 5 phút và nhập đúng một lần; không ghi xuống Desktop/Downloads.
 - Sau khi điền đủ trường, dữ liệu tạm bị xóa khỏi bộ nhớ tiện ích.
 
-## Cài đặt local
+## Cài đặt từ website
+
+1. Đăng nhập tài khoản ADMIN trên `dangkhoa.io.vn/bk/`.
+2. Mở **eOffice QT82** và chọn **Tải tiện ích Chrome (.zip)**.
+3. Giải nén file ZIP vào một thư mục cố định trên máy.
+4. Mở Chrome và truy cập `chrome://extensions/`.
+5. Bật **Chế độ dành cho nhà phát triển**.
+6. Chọn **Tải tiện ích đã giải nén** và chọn thư mục vừa giải nén.
+7. Mở lại trang chuẩn bị eOffice QT82 và kiểm tra trạng thái **Đã kết nối**.
+
+## Cài đặt từ mã nguồn local
 
 1. Mở Chrome và truy cập `chrome://extensions/`.
 2. Bật **Developer mode**.

@@ -19,6 +19,7 @@ import unicodedata
 import urllib.parse
 import urllib.request
 import webbrowser
+import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -76,6 +77,15 @@ DEFAULT_QT82_FORM_URL = (
     "https://eoffice.pnj.com.vn/workflow/SitePages/NewWorkflow.aspx"
     "?mode=1&LID=4ABC02AE-DF6F-4EE7-95CC-E431993C78BB&wid=1346"
 )
+QT82_EXTENSION_DIR = Path(__file__).resolve().parent / "chrome-extension" / "qt82-helper"
+QT82_EXTENSION_FILES = (
+    "manifest.json",
+    "background.js",
+    "web-bridge.js",
+    "eoffice-kendo-main.js",
+    "eoffice-fill.js",
+    "README.md",
+)
 
 
 def normalize_qt82_form_url(value):
@@ -96,6 +106,25 @@ def normalize_qt82_form_url(value):
         return urllib.parse.urlunsplit(("https", netloc, parsed.path, parsed.query, ""))
     except (TypeError, ValueError):
         return ""
+
+
+def build_qt82_extension_archive():
+    """Đóng gói đúng mã nguồn extension đang chạy, không đưa dữ liệu runtime vào ZIP."""
+    manifest_path = QT82_EXTENSION_DIR / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    version = str(manifest.get("version", "")).strip()
+    if not re.fullmatch(r"\d+(?:\.\d+){1,3}", version):
+        raise ValueError("Phiên bản extension trong manifest không hợp lệ.")
+
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for relative_name in QT82_EXTENSION_FILES:
+            source = (QT82_EXTENSION_DIR / relative_name).resolve()
+            if source.parent != QT82_EXTENSION_DIR.resolve() or not source.is_file():
+                raise FileNotFoundError(f"Thiếu tệp extension: {relative_name}")
+            archive.write(source, arcname=f"PNJ-QT82-Draft-Helper/{relative_name}")
+    output.seek(0)
+    return output, version
 
 # ---------------------------------------------------------------------------
 # Load data from Excel
@@ -1743,6 +1772,37 @@ def eoffice_index():
     response = app.make_response(render_template("eoffice.html", phieu=None, qt82_payload=None))
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@app.route("/api/qt82-extension")
+def api_qt82_extension():
+    """Tải gói extension QT82; chỉ ADMIN đã đăng nhập mới được phép."""
+    if not is_admin():
+        response = app.make_response(("Bạn không có quyền tải tiện ích này.", 403))
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
+
+    try:
+        archive, version = build_qt82_extension_archive()
+    except (OSError, ValueError, json.JSONDecodeError, zipfile.BadZipFile):
+        app.logger.exception("Không thể đóng gói extension QT82")
+        response = app.make_response(("Không thể đóng gói tiện ích Chrome.", 500))
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
+
+    response = send_file(
+        archive,
+        as_attachment=True,
+        download_name=f"PNJ-QT82-Draft-Helper-v{version}.zip",
+        mimetype="application/zip",
+        max_age=0,
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
 

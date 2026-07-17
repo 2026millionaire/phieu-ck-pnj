@@ -69,6 +69,7 @@
                     <div class="copy-field"><div><div class="field-label">CCCD</div><div class="field-value" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" type="button" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
                 </div>
 
+                {% if admin %}
                 <div class="border rounded p-2 mt-3 bg-light">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
                         <strong class="small">Tiện ích Chrome</strong>
@@ -82,12 +83,19 @@
                         <a href="{{ url_for('api_template_tt', phieu_id=phieu.id) }}" class="btn btn-outline-success qt82-action" id="btnDownloadTemplate">
                             <i class="bi bi-file-earmark-excel"></i> Tải Template TT
                         </a>
+                        <a href="{{ url_for('api_qt82_extension') }}" class="btn btn-outline-primary qt82-action" id="btnDownloadQt82Extension">
+                            <i class="bi bi-file-earmark-zip"></i> Tải tiện ích Chrome (.zip)
+                        </a>
                         <a href="{{ qt82_payload.formUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary qt82-action">
                             <i class="bi bi-box-arrow-up-right"></i> Mở QT82 không tự điền
                         </a>
                     </div>
+                    <div class="small text-muted mt-2">
+                        Máy mới: giải nén ZIP, mở <code>chrome://extensions</code>, bật Chế độ dành cho nhà phát triển rồi chọn Tải tiện ích đã giải nén.
+                    </div>
                     <div class="small mt-2 d-none" id="qt82BridgeMessage"></div>
                 </div>
+                {% endif %}
             </div>
         </div>
 
