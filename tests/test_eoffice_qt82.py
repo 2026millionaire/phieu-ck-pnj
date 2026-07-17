@@ -116,6 +116,18 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(payload["detailDocuments"], ["4403000001"])
         self.assertEqual(payload["formUrl"], app_module.DEFAULT_QT82_FORM_URL)
 
+    def test_preflight_check_is_rendered_below_customer_and_qt82_actions(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(doc_num="2500000001")
+        html = self.client.get(f"/eoffice/{phieu_id}").get_data(as_text=True)
+
+        customer_card = html.index('<i class="bi bi-clipboard-data"></i>')
+        prepare_button = html.index('id="btnPrepareQt82"')
+        preflight_card = html.index('<strong>Kiểm tra trước khi tạo QT82</strong>')
+
+        self.assertLess(customer_card, prepare_button)
+        self.assertLess(prepare_button, preflight_card)
+
     def test_qt82_form_url_can_change_only_within_pnj_eoffice_workflow(self):
         self.login(role="admin")
         phieu_id = self.create_phieu(doc_num="2500000001")

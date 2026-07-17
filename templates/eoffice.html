@@ -54,29 +54,6 @@
 <div class="row g-3">
     <div class="col-xl-5">
         <div class="card mb-3">
-            <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
-                <span><i class="bi bi-clipboard-check"></i> <strong>Kiểm tra trước khi tạo QT82</strong></span>
-                <span class="badge {{ 'bg-success' if qt82_payload.ready else 'bg-danger' }}">
-                    {{ 'Sẵn sàng' if qt82_payload.ready else 'Thiếu dữ liệu' }}
-                </span>
-            </div>
-            <div class="card-body py-2">
-                {% for check in qt82_payload.checks %}
-                <div class="qt82-check {{ 'ok' if check.ok else 'fail' }}">
-                    <i class="bi {{ 'bi-check-circle-fill' if check.ok else 'bi-x-circle-fill' }}"></i>
-                    <span>{{ check.label }}</span>
-                </div>
-                {% endfor %}
-                {% if qt82_payload.sapPlaceholder %}
-                <div class="qt82-warning rounded p-2 mt-2 small">
-                    <strong>Mã chứng từ SAP đang tạm dùng 1234.</strong><br>
-                    Bạn cần thay bằng mã thật trên eOffice trước khi bấm Gửi.
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="card">
             <div class="card-header py-2 d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-clipboard-data"></i> <strong>{{ phieu.ten_kh }}</strong></span>
                 <span class="badge bg-primary">{{ "{:,.0f}".format(phieu.tong_ck | float) }}đ</span>
@@ -111,6 +88,29 @@
                     </div>
                     <div class="small mt-2 d-none" id="qt82BridgeMessage"></div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
+                <span><i class="bi bi-clipboard-check"></i> <strong>Kiểm tra trước khi tạo QT82</strong></span>
+                <span class="badge {{ 'bg-success' if qt82_payload.ready else 'bg-danger' }}">
+                    {{ 'Sẵn sàng' if qt82_payload.ready else 'Thiếu dữ liệu' }}
+                </span>
+            </div>
+            <div class="card-body py-2">
+                {% for check in qt82_payload.checks %}
+                <div class="qt82-check {{ 'ok' if check.ok else 'fail' }}">
+                    <i class="bi {{ 'bi-check-circle-fill' if check.ok else 'bi-x-circle-fill' }}"></i>
+                    <span>{{ check.label }}</span>
+                </div>
+                {% endfor %}
+                {% if qt82_payload.sapPlaceholder %}
+                <div class="qt82-warning rounded p-2 mt-2 small">
+                    <strong>Mã chứng từ SAP đang tạm dùng 1234.</strong><br>
+                    Bạn cần thay bằng mã thật trên eOffice trước khi bấm Gửi.
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
