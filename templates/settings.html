@@ -11,6 +11,9 @@
 .list-table .btn-sm { padding: 2px 8px; font-size: 0.78rem; }
 .add-row { display: flex; gap: 8px; margin-top: 8px; }
 .add-row .form-control { font-size: 0.88rem; }
+.customer-import-stat { padding: .65rem; border: 1px solid #dbeafe; border-radius: .45rem; background: #f8fbff; }
+.customer-import-stat small { display: block; color: #64748b; }
+.customer-import-stat strong { font-size: 1.05rem; color: #0f172a; }
 {% endblock %}
 
 {% block content %}
@@ -125,6 +128,51 @@
         <hr class="my-4">
         <h6 class="text-muted mb-3"><i class="bi bi-shield-lock"></i> Quản trị (chỉ Admin)</h6>
 
+        <div class="card mb-3 border-primary">
+            <div class="card-header py-2">
+                <i class="bi bi-database-up"></i> Cập nhật dữ liệu khách hàng
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Tổng bản ghi</small><strong id="customerImportRecordCount">—</strong></div></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Mã KH lớn nhất</small><strong id="customerImportMaxCode">—</strong></div></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Cập nhật gần nhất</small><strong id="customerImportLastTime">—</strong></div></div>
+                </div>
+                <label class="form-label" for="customerImportFiles">Chọn file dữ liệu SAP</label>
+                <input type="file" class="form-control form-control-sm" id="customerImportFiles" multiple>
+                <div class="form-text">Không yêu cầu quy tắc đặt tên file. Hệ thống kiểm tra nội dung bảng SAP; tối đa 10 file và 500 MB mỗi lần.</div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="customerImportConfirm">
+                    <label class="form-check-label" for="customerImportConfirm">Tôi xác nhận kiểm tra và cập nhật các file đã chọn vào CSDL.</label>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary mt-3" id="btnCustomerImport">
+                    <i class="bi bi-shield-check"></i> Kiểm tra và cập nhật
+                </button>
+                <div class="mt-3 d-none" id="customerImportStatusBox">
+                    <div class="d-flex justify-content-between gap-2 small mb-1">
+                        <span id="customerImportMessage">Đang chuẩn bị...</span>
+                        <span id="customerImportProgressText"></span>
+                    </div>
+                    <div class="progress" style="height:8px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="customerImportProgress" role="progressbar" style="width:0%"></div>
+                    </div>
+                    <div class="small mt-2" id="customerImportResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 border-warning">
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <strong>Dữ liệu khách hàng TVV đề xuất</strong>
+                    <div class="small text-muted">Duyệt hoặc từ chối từng thay đổi Tên KH, SĐT và CCCD.</div>
+                </div>
+                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('customer_updates_page') }}">
+                    <i class="bi bi-person-check"></i> Mở báo cáo duyệt
+                </a>
+            </div>
+        </div>
+
         <div class="admin-section">
             <!-- BK Prefix -->
             <div class="card mb-3">
@@ -237,6 +285,131 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
 });
 
 {% if admin %}
+const customerImportCsrf = {{ customer_import_csrf|tojson }};
+const customerImportSummaryUrl = {{ url_for('api_customer_import_summary')|tojson }};
+const customerImportUploadUrl = {{ url_for('api_customer_import_upload')|tojson }};
+let customerImportPollTimer = null;
+
+function formatCustomerImportNumber(value) {
+    return Number(value || 0).toLocaleString('vi-VN');
+}
+
+function formatCustomerImportTime(timestamp) {
+    if (!timestamp) return 'Chưa có';
+    return new Intl.DateTimeFormat('vi-VN', {dateStyle: 'short', timeStyle: 'short'})
+        .format(new Date(Number(timestamp) * 1000));
+}
+
+function renderCustomerDatasetSummary(data) {
+    document.getElementById('customerImportRecordCount').textContent = formatCustomerImportNumber(data.record_count);
+    document.getElementById('customerImportMaxCode').textContent = data.max_customer || 'Chưa xác định';
+    document.getElementById('customerImportLastTime').textContent = formatCustomerImportTime(data.last_import_at);
+}
+
+function renderCustomerImportJob(job) {
+    const box = document.getElementById('customerImportStatusBox');
+    const progress = document.getElementById('customerImportProgress');
+    const progressText = document.getElementById('customerImportProgressText');
+    const message = document.getElementById('customerImportMessage');
+    const result = document.getElementById('customerImportResult');
+    const button = document.getElementById('btnCustomerImport');
+    box.classList.remove('d-none');
+    message.textContent = job.message || 'Đang xử lý...';
+    const total = Number(job.total_rows || job.validation?.source_rows || 0);
+    const processed = Number(job.processed_rows || 0);
+    const percent = total > 0 ? Math.min(100, Math.round(processed * 100 / total)) : 0;
+    progress.style.width = `${percent}%`;
+    progressText.textContent = total > 0
+        ? `${formatCustomerImportNumber(processed)} / ${formatCustomerImportNumber(total)}`
+        : '';
+    button.disabled = !['completed', 'failed'].includes(job.status);
+
+    if (job.status === 'completed') {
+        progress.style.width = '100%';
+        progress.classList.remove('progress-bar-animated', 'bg-danger');
+        progress.classList.add('bg-success');
+        const imported = job.result || {};
+        result.className = 'small mt-2 text-success';
+        result.textContent = `Hoàn tất: thêm ${formatCustomerImportNumber(imported.inserted_rows)}, cập nhật ${formatCustomerImportNumber(imported.updated_rows)}, giữ nguyên ${formatCustomerImportNumber(imported.unchanged_rows)}, DelF ${formatCustomerImportNumber(imported.delf_rows)}.`;
+        if (imported.dataset) renderCustomerDatasetSummary(imported.dataset);
+        document.getElementById('customerImportFiles').value = '';
+        document.getElementById('customerImportConfirm').checked = false;
+    } else if (job.status === 'failed') {
+        progress.classList.remove('progress-bar-animated', 'bg-success');
+        progress.classList.add('bg-danger');
+        result.className = 'small mt-2 text-danger';
+        result.textContent = job.error || 'Cập nhật không thành công.';
+    } else {
+        progress.classList.remove('bg-success', 'bg-danger');
+        progress.classList.add('progress-bar-animated');
+        result.textContent = '';
+    }
+}
+
+async function pollCustomerImportJob(jobId) {
+    if (customerImportPollTimer) clearTimeout(customerImportPollTimer);
+    try {
+        const response = await fetch(`${customerImportUploadUrl}/${encodeURIComponent(jobId)}`, {
+            credentials: 'same-origin', cache: 'no-store', headers: {Accept: 'application/json'}
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể đọc tiến độ.');
+        renderCustomerImportJob(data.job);
+        if (!['completed', 'failed'].includes(data.job.status)) {
+            customerImportPollTimer = setTimeout(() => pollCustomerImportJob(jobId), 1500);
+        }
+    } catch (error) {
+        document.getElementById('customerImportResult').className = 'small mt-2 text-danger';
+        document.getElementById('customerImportResult').textContent = error.message;
+        document.getElementById('btnCustomerImport').disabled = false;
+    }
+}
+
+async function loadCustomerImportSummary() {
+    try {
+        const response = await fetch(customerImportSummaryUrl, {
+            credentials: 'same-origin', cache: 'no-store', headers: {Accept: 'application/json'}
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể đọc thống kê.');
+        renderCustomerDatasetSummary(data.data);
+        if (data.active_job) {
+            renderCustomerImportJob(data.active_job);
+            pollCustomerImportJob(data.active_job.id);
+        }
+    } catch (error) {
+        document.getElementById('customerImportMaxCode').textContent = 'Không thể tải';
+    }
+}
+
+document.getElementById('btnCustomerImport').addEventListener('click', async function() {
+    const files = Array.from(document.getElementById('customerImportFiles').files || []);
+    if (!files.length) { alert('Vui lòng chọn ít nhất một file dữ liệu.'); return; }
+    if (files.length > 10) { alert('Mỗi lần chỉ được chọn tối đa 10 file.'); return; }
+    if (!document.getElementById('customerImportConfirm').checked) {
+        alert('Vui lòng xác nhận trước khi cập nhật CSDL.');
+        return;
+    }
+    const form = new FormData();
+    files.forEach(file => form.append('files', file));
+    form.append('confirmed', 'yes');
+    this.disabled = true;
+    renderCustomerImportJob({status: 'uploading', message: 'Đang tải file lên...', processed_rows: 0});
+    try {
+        const response = await fetch(customerImportUploadUrl, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: {'X-CSRF-Token': customerImportCsrf, Accept: 'application/json'},
+            body: form
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể bắt đầu cập nhật.');
+        renderCustomerImportJob(data.job);
+        pollCustomerImportJob(data.job.id);
+    } catch (error) {
+        renderCustomerImportJob({status: 'failed', message: 'Cập nhật không thành công.', error: error.message});
+    }
+});
+
 // ── TVV CRUD ──
 function loadTvv() {
     fetch('/api/tvv').then(r => r.json()).then(json => {
@@ -320,6 +493,7 @@ function delLydo(id) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    loadCustomerImportSummary();
     loadTvv();
     loadLydo();
 });

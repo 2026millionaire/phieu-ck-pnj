@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Duyệt dữ liệu khách hàng{% endblock %}
+{% block nav_settings %}active{% endblock %}
+{% block page_title %}Duyệt cập nhật dữ liệu khách hàng{% endblock %}
+
+{% block extra_css %}
+.review-tabs { display: flex; flex-wrap: wrap; gap: .5rem; }
+.review-tabs .btn { white-space: nowrap; }
+.review-table { font-size: .85rem; }
+.review-table th { white-space: nowrap; background: #f8fafc; }
+.review-value { min-width: 180px; overflow-wrap: anywhere; }
+.review-candidate { color: #075985; font-weight: 700; }
+.review-meta { min-width: 175px; color: #475569; }
+.review-actions { min-width: 150px; }
+@media (max-width: 767px) {
+    .review-table thead { display: none; }
+    .review-table, .review-table tbody, .review-table tr, .review-table td { display: block; width: 100%; }
+    .review-table tr { margin-bottom: .75rem; padding: .75rem; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; }
+    .review-table td { padding: .3rem 0; border: 0; }
+    .review-table td::before { content: attr(data-label); display: block; color: #64748b; font-size: .72rem; font-weight: 600; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-warning py-2">
+    <i class="bi bi-shield-lock"></i>
+    Báo cáo chứa dữ liệu cá nhân. Chỉ duyệt khi đã đối chiếu đúng mã khách hàng và phiếu nguồn.
+</div>
+
+<div class="card">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="review-tabs" id="reviewTabs">
+            <button class="btn btn-sm btn-primary" data-status="pending">Chờ duyệt <span class="badge text-bg-light" data-count="pending">0</span></button>
+            <button class="btn btn-sm btn-outline-secondary" data-status="approved">Đã duyệt <span class="badge text-bg-light" data-count="approved">0</span></button>
+            <button class="btn btn-sm btn-outline-secondary" data-status="rejected">Đã từ chối <span class="badge text-bg-light" data-count="rejected">0</span></button>
+            <button class="btn btn-sm btn-outline-secondary" data-status="superseded">Đã thay thế <span class="badge text-bg-light" data-count="superseded">0</span></button>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" id="btnRefresh"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+    </div>
+    <div class="card-body p-0">
+        <div id="reviewMessage" class="p-3 text-muted">Đang tải...</div>
+        <div class="table-responsive d-none" id="reviewTableWrap">
+            <table class="table table-hover align-middle mb-0 review-table">
+                <thead>
+                    <tr>
+                        <th>Mã KH / Trường</th>
+                        <th>Dữ liệu hiện tại</th>
+                        <th>Dữ liệu TVV nhập</th>
+                        <th>Nguồn ghi nhận</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="reviewBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <button class="btn btn-sm btn-outline-secondary" id="btnPrev">Trang trước</button>
+        <span id="pageInfo" class="small text-muted"></span>
+        <button class="btn btn-sm btn-outline-secondary" id="btnNext">Trang sau</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
+    const appUrl = (path) => appBasePath + path;
+    const fieldLabels = { name: 'Tên KH', phone: 'SĐT', cccd: 'CCCD' };
+    let currentStatus = 'pending';
+    let currentPage = 1;
+    let loading = false;
+
+    const body = document.getElementById('reviewBody');
+    const tableWrap = document.getElementById('reviewTableWrap');
+    const message = document.getElementById('reviewMessage');
+    const pageInfo = document.getElementById('pageInfo');
+    const prev = document.getElementById('btnPrev');
+    const next = document.getElementById('btnNext');
+
+    function formatTime(timestamp) {
+        if (!timestamp) return '—';
+        return new Intl.DateTimeFormat('vi-VN', {
+            dateStyle: 'short', timeStyle: 'short'
+        }).format(new Date(timestamp * 1000));
+    }
+
+    function textCell(label, className, text) {
+        const td = document.createElement('td');
+        td.dataset.label = label;
+        if (className) td.className = className;
+        td.textContent = text || '—';
+        return td;
+    }
+
+    function renderRow(item) {
+        const tr = document.createElement('tr');
+
+        const identity = document.createElement('td');
+        identity.dataset.label = 'Mã KH / Trường';
+        const code = document.createElement('strong');
+        code.textContent = item.customer_code;
+        const field = document.createElement('div');
+        field.className = 'text-muted';
+        field.textContent = fieldLabels[item.field] || item.field;
+        identity.append(code, field);
+        tr.appendChild(identity);
+
+        tr.appendChild(textCell('Dữ liệu hiện tại', 'review-value', item.original_value));
+        tr.appendChild(textCell('Dữ liệu TVV nhập', 'review-value review-candidate', item.candidate_value));
+
+        const meta = document.createElement('td');
+        meta.dataset.label = 'Nguồn ghi nhận';
+        meta.className = 'review-meta';
+        const tvv = item.last_tvv_code || item.last_tvv_name
+            ? `${item.last_tvv_code || ''}${item.last_tvv_code && item.last_tvv_name ? ' - ' : ''}${item.last_tvv_name || ''}`
+            : 'Không có mã TVV';
+        const account = item.last_user_label || `Tài khoản #${item.last_user_id || '?'}`;
+        meta.textContent = `${tvv} · ${account} · Phiếu #${item.last_phieu_id || '?'} · ${formatTime(item.last_seen_at)} · Ghi nhận ${item.seen_count} lần`;
+        tr.appendChild(meta);
+
+        const actions = document.createElement('td');
+        actions.dataset.label = 'Thao tác';
+        actions.className = 'review-actions';
+        if (item.status === 'pending') {
+            const approve = document.createElement('button');
+            approve.type = 'button';
+            approve.className = 'btn btn-sm btn-success me-1';
+            approve.textContent = 'Duyệt';
+            approve.addEventListener('click', () => review(item, 'approve'));
+            const reject = document.createElement('button');
+            reject.type = 'button';
+            reject.className = 'btn btn-sm btn-outline-danger';
+            reject.textContent = 'Từ chối';
+            reject.addEventListener('click', () => review(item, 'reject'));
+            actions.append(approve, reject);
+        } else {
+            actions.textContent = item.reviewed_by_label
+                ? `${item.reviewed_by_label} · ${formatTime(item.reviewed_at)}`
+                : formatTime(item.reviewed_at);
+        }
+        tr.appendChild(actions);
+        return tr;
+    }
+
+    async function loadReport() {
+        if (loading) return;
+        loading = true;
+        message.classList.remove('d-none');
+        message.textContent = 'Đang tải...';
+        tableWrap.classList.add('d-none');
+        try {
+            const response = await fetch(appUrl(`/api/customer-updates?status=${encodeURIComponent(currentStatus)}&page=${currentPage}`), {
+                credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
+            });
+            const result = await response.json();
+            if (!response.ok || !result.ok) throw new Error(result.error || 'Không thể tải báo cáo.');
+            const report = result.data;
+            document.querySelectorAll('[data-count]').forEach(el => {
+                el.textContent = report.counts[el.dataset.count] || 0;
+            });
+            body.replaceChildren(...report.items.map(renderRow));
+            if (report.items.length) {
+                message.classList.add('d-none');
+                tableWrap.classList.remove('d-none');
+            } else {
+                message.textContent = 'Không có yêu cầu nào trong trạng thái này.';
+            }
+            pageInfo.textContent = `Trang ${report.page} · ${report.total} yêu cầu`;
+            prev.disabled = report.page <= 1;
+            next.disabled = !report.has_next;
+        } catch (error) {
+            message.textContent = error.message || 'Không thể tải báo cáo.';
+            pageInfo.textContent = '';
+            prev.disabled = true;
+            next.disabled = true;
+        } finally {
+            loading = false;
+        }
+    }
+
+    async function review(item, action) {
+        const actionLabel = action === 'approve' ? 'duyệt' : 'từ chối';
+        if (!window.confirm(`Xác nhận ${actionLabel} ${fieldLabels[item.field] || item.field} của mã KH ${item.customer_code}?`)) return;
+        try {
+            const response = await fetch(appUrl(`/api/customer-updates/${item.id}/review`), {
+                method: 'POST', credentials: 'same-origin', cache: 'no-store',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ action })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.ok) throw new Error(result.error || 'Không thể cập nhật.');
+            await loadReport();
+        } catch (error) {
+            window.alert(error.message || 'Không thể cập nhật yêu cầu.');
+        }
+    }
+
+    document.querySelectorAll('#reviewTabs [data-status]').forEach(button => {
+        button.addEventListener('click', function() {
+            currentStatus = button.dataset.status;
+            currentPage = 1;
+            document.querySelectorAll('#reviewTabs [data-status]').forEach(item => {
+                item.classList.toggle('btn-primary', item === button);
+                item.classList.toggle('btn-outline-secondary', item !== button);
+            });
+            loadReport();
+        });
+    });
+    document.getElementById('btnRefresh').addEventListener('click', loadReport);
+    prev.addEventListener('click', () => { if (currentPage > 1) { currentPage -= 1; loadReport(); } });
+    next.addEventListener('click', () => { currentPage += 1; loadReport(); });
+    loadReport();
+});
+</script>
+{% endblock %}

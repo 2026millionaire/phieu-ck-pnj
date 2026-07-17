@@ -29,6 +29,25 @@ python app.py
 
 Hoặc double-click `start.bat` → tự mở http://localhost:5050
 
+## Tra cứu khách hàng local
+
+- CSDL dẫn xuất được lưu ngoài repository tại `%LOCALAPPDATA%\PNJCustomerLookup\customer_lookup.db`.
+- Khóa chính local được Windows DPAPI bảo vệ trong `master-key.dpapi`; không sao chép khóa hoặc CSDL vào Git/OneDrive.
+- Mã KH dùng HMAC làm chỉ mục; payload `Customer`, `SearchTerm`, `Name 1`, `DelF` được mã hóa AES-256-GCM.
+- Dữ liệu Tên KH, SĐT và CCCD do TVV nhập chỉ được ghi nhận khi phiếu ở trạng thái `printed`. Giá trị khác dữ liệu chính thức được mã hóa và lưu song song ở trạng thái chờ ADMIN duyệt; không tự ghi đè dữ liệu SAP.
+- Báo cáo `/customer-updates` chỉ cho ADMIN xem và duyệt/từ chối từng trường hợp, tối đa 50 dòng mỗi trang và không có chức năng xuất hàng loạt.
+- ADMIN có thể tải file SAP tên bất kỳ tại trang Cài đặt. Hệ thống kiểm tra nội dung, chống nhập trùng bằng SHA-256, tự sao lưu, nhập trong một giao dịch và xóa file tạm sau khi hoàn tất.
+- Công cụ nhập không in tên, SĐT hoặc mã KH ra terminal. Mỗi lần nhập là một giao dịch: nếu có lỗi, toàn bộ lần nhập được rollback.
+- `start.bat` dùng khóa Turnstile thử nghiệm chính thức và chỉ dành cho local. Production bắt buộc cung cấp site key/secret thật qua biến môi trường.
+
+Nhập hoặc cập nhật dữ liệu bằng lệnh:
+
+```powershell
+python scripts\import_customer_lookup.py "<file-1.txt>" "<file-2.txt>" --expected-min 100000000 --expected-max 100499999
+```
+
+Không đưa file SAP nguồn, `customer_lookup.db`, `master-key.dpapi`, log tra cứu hoặc khóa production vào repository.
+
 ## Cấu trúc
 
 ```
@@ -45,6 +64,7 @@ phieu-ck-app/
     ├── print.html           # Trang in A5
     ├── history.html         # Lịch sử
     ├── eoffice.html         # eOffice QT82
+    ├── customer_updates.html # Báo cáo duyệt dữ liệu KH
     └── settings.html        # Cài đặt
 ```
 

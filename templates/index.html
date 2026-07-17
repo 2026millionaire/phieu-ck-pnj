@@ -103,6 +103,94 @@ textarea#sap_data {
     min-width: 0;
 }
 
+.customer-suggestion-field {
+    position: relative;
+}
+
+.customer-input-wrap {
+    position: relative;
+}
+
+.customer-input-wrap > .form-control {
+    padding-right: 2.35rem;
+}
+
+#ten_kh::placeholder {
+    text-transform: none;
+}
+
+.customer-field-clear {
+    position: absolute;
+    top: 50%;
+    right: 0.3rem;
+    z-index: 3;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.customer-field-clear:hover,
+.customer-field-clear:focus-visible {
+    color: #b91c1c;
+    background: #fee2e2;
+}
+
+.customer-suggestion-menu {
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0;
+    right: 0;
+    z-index: 1080;
+    display: none;
+    padding: 0.35rem;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.45rem;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
+.customer-suggestion-menu.show {
+    display: block;
+}
+
+.customer-suggestion-option {
+    width: 100%;
+    min-height: 42px;
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: #0f172a;
+    background: #f0f9ff;
+    border: 1px solid #7dd3fc;
+    border-radius: 0.35rem;
+}
+
+.customer-suggestion-option + .customer-suggestion-option {
+    margin-top: 0.35rem;
+}
+
+.customer-suggestion-value {
+    display: block;
+    font-weight: 600;
+}
+
+.customer-suggestion-option:hover,
+.customer-suggestion-option:focus-visible {
+    background: #e0f2fe;
+    border-color: #38bdf8;
+}
+
 .form-label {
     font-weight: 600;
     font-size: 0.85rem;
@@ -151,7 +239,7 @@ textarea#sap_data {
 <div class="row g-3">
     <!-- LEFT: Form -->
     <div class="col-lg-7">
-        <form id="phieuForm" method="POST" action="{{ url_for('api_save') }}">
+        <form id="phieuForm" method="POST" action="{{ url_for('api_save') }}" autocomplete="off">
             <!-- Customer info -->
             <div class="card mb-3">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center">
@@ -164,24 +252,43 @@ textarea#sap_data {
                     <div class="row g-2">
                         <div class="col-md-4">
                             <label class="form-label">Mã KH (Vendor)</label>
-                            <input type="text" class="form-control form-control-sm" id="ma_kh" name="ma_kh"
-                                   value="" placeholder="VD: 0001234567">
+                            <div class="customer-input-wrap">
+                                <input type="text" class="form-control form-control-sm" id="ma_kh" name="ma_kh"
+                                       value="" placeholder="Nhập mã KH" autocomplete="off">
+                                <button type="button" class="customer-field-clear" data-clear-target="ma_kh"
+                                        title="Xóa mã KH" aria-label="Xóa mã KH">&times;</button>
+                            </div>
                         </div>
                         <div class="col-md-8">
                             <label class="form-label">Tên KH</label>
-                            <input type="text" class="form-control form-control-sm" id="ten_kh" name="ten_kh"
-                                   value="" placeholder="NGUYỄN VĂN A"
-                                   style="text-transform: uppercase;">
+                            <div class="customer-suggestion-field customer-input-wrap">
+                                <input type="text" class="form-control form-control-sm" id="ten_kh" name="ten_kh"
+                                       value="" placeholder="Nhập tên KH" autocomplete="off"
+                                       style="text-transform: uppercase;">
+                                <button type="button" class="customer-field-clear" data-clear-target="ten_kh"
+                                        title="Xóa tên KH" aria-label="Xóa tên KH">&times;</button>
+                                <div class="customer-suggestion-menu" id="customerSuggestionName"></div>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">SĐT</label>
-                            <input type="text" class="form-control form-control-sm" id="sdt" name="sdt"
-                                   value="" placeholder="0901234567">
+                            <div class="customer-suggestion-field customer-input-wrap">
+                                <input type="text" class="form-control form-control-sm" id="sdt" name="sdt"
+                                       value="" placeholder="Nhập SĐT" autocomplete="off">
+                                <button type="button" class="customer-field-clear" data-clear-target="sdt"
+                                        title="Xóa SĐT" aria-label="Xóa SĐT">&times;</button>
+                                <div class="customer-suggestion-menu" id="customerSuggestionPhone"></div>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Số CCCD</label>
-                            <input type="text" class="form-control form-control-sm" id="cccd" name="cccd"
-                                   value="" placeholder="046xxx">
+                            <div class="customer-suggestion-field customer-input-wrap">
+                                <input type="text" class="form-control form-control-sm" id="cccd" name="cccd"
+                                       value="" placeholder="Nhập CCCD" autocomplete="off">
+                                <button type="button" class="customer-field-clear" data-clear-target="cccd"
+                                        title="Xóa CCCD" aria-label="Xóa CCCD">&times;</button>
+                                <div class="customer-suggestion-menu" id="customerSuggestionCccd"></div>
+                            </div>
                         </div>
                         <!-- Số BK: hidden, auto-filled from section 3 table -->
                         <input type="hidden" id="so_bk" name="so_bk" value="">
@@ -256,14 +363,7 @@ textarea#sap_data {
                                 </div>
                             </div>
                         </div>
-                        {% if admin %}
-                        <div class="col-md-5">
-                            <label class="form-label">Mã eOffice NH</label>
-                            <input type="text" class="form-control form-control-sm bg-light" id="bank_eoffice" readonly
-                                   placeholder="Tự động">
-                        </div>
-                        {% endif %}
-                        <div class="tvv-field {% if admin %}col-md-7{% else %}col-12{% endif %}">
+                        <div class="tvv-field col-12">
                             <label class="form-label">TVV - Tư vấn viên</label>
                             <div class="position-relative">
                                 <div class="input-group input-group-sm">
@@ -324,18 +424,17 @@ textarea#sap_data {
                 </div>
             </div>
 
-            <!-- 4. Dữ liệu SAP: thu gọn mặc định, người dùng chủ động ẩn/hiện -->
+            <!-- 4. Dữ liệu SAP: hiển thị mặc định, người dùng chủ động ẩn/hiện -->
             <div class="card mb-3">
-                <div class="card-header p-0">
-                    <button type="button" class="btn w-100 text-start py-2 px-3 sap-toggle collapsed"
+                <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
+                    <span><i class="bi bi-table"></i> 4. Tự nhập dữ liệu SAP (ZFIE0029)</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 sap-toggle"
                             data-bs-toggle="collapse" data-bs-target="#sapDataCollapse"
-                            aria-expanded="false" aria-controls="sapDataCollapse">
-                        <i class="bi bi-table"></i>
+                            aria-expanded="true" aria-controls="sapDataCollapse">
                         <span class="when-collapsed">Hiện</span><span class="when-expanded">Ẩn</span>
-                        4. Tự nhập dữ liệu SAP (ZFIE0029)
                     </button>
                 </div>
-                <div class="collapse" id="sapDataCollapse">
+                <div class="collapse show" id="sapDataCollapse">
                     <div class="card-body">
                         <label class="form-label">Dán dữ liệu SAP</label>
                         <textarea class="form-control" id="sap_data" rows="5"
@@ -511,14 +610,262 @@ textarea#sap_data {
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="customerLookupCaptchaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0">Xác minh tra cứu</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="small text-muted mb-3">Hệ thống phát hiện nhiều mã KH khác nhau được tra cứu liên tục. Vui lòng xác minh để tiếp tục.</p>
+                <div id="customerLookupTurnstile" class="d-flex justify-content-center"></div>
+                <div id="customerLookupCaptchaError" class="small text-danger mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+{% if customer_lookup_enabled and customer_lookup_turnstile_sitekey %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+{% endif %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
     const appUrl = (path) => appBasePath + path;
+    const customerLookupEnabled = {{ customer_lookup_enabled|tojson }};
+    const customerLookupTurnstileSitekey = {{ customer_lookup_turnstile_sitekey|tojson }};
     const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_tk', 'ngan_hang'];
+
+    const customerSuggestionTargets = {
+        name: {
+            input: document.getElementById('ten_kh'),
+            menu: document.getElementById('customerSuggestionName')
+        },
+        phone: {
+            input: document.getElementById('sdt'),
+            menu: document.getElementById('customerSuggestionPhone')
+        },
+        cccd: {
+            input: document.getElementById('cccd'),
+            menu: document.getElementById('customerSuggestionCccd')
+        }
+    };
+    const customerSuggestionCache = new Map();
+    const customerSuggestionInFlight = new Set();
+    const captchaElement = document.getElementById('customerLookupCaptchaModal');
+    const captchaModal = captchaElement ? new bootstrap.Modal(captchaElement) : null;
+    const captchaError = document.getElementById('customerLookupCaptchaError');
+    let pendingCaptchaLookup = null;
+    let turnstileWidgetId = null;
+
+    function validLookupCustomerCode(value) {
+        const code = (value || '').trim();
+        return /^1[0-9]{8}$/.test(code) || /^0[0-9]{9}$/.test(code);
+    }
+
+    function hideCustomerSuggestions(exceptField) {
+        Object.entries(customerSuggestionTargets).forEach(([field, target]) => {
+            if (field !== exceptField) target.menu.classList.remove('show');
+        });
+    }
+
+    function showCustomerSuggestions(field, suggestions) {
+        const target = customerSuggestionTargets[field];
+        target.menu.replaceChildren();
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            target.menu.classList.remove('show');
+            return;
+        }
+        suggestions.forEach(function(suggestion) {
+            if (!suggestion || typeof suggestion.value !== 'string' || !suggestion.value) return;
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'customer-suggestion-option';
+            const value = document.createElement('span');
+            value.className = 'customer-suggestion-value';
+            value.textContent = suggestion.value;
+            option.append(value);
+            option.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                target.input.value = suggestion.value;
+                target.input.dispatchEvent(new Event('input', { bubbles: true }));
+                target.input.dispatchEvent(new Event('change', { bubbles: true }));
+                target.menu.classList.remove('show');
+            });
+            target.menu.appendChild(option);
+        });
+        if (!target.menu.childElementCount) return;
+        hideCustomerSuggestions(field);
+        target.menu.classList.add('show');
+    }
+
+    function customerSuggestionCacheKey(code, field) {
+        return code.trim() + '|' + field;
+    }
+
+    async function fetchCustomerSuggestion(code, field, turnstileToken) {
+        const response = await fetch(appUrl('/api/customer-suggestion'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            cache: 'no-store',
+            body: JSON.stringify({
+                customer_code: code,
+                field: field,
+                turnstile_token: turnstileToken || ''
+            })
+        });
+        const data = await response.json().catch(() => ({ ok: false }));
+        return { response, data };
+    }
+
+    function clearTurnstileWidget() {
+        if (turnstileWidgetId !== null && window.turnstile) {
+            try { window.turnstile.remove(turnstileWidgetId); } catch (error) { /* no-op */ }
+        }
+        turnstileWidgetId = null;
+        const container = document.getElementById('customerLookupTurnstile');
+        if (container) container.replaceChildren();
+    }
+
+    async function completeCaptchaLookup(token) {
+        const pending = pendingCaptchaLookup;
+        if (!pending) return;
+        if (captchaError) captchaError.textContent = '';
+        try {
+            const { data } = await fetchCustomerSuggestion(pending.code, pending.field, token);
+            if (!data.ok) {
+                if (captchaError) captchaError.textContent = 'Xác minh chưa thành công. Vui lòng thử lại.';
+                if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+                return;
+            }
+            const key = customerSuggestionCacheKey(pending.code, pending.field);
+            const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+            customerSuggestionCache.set(key, suggestions);
+            captchaModal.hide();
+            const target = customerSuggestionTargets[pending.field];
+            target.input.focus({ preventScroll: true });
+            showCustomerSuggestions(pending.field, suggestions);
+            pendingCaptchaLookup = null;
+        } catch (error) {
+            if (captchaError) captchaError.textContent = 'Không thể xác minh lúc này.';
+        }
+    }
+
+    function renderCustomerLookupCaptcha(attempt) {
+        if (!pendingCaptchaLookup) return;
+        if (!window.turnstile) {
+            if (attempt < 25) {
+                setTimeout(() => renderCustomerLookupCaptcha(attempt + 1), 200);
+            } else if (captchaError) {
+                captchaError.textContent = 'Không tải được CAPTCHA. Vui lòng kiểm tra kết nối mạng.';
+            }
+            return;
+        }
+        clearTurnstileWidget();
+        turnstileWidgetId = window.turnstile.render('#customerLookupTurnstile', {
+            sitekey: customerLookupTurnstileSitekey,
+            action: 'customer_lookup',
+            callback: completeCaptchaLookup,
+            'error-callback': function() {
+                if (captchaError) captchaError.textContent = 'CAPTCHA gặp lỗi. Vui lòng thử lại.';
+            }
+        });
+    }
+
+    function openCustomerLookupCaptcha(code, field) {
+        if (!captchaModal || !customerLookupTurnstileSitekey) return;
+        pendingCaptchaLookup = { code, field };
+        if (captchaError) captchaError.textContent = '';
+        captchaModal.show();
+    }
+
+    async function requestCustomerSuggestion(field) {
+        if (!customerLookupEnabled) return;
+        const code = document.getElementById('ma_kh').value.trim();
+        if (!validLookupCustomerCode(code)) {
+            customerSuggestionTargets[field].menu.classList.remove('show');
+            return;
+        }
+        const key = customerSuggestionCacheKey(code, field);
+        if (customerSuggestionCache.has(key)) {
+            showCustomerSuggestions(field, customerSuggestionCache.get(key));
+            return;
+        }
+        if (customerSuggestionInFlight.has(key)) return;
+        customerSuggestionInFlight.add(key);
+        try {
+            const { response, data } = await fetchCustomerSuggestion(code, field, '');
+            if (response.status === 403 && data.captcha_required) {
+                openCustomerLookupCaptcha(code, field);
+                return;
+            }
+            if (!data.ok) return;
+            const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+            customerSuggestionCache.set(key, suggestions);
+            if (document.getElementById('ma_kh').value.trim() === code) {
+                showCustomerSuggestions(field, suggestions);
+            }
+        } catch (error) {
+            customerSuggestionTargets[field].menu.classList.remove('show');
+        } finally {
+            customerSuggestionInFlight.delete(key);
+        }
+    }
+
+    if (customerLookupEnabled) {
+        Object.entries(customerSuggestionTargets).forEach(([field, target]) => {
+            target.input.addEventListener('focus', () => requestCustomerSuggestion(field));
+            target.input.addEventListener('click', () => requestCustomerSuggestion(field));
+        });
+        document.getElementById('ma_kh').addEventListener('input', function() {
+            customerSuggestionCache.clear();
+            hideCustomerSuggestions();
+        });
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.customer-suggestion-field')) hideCustomerSuggestions();
+        });
+        if (captchaElement) {
+            captchaElement.addEventListener('shown.bs.modal', () => renderCustomerLookupCaptcha(0));
+            captchaElement.addEventListener('hidden.bs.modal', function() {
+                clearTurnstileWidget();
+                if (pendingCaptchaLookup && !customerSuggestionCache.has(
+                    customerSuggestionCacheKey(pendingCaptchaLookup.code, pendingCaptchaLookup.field)
+                )) pendingCaptchaLookup = null;
+            });
+        }
+    }
+
+    document.querySelectorAll('.customer-field-clear').forEach(function(button) {
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            const target = document.getElementById(button.dataset.clearTarget);
+            if (!target) return;
+            target.value = '';
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+            target.focus({ preventScroll: true });
+            if (target.id === 'ma_kh') {
+                customerSuggestionCache.clear();
+                hideCustomerSuggestions();
+            } else if (target.id === 'ten_kh') {
+                customerSuggestionTargets.name.menu.classList.remove('show');
+            } else if (target.id === 'sdt') {
+                customerSuggestionTargets.phone.menu.classList.remove('show');
+            } else if (target.id === 'cccd') {
+                customerSuggestionTargets.cccd.menu.classList.remove('show');
+            }
+        });
+    });
+
     function normalizeAccountNumber(value) {
         return (value || '').trim().replace(/\s+/g, '').toUpperCase();
     }
@@ -656,7 +1003,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const bankSearch = document.getElementById('bank_search');
     const bankDropdown = document.getElementById('bankDropdown');
-    const bankEoffice = document.getElementById('bank_eoffice');
 
     bankSearch.addEventListener('input', function() {
         const q = this.value.toLowerCase().trim();
@@ -669,11 +1015,8 @@ document.addEventListener('DOMContentLoaded', function() {
         ).slice(0, 12);
         if (!matches.length) { bankDropdown.classList.remove('show'); return; }
         bankDropdown.innerHTML = matches.map(b =>
-            `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-eoffice="${b.eoffice}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}">
-                <strong>${b.ten_gd}</strong> <small class="text-muted">(${b.code})</small><br>
-                {% if admin %}
-                <small class="text-secondary">${b.eoffice}</small>
-                {% endif %}
+            `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}">
+                <strong>${b.ten_gd}</strong> <small class="text-muted">(${b.code})</small>
             </a>`
         ).join('');
         bankDropdown.classList.add('show');
@@ -683,15 +1026,14 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const item = e.target.closest('.dropdown-item');
         if (!item) return;
-        selectBank(item.dataset.code, item.dataset.ten, item.dataset.bin, item.dataset.eoffice);
+        selectBank(item.dataset.code, item.dataset.ten, item.dataset.bin);
         bankDropdown.classList.remove('show');
     });
 
-    function selectBank(code, ten, bin, eoffice) {
+    function selectBank(code, ten, bin) {
         bankSearch.value = code;  // short name in input
         document.getElementById('ngan_hang').value = ten;
         document.getElementById('bank_bin').value = bin;
-        if (bankEoffice) bankEoffice.value = eoffice;
         // Show full name below
         document.getElementById('bankFullNameText').textContent = ten;
         document.getElementById('bankFullName').classList.remove('d-none');
@@ -704,7 +1046,6 @@ document.addEventListener('DOMContentLoaded', function() {
         bankSearch.value = '';
         document.getElementById('ngan_hang').value = '';
         document.getElementById('bank_bin').value = '';
-        if (bankEoffice) bankEoffice.value = '';
         document.getElementById('bankFullName').classList.add('d-none');
         document.getElementById('btnClearBank').classList.add('d-none');
         document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = '___');

@@ -3,3 +3,5 @@ __pycache__/
 *.db
 ocr_debug.txt
 *.log
+*.dpapi
+customer_lookup.db*

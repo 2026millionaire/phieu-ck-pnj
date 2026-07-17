@@ -8,15 +8,19 @@ import json
 import io
 import os
 import re
+import secrets
 import shutil
 import sqlite3
 import subprocess
 import tempfile
+import threading
+import time
 import unicodedata
 import urllib.parse
 import urllib.request
 import webbrowser
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from functools import wraps
 
@@ -25,6 +29,21 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import shared_auth
+
+try:
+    from customer_lookup import (
+        CustomerLookupError,
+        CustomerLookupStore,
+        default_db_path as customer_lookup_db_path,
+        normalize_customer_code,
+        suggestion_for_field,
+    )
+except ImportError:
+    CustomerLookupStore = None
+    CustomerLookupError = RuntimeError
+    customer_lookup_db_path = None
+    normalize_customer_code = None
+    suggestion_for_field = None
 
 # ---------------------------------------------------------------------------
 # App config
@@ -39,6 +58,19 @@ REQUIRE_LOGIN = os.environ.get("REQUIRE_LOGIN", "0") == "1"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phieu_ck.db")
 PORT = 5050
+CUSTOMER_LOOKUP_TURNSTILE_SITEKEY = os.environ.get(
+    "CUSTOMER_LOOKUP_TURNSTILE_SITEKEY", ""
+).strip()
+CUSTOMER_LOOKUP_TURNSTILE_SECRET = os.environ.get(
+    "CUSTOMER_LOOKUP_TURNSTILE_SECRET", ""
+).strip()
+CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
+    "CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME", ""
+).strip()
+_customer_lookup_store = None
+CUSTOMER_IMPORT_MAX_BYTES = 500 * 1024 * 1024
+CUSTOMER_IMPORT_MAX_FILES = 10
+_customer_import_jobs_lock = threading.Lock()
 PDF_TOKEN_MAX_AGE = 15 * 60
 
 # ---------------------------------------------------------------------------
@@ -120,6 +152,24 @@ def get_db():
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA journal_mode=WAL")
     return g.db
+
+
+def get_customer_lookup_store():
+    """Mở kho tra cứu nếu đã được nhập và có thể mở khóa trên máy hiện tại."""
+    global _customer_lookup_store
+    if CustomerLookupStore is None or customer_lookup_db_path is None:
+        return None
+    if _customer_lookup_store is not None:
+        return _customer_lookup_store
+    try:
+        if not customer_lookup_db_path().is_file():
+            return None
+        store = CustomerLookupStore.from_environment(create=False)
+        store.initialize()
+        _customer_lookup_store = store
+        return store
+    except CustomerLookupError:
+        return None
 
 
 @app.teardown_appcontext
@@ -1098,6 +1148,260 @@ def is_admin():
     return False
 
 
+def _customer_lookup_json(payload, status=200):
+    response = jsonify(payload)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response, status
+
+
+def _customer_lookup_is_same_origin():
+    fetch_site = request.headers.get("Sec-Fetch-Site", "")
+    if fetch_site and fetch_site not in ("same-origin", "same-site", "none"):
+        return False
+    origin = request.headers.get("Origin", "")
+    if not origin:
+        return True
+    try:
+        return urllib.parse.urlparse(origin).netloc == request.host
+    except Exception:
+        return False
+
+
+def _customer_lookup_admin_required():
+    """Return a uniform no-store response for protected customer-data APIs."""
+    if not is_admin():
+        return _customer_lookup_json(
+            {"ok": False, "error": "Bạn không có quyền thực hiện thao tác này."}, 403
+        )
+    return None
+
+
+def _record_printed_customer_values(data, phieu_id, user_id, ma_kh, ten_kh, sdt, cccd):
+    """Store valid TVV-entered values as encrypted review candidates."""
+    store = get_customer_lookup_store()
+    if store is None:
+        return
+    try:
+        store.record_tvv_values(
+            customer_code=ma_kh,
+            values={"name": ten_kh, "phone": sdt, "cccd": cccd},
+            user_id=user_id,
+            phieu_id=phieu_id,
+            tvv_code=remove_all_whitespace(data.get("tvv_code", "")),
+            tvv_name=str(
+                data.get("tvv_name_real", "") or data.get("tvv_name", "")
+            ).strip(),
+        )
+    except Exception:
+        # Không để lỗi kho gợi ý làm mất phiếu đã lưu; tuyệt đối không log PII.
+        app.logger.warning("Không thể lưu ứng viên cập nhật dữ liệu khách hàng.")
+
+
+def _set_customer_import_job(job_id, **updates):
+    store = get_customer_lookup_store()
+    if store is None or not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", job_id):
+        return
+    job_root = store.db_path.parent / "import-jobs"
+    job_root.mkdir(parents=True, exist_ok=True)
+    job_path = job_root / f"{job_id}.json"
+    with _customer_import_jobs_lock:
+        try:
+            job = json.loads(job_path.read_text(encoding="utf-8")) if job_path.exists() else {"id": job_id}
+        except (OSError, ValueError, TypeError):
+            job = {"id": job_id}
+        job.update(updates)
+        job["updated_at"] = time.time()
+        temporary = job_root / f".{job_id}.{secrets.token_hex(6)}.tmp"
+        temporary.write_text(
+            json.dumps(job, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+        )
+        try:
+            os.chmod(temporary, 0o600)
+        except OSError:
+            pass
+        os.replace(temporary, job_path)
+
+
+def _get_customer_import_job(job_id):
+    store = get_customer_lookup_store()
+    if store is None or not re.fullmatch(r"[A-Za-z0-9_-]{20,64}", str(job_id or "")):
+        return None
+    job_path = store.db_path.parent / "import-jobs" / f"{job_id}.json"
+    try:
+        job = json.loads(job_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    return job if isinstance(job, dict) else None
+
+
+def _customer_import_lock_path():
+    store = get_customer_lookup_store()
+    if store is None:
+        return None
+    root = store.db_path.parent / "import-jobs"
+    root.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(root, 0o700)
+    except OSError:
+        pass
+    return root / "active.lock"
+
+
+def _acquire_customer_import_job(job_id):
+    lock_path = _customer_import_lock_path()
+    if lock_path is None:
+        return False
+    if lock_path.exists() and time.time() - lock_path.stat().st_mtime > 86400:
+        lock_path.unlink(missing_ok=True)
+    try:
+        descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return False
+    try:
+        os.write(
+            descriptor,
+            json.dumps({"job_id": job_id, "created_at": time.time()}).encode("utf-8"),
+        )
+    finally:
+        os.close(descriptor)
+    return True
+
+
+def _get_active_customer_import_job():
+    lock_path = _customer_import_lock_path()
+    if lock_path is None or not lock_path.exists():
+        return None
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    return _get_customer_import_job(lock.get("job_id"))
+
+
+def _public_customer_import_job(job):
+    allowed = (
+        "id", "status", "file_count", "processed_rows", "total_rows",
+        "message", "error", "validation", "result", "created_at", "updated_at",
+    )
+    return {key: job.get(key) for key in allowed if key in job}
+
+
+def _release_customer_import_job(job_id):
+    lock_path = _customer_import_lock_path()
+    if lock_path is None or not lock_path.exists():
+        return
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return
+    if lock.get("job_id") == job_id:
+        lock_path.unlink(missing_ok=True)
+
+
+def _run_customer_import_job(job_id, paths, upload_dir):
+    store = get_customer_lookup_store()
+    try:
+        if store is None:
+            raise CustomerLookupError("Kho dữ liệu khách hàng chưa sẵn sàng.")
+        _set_customer_import_job(
+            job_id, status="validating", message="Đang kiểm tra toàn bộ dữ liệu tải lên."
+        )
+        validation = store.validate_import_files(paths)
+        _set_customer_import_job(
+            job_id,
+            status="backing_up",
+            validation=validation,
+            total_rows=validation["source_rows"],
+            message="Dữ liệu hợp lệ. Đang sao lưu CSDL trước khi cập nhật.",
+        )
+        backup = store.create_backup("before-web-import")
+
+        def progress(processed):
+            _set_customer_import_job(
+                job_id,
+                status="importing",
+                processed_rows=processed,
+                message="Đang mã hóa và cập nhật CSDL.",
+            )
+
+        _set_customer_import_job(
+            job_id,
+            status="importing",
+            processed_rows=0,
+            message="Đang mã hóa và cập nhật CSDL.",
+        )
+        result = store.import_files(
+            paths,
+            expected_min=validation["min_customer"],
+            expected_max=validation["max_customer"],
+            progress=progress,
+        )
+        summary = store.get_dataset_summary()
+        _set_customer_import_job(
+            job_id,
+            status="completed",
+            processed_rows=result["source_rows"],
+            result={**result, "backup_name": backup.name, "dataset": summary},
+            message="Cập nhật dữ liệu khách hàng đã hoàn tất.",
+        )
+    except CustomerLookupError as exc:
+        _set_customer_import_job(
+            job_id, status="failed", error=str(exc), message="Cập nhật không thành công."
+        )
+    except Exception:
+        app.logger.exception("Lỗi nền khi cập nhật CSDL khách hàng; không ghi dữ liệu PII vào log.")
+        _set_customer_import_job(
+            job_id,
+            status="failed",
+            error="Có lỗi nội bộ khi cập nhật. CSDL đã được rollback.",
+            message="Cập nhật không thành công.",
+        )
+    finally:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        _release_customer_import_job(job_id)
+
+
+def _verify_customer_lookup_turnstile(token):
+    if (
+        not token
+        or len(token) > 2048
+        or not CUSTOMER_LOOKUP_TURNSTILE_SECRET
+        or not CUSTOMER_LOOKUP_TURNSTILE_SITEKEY
+    ):
+        return False
+    body = urllib.parse.urlencode(
+        {
+            "secret": CUSTOMER_LOOKUP_TURNSTILE_SECRET,
+            "response": token,
+            "remoteip": request.remote_addr or "",
+        }
+    ).encode("utf-8")
+    turnstile_request = urllib.request.Request(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(turnstile_request, timeout=8) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return False
+    if not result.get("success"):
+        return False
+    action = result.get("action")
+    if action and action != "customer_lookup":
+        return False
+    if (
+        CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME
+        and result.get("hostname") != CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME
+    ):
+        return False
+    return True
+
+
 def get_accessible_phieu(db, phieu_id):
     """Return a phieu row the current user may read."""
     if is_admin():
@@ -1128,7 +1432,93 @@ def index():
         settings=settings,
         bk_prefix=bk_prefix,
         admin=is_admin(),
+        customer_lookup_enabled=get_customer_lookup_store() is not None,
+        customer_lookup_turnstile_sitekey=CUSTOMER_LOOKUP_TURNSTILE_SITEKEY,
     )
+
+
+@app.route("/api/customer-suggestion", methods=["POST"])
+def api_customer_suggestion():
+    """Trả tối đa một gợi ý cho đúng một trường của đúng một mã KH."""
+    if request.content_length is not None and request.content_length > 4096:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+
+    store = get_customer_lookup_store()
+    if store is None or normalize_customer_code is None or suggestion_for_field is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Tính năng gợi ý chưa sẵn sàng."}, 503
+        )
+
+    data = request.get_json(silent=True) or {}
+    field = data.get("field")
+    if field not in ("name", "phone", "cccd"):
+        return _customer_lookup_json({"ok": False, "error": "Trường tra cứu không hợp lệ."}, 400)
+    canonical = normalize_customer_code(data.get("customer_code"))
+    if canonical is None:
+        return _customer_lookup_json({"ok": True, "suggestions": [], "suggestion": None})
+
+    lookup_session_id = session.get("customer_lookup_session_id")
+    if not lookup_session_id:
+        lookup_session_id = secrets.token_urlsafe(24)
+        session["customer_lookup_session_id"] = lookup_session_id
+    principal_id = f"user:{current_user_id()}|ip:{request.remote_addr or ''}"
+    key = store.lookup_key(canonical)
+
+    try:
+        assessment = store.assess_risk(lookup_session_id, principal_id, key)
+        captcha_passed = False
+        if assessment.requires_captcha:
+            token = str(data.get("turnstile_token") or "")
+            if not CUSTOMER_LOOKUP_TURNSTILE_SITEKEY or not CUSTOMER_LOOKUP_TURNSTILE_SECRET:
+                store.record_event(
+                    session_id=lookup_session_id,
+                    principal_id=principal_id,
+                    lookup_key=key,
+                    requested_field=field,
+                    outcome="captcha_unavailable",
+                    lookup_performed=False,
+                )
+                return _customer_lookup_json(
+                    {"ok": False, "error": "CAPTCHA local chưa được cấu hình."}, 503
+                )
+            if not token or not _verify_customer_lookup_turnstile(token):
+                store.record_event(
+                    session_id=lookup_session_id,
+                    principal_id=principal_id,
+                    lookup_key=key,
+                    requested_field=field,
+                    outcome="captcha_required" if not token else "captcha_failed",
+                    lookup_performed=False,
+                )
+                return _customer_lookup_json(
+                    {"ok": False, "captcha_required": True}, 403
+                )
+            captcha_passed = True
+
+        record = store.get_record(canonical)
+        suggestions = store.get_suggestions(canonical, field)
+        suggestion = suggestions[0]["value"] if suggestions else None
+        store.record_event(
+            session_id=lookup_session_id,
+            principal_id=principal_id,
+            lookup_key=key,
+            requested_field=field,
+            outcome="suggestion" if suggestion is not None else "no_suggestion",
+            lookup_performed=True,
+            record_found=record is not None,
+            suggestion_shown=bool(suggestions),
+            captcha_passed=captcha_passed,
+        )
+        public_suggestions = [{"value": item["value"]} for item in suggestions]
+        return _customer_lookup_json(
+            {"ok": True, "suggestions": public_suggestions, "suggestion": suggestion}
+        )
+    except CustomerLookupError:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể tra cứu dữ liệu lúc này."}, 503
+        )
 
 
 @app.route("/history")
@@ -1300,7 +1690,231 @@ def eoffice_page(phieu_id):
 def settings_page():
     """Settings page."""
     settings = get_settings()
-    return render_template("settings.html", settings=settings, admin=is_admin())
+    admin = is_admin()
+    customer_import_csrf = ""
+    if admin:
+        customer_import_csrf = session.get("customer_import_csrf") or secrets.token_urlsafe(32)
+        session["customer_import_csrf"] = customer_import_csrf
+    return render_template(
+        "settings.html",
+        settings=settings,
+        admin=admin,
+        customer_import_csrf=customer_import_csrf,
+    )
+
+
+@app.route("/customer-updates")
+def customer_updates_page():
+    """ADMIN-only report for reviewing encrypted customer-data candidates."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập báo cáo này.", 403
+    return render_template("customer_updates.html")
+
+
+def _customer_update_user_label(user_id):
+    if not user_id:
+        return ""
+    try:
+        user = shared_auth.get_user(int(user_id))
+    except Exception:
+        user = None
+    if not user:
+        return f"Tài khoản #{user_id}"
+    return user.get("full_name") or user.get("username") or f"Tài khoản #{user_id}"
+
+
+@app.route("/api/customer-updates", methods=["GET"])
+def api_customer_updates():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    store = get_customer_lookup_store()
+    if store is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Kho dữ liệu khách hàng chưa sẵn sàng."}, 503
+        )
+    status = request.args.get("status", "pending")
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+        report = store.list_candidate_report(status=status, page=page, page_size=50)
+    except (TypeError, ValueError, CustomerLookupError):
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể đọc báo cáo lúc này."}, 503
+        )
+    user_labels = {}
+    for item in report["items"]:
+        for key in ("first_user_id", "last_user_id", "reviewed_by"):
+            user_id = item.get(key)
+            if user_id and user_id not in user_labels:
+                user_labels[user_id] = _customer_update_user_label(user_id)
+        item["first_user_label"] = user_labels.get(item.get("first_user_id"), "")
+        item["last_user_label"] = user_labels.get(item.get("last_user_id"), "")
+        item["reviewed_by_label"] = user_labels.get(item.get("reviewed_by"), "")
+    return _customer_lookup_json({"ok": True, "data": report})
+
+
+@app.route("/api/customer-updates/<int:candidate_id>/review", methods=["POST"])
+def api_review_customer_update(candidate_id):
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if request.content_length is not None and request.content_length > 2048:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    action = (request.get_json(silent=True) or {}).get("action")
+    if action not in ("approve", "reject"):
+        return _customer_lookup_json({"ok": False, "error": "Thao tác không hợp lệ."}, 400)
+    store = get_customer_lookup_store()
+    if store is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Kho dữ liệu khách hàng chưa sẵn sàng."}, 503
+        )
+    try:
+        changed = store.review_candidate(candidate_id, action, current_user_id())
+    except CustomerLookupError:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể cập nhật yêu cầu lúc này."}, 503
+        )
+    if not changed:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Yêu cầu không còn ở trạng thái chờ duyệt."}, 409
+        )
+    return _customer_lookup_json({"ok": True})
+
+
+@app.route("/api/customer-import/summary", methods=["GET"])
+def api_customer_import_summary():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    store = get_customer_lookup_store()
+    if store is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Kho dữ liệu khách hàng chưa sẵn sàng."}, 503
+        )
+    try:
+        summary = store.get_dataset_summary()
+    except CustomerLookupError:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể đọc thống kê CSDL lúc này."}, 503
+        )
+    active_job = _get_active_customer_import_job()
+    public_job = _public_customer_import_job(active_job) if active_job else None
+    return _customer_lookup_json({"ok": True, "data": summary, "active_job": public_job})
+
+
+@app.route("/api/customer-import", methods=["POST"])
+def api_customer_import_upload():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    csrf = request.headers.get("X-CSRF-Token", "")
+    expected_csrf = session.get("customer_import_csrf", "")
+    if not csrf or not expected_csrf or not secrets.compare_digest(csrf, expected_csrf):
+        return _customer_lookup_json({"ok": False, "error": "Phiên xác nhận không hợp lệ."}, 403)
+    if request.content_length is not None and request.content_length > CUSTOMER_IMPORT_MAX_BYTES:
+        return _customer_lookup_json({"ok": False, "error": "Tổng dung lượng tải lên vượt quá 500 MB."}, 413)
+    if request.form.get("confirmed") != "yes":
+        return _customer_lookup_json({"ok": False, "error": "Bạn chưa xác nhận cập nhật CSDL."}, 400)
+
+    files = [item for item in request.files.getlist("files") if item and item.filename]
+    if not 1 <= len(files) <= CUSTOMER_IMPORT_MAX_FILES:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Mỗi lần chỉ được tải từ 1 đến 10 file."}, 400
+        )
+    store = get_customer_lookup_store()
+    if store is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Kho dữ liệu khách hàng chưa sẵn sàng."}, 503
+        )
+
+    job_id = secrets.token_urlsafe(18)
+    now = time.time()
+    if not _acquire_customer_import_job(job_id):
+        return _customer_lookup_json(
+            {"ok": False, "error": "Đang có một lần cập nhật khác chạy."}, 409
+        )
+    _set_customer_import_job(
+        job_id,
+        owner_user_id=current_user_id(),
+        status="uploading",
+        file_count=len(files),
+        processed_rows=0,
+        message="Đang nhận file tải lên.",
+        created_at=now,
+    )
+
+    upload_root = store.db_path.parent / "pending-imports"
+    upload_dir = upload_root / job_id
+    paths = []
+    try:
+        upload_root.mkdir(parents=True, exist_ok=True)
+        upload_dir.mkdir(parents=False, exist_ok=False)
+        for directory in upload_root.iterdir():
+            if directory.is_dir() and directory != upload_dir and now - directory.stat().st_mtime > 86400:
+                shutil.rmtree(directory, ignore_errors=True)
+        for directory in (upload_root, upload_dir):
+            try:
+                os.chmod(directory, 0o700)
+            except OSError:
+                pass
+
+        total_size = 0
+        for index, uploaded in enumerate(files, 1):
+            target = upload_dir / f"upload-{index:02d}.tsv"
+            uploaded.save(target)
+            size = target.stat().st_size
+            if size <= 0:
+                raise CustomerLookupError("Có file tải lên bị trống.")
+            total_size += size
+            if total_size > CUSTOMER_IMPORT_MAX_BYTES:
+                raise CustomerLookupError("Tổng dung lượng tải lên vượt quá 500 MB.")
+            try:
+                os.chmod(target, 0o600)
+            except OSError:
+                pass
+            paths.append(target)
+
+        worker = threading.Thread(
+            target=_run_customer_import_job,
+            args=(job_id, paths, upload_dir),
+            daemon=True,
+            name=f"customer-import-{job_id[:8]}",
+        )
+        worker.start()
+        job = _get_customer_import_job(job_id)
+        return _customer_lookup_json(
+            {"ok": True, "job": _public_customer_import_job(job)}, 202
+        )
+    except CustomerLookupError as exc:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        _set_customer_import_job(job_id, status="failed", error=str(exc))
+        _release_customer_import_job(job_id)
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+    except Exception:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        _set_customer_import_job(
+            job_id, status="failed", error="Không thể lưu file tải lên an toàn."
+        )
+        _release_customer_import_job(job_id)
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể lưu file tải lên an toàn."}, 500
+        )
+
+
+@app.route("/api/customer-import/<job_id>", methods=["GET"])
+def api_customer_import_job(job_id):
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    job = _get_customer_import_job(job_id)
+    if not job:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy tiến trình."}, 404)
+    data = _public_customer_import_job(job)
+    return _customer_lookup_json({"ok": True, "job": data})
 
 
 @app.route("/api/settings", methods=["GET"])
@@ -1403,6 +2017,9 @@ def api_save():
                 (duplicate["id"], user_id),
             )
             db.commit()
+            _record_printed_customer_values(
+                data, duplicate["id"], user_id, ma_kh, ten_kh, sdt, cccd
+            )
         return jsonify({
             "ok": True,
             "id": duplicate["id"],
@@ -1444,6 +2061,11 @@ def api_save():
     ))
     db.commit()
     new_id = cursor.lastrowid
+
+    if requested_status == "printed":
+        _record_printed_customer_values(
+            data, new_id, user_id, ma_kh, ten_kh, sdt, cccd
+        )
 
     return jsonify({
         "ok": True,
@@ -1878,11 +2500,11 @@ def api_template_tt(phieu_id):
 @app.route("/api/banks")
 def api_banks():
     """Return full bank list for dropdown search."""
-    if is_admin():
-        data = BANK_LIST
-    else:
-        # Mã eOffice chỉ phục vụ ADMIN; không gửi xuống trình duyệt user thường.
-        data = [{**bank, "eoffice": ""} for bank in BANK_LIST]
+    # Mã eOffice chỉ dùng tại trang eOffice; không gửi xuống trang tạo phiếu.
+    data = [
+        {key: value for key, value in bank.items() if key != "eoffice"}
+        for bank in BANK_LIST
+    ]
     return jsonify({"ok": True, "data": data})
 
 

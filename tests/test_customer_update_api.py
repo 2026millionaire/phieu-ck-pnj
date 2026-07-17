@@ -1,0 +1,193 @@
+# -*- coding: utf-8 -*-
+
+import io
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import app as app_module
+from customer_lookup import CustomerLookupStore
+
+
+class CustomerUpdateApiTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+        self.original_db_path = app_module.DB_PATH
+        self.original_store = app_module._customer_lookup_store
+        app_module.DB_PATH = str(self.root / "phieu.db")
+        app_module.init_db()
+
+        self.store = CustomerLookupStore(self.root / "lookup.db", bytes(range(32)))
+        source = self.root / "source.tsv"
+        source.write_text(
+            "\tSearchTerm\tCty\tPostalCode\tCity\tName 1\tCustomer\tCoCd\tDelF\n"
+            "\t0900000000\tVN\t\tCITY\tTEN HE THONG\t100000000\t10\n",
+            encoding="utf-8-sig",
+        )
+        self.store.import_files([source])
+        app_module._customer_lookup_store = self.store
+        app_module.app.config.update(TESTING=True)
+        self.client = app_module.app.test_client()
+
+    def tearDown(self):
+        app_module.DB_PATH = self.original_db_path
+        app_module._customer_lookup_store = self.original_store
+        self.temp_dir.cleanup()
+
+    def login(self, role="admin", user_id=1):
+        with self.client.session_transaction() as session:
+            session["user_id"] = user_id
+            session["user_name"] = "ADMIN TEST"
+            session["role"] = role
+
+    def printed_payload(self, status):
+        return {
+            "status": status,
+            "ma_kh": "100000000",
+            "ten_kh": "TEN TVV NHAP",
+            "sdt": "0912345678",
+            "cccd": "012345678901",
+            "tvv_code": "E000001",
+            "tvv_name_real": "TVV TEST",
+            "so_bk": "440300001",
+            "tong_ck": 1000,
+            "chung_tu": [],
+        }
+
+    def test_draft_does_not_create_candidates_but_printed_does(self):
+        self.login()
+        draft = self.client.post("/api/save", json=self.printed_payload("draft"))
+        self.assertEqual(draft.status_code, 200)
+        self.assertEqual(self.store.list_candidate_report("pending")["total"], 0)
+
+        printed_payload = self.printed_payload("printed")
+        printed_payload["so_bk"] = "440300002"
+        printed = self.client.post("/api/save", json=printed_payload)
+        self.assertEqual(printed.status_code, 200)
+        self.assertEqual(self.store.list_candidate_report("pending")["total"], 3)
+
+    def test_admin_can_list_and_review_but_normal_user_cannot(self):
+        candidate_id = self.store.record_tvv_values(
+            customer_code="100000000",
+            values={"name": "TEN MOI"},
+            user_id=2,
+            phieu_id=99,
+        )[0]
+
+        self.login(role="user", user_id=2)
+        self.assertEqual(self.client.get("/customer-updates").status_code, 403)
+        self.assertEqual(self.client.get("/api/customer-updates").status_code, 403)
+        self.assertEqual(
+            self.client.post(
+                f"/api/customer-updates/{candidate_id}/review",
+                json={"action": "approve"},
+            ).status_code,
+            403,
+        )
+
+        self.login(role="admin", user_id=1)
+        self.assertEqual(self.client.get("/customer-updates").status_code, 200)
+        with patch.object(
+            app_module.shared_auth,
+            "get_user",
+            return_value={"username": "admin", "full_name": "ADMIN TEST"},
+        ):
+            report = self.client.get("/api/customer-updates")
+        self.assertEqual(report.status_code, 200)
+        self.assertEqual(report.get_json()["data"]["total"], 1)
+
+        reviewed = self.client.post(
+            f"/api/customer-updates/{candidate_id}/review",
+            json={"action": "approve"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(reviewed.status_code, 200)
+        self.assertEqual(
+            self.store.get_suggestions("100000000", "name"),
+            [{"value": "TEN MOI", "source": "approved"}],
+        )
+
+    def test_cccd_suggestion_api_returns_candidate_list(self):
+        self.login()
+        self.store.record_tvv_values(
+            customer_code="100000000",
+            values={"cccd": "012345678901"},
+            user_id=1,
+            phieu_id=77,
+        )
+        response = self.client.post(
+            "/api/customer-suggestion",
+            json={"customer_code": "100000000", "field": "cccd"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json()["suggestions"],
+            [{"value": "012345678901"}],
+        )
+
+    def test_admin_can_upload_arbitrarily_named_sap_file(self):
+        self.login(role="admin", user_id=1)
+        self.client.get("/settings")
+        with self.client.session_transaction() as session:
+            csrf = session["customer_import_csrf"]
+        content = (
+            "\tSearchTerm\tCty\tPostalCode\tCity\tName 1\tCustomer\tCoCd\tDelF\n"
+            "\t0911111111\tVN\t\tCITY\tTEN MOI\t100000010\t10\n"
+        ).encode("utf-8-sig")
+        response = self.client.post(
+            "/api/customer-import",
+            data={
+                "confirmed": "yes",
+                "files": (io.BytesIO(content), "du lieu moi khong theo khoang.dat"),
+            },
+            headers={"X-CSRF-Token": csrf, "Origin": "http://localhost"},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 202)
+        job_id = response.get_json()["job"]["id"]
+        deadline = time.time() + 5
+        job = None
+        while time.time() < deadline:
+            job = self.client.get(f"/api/customer-import/{job_id}").get_json()["job"]
+            if job["status"] in ("completed", "failed"):
+                break
+            time.sleep(0.05)
+        self.assertEqual(job["status"], "completed", job)
+        while time.time() < deadline and app_module._get_active_customer_import_job() is not None:
+            time.sleep(0.01)
+        self.assertEqual(job["result"]["inserted_rows"], 1)
+        self.assertEqual(job["result"]["dataset"]["max_customer"], "100000010")
+        self.assertIsNotNone(self.store.get_record("100000010"))
+        self.assertEqual(list((self.root / "pending-imports").glob("*")), [])
+        self.assertEqual(len(list((self.root / "backups").glob("*.db"))), 1)
+
+    def test_customer_import_requires_admin_and_csrf(self):
+        self.login(role="user", user_id=2)
+        self.assertNotIn(b"customerImportFiles", self.client.get("/settings").data)
+        self.assertEqual(self.client.get("/api/customer-import/summary").status_code, 403)
+        self.assertEqual(self.client.post("/api/customer-import").status_code, 403)
+
+        self.login(role="admin", user_id=1)
+        self.assertIn(b"customerImportFiles", self.client.get("/settings").data)
+        response = self.client.post(
+            "/api/customer-import",
+            data={"confirmed": "yes"},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_bank_api_does_not_send_eoffice_code_to_admin(self):
+        self.login(role="admin", user_id=1)
+        response = self.client.get("/api/banks")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["data"])
+        self.assertTrue(
+            all("eoffice" not in bank for bank in response.get_json()["data"])
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
