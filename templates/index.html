@@ -66,15 +66,11 @@ textarea#sap_data {
 
 .tvv-quick-tags {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 0.4rem;
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    overflow-x: auto;
-    padding-bottom: 0.2rem;
-    scrollbar-width: thin;
-    -webkit-overflow-scrolling: touch;
 }
 
 .tvv-quick-tag {
@@ -738,7 +734,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateTvvQuickTagsVisibility() {
-        const shouldShow = !tvvSearch.value.trim() && allTvv.length > 0;
+        // Giữ tag hiện diện sau khi chọn để bố cục không co lại và làm trang nhảy lên.
+        const shouldShow = allTvv.length > 0;
         tvvQuickTags.classList.toggle('d-none', !shouldShow);
     }
 
