@@ -151,6 +151,9 @@
 {% block scripts %}
 <script>
 const currentId = {{ phieu.id if phieu else 0 }};
+const eofficePageUrlTemplate = {{ url_for('eoffice_page', phieu_id=0)|tojson }};
+const historyApiUrl = {{ url_for('api_history')|tojson }};
+const daTrinhApiUrlTemplate = {{ url_for('api_da_trinh', phieu_id=0)|tojson }};
 const draftNode = document.getElementById('qt82DraftPayload');
 const qt82Draft = draftNode ? JSON.parse(draftNode.textContent) : null;
 const MAX_TEMPLATE_BYTES = 1024 * 1024;
@@ -274,7 +277,7 @@ setTimeout(function() {
 }, 1500);
 
 document.addEventListener('DOMContentLoaded', function() {
-    fetch('/api/history').then(r => r.json()).then(json => {
+    fetch(historyApiUrl).then(r => r.json()).then(json => {
         if (!json.ok || !json.data) return;
         const tbody = document.getElementById('histBody');
         if (!tbody) return;
@@ -312,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const actionCell = document.createElement('td');
             const link = document.createElement('a');
-            link.href = '/eoffice/' + p.id;
+            link.href = eofficePageUrlTemplate.replace(/0$/, String(p.id));
             link.className = 'btn btn-sm btn-outline-primary py-0 px-1';
             link.title = 'Chọn';
             link.innerHTML = '<i class="bi bi-arrow-right-short"></i>';
@@ -324,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         tbody.addEventListener('change', function(e) {
             if (!e.target.classList.contains('da-trinh')) return;
-            fetch('/api/da-trinh/' + e.target.dataset.id, {
+            fetch(daTrinhApiUrlTemplate.replace(/0$/, e.target.dataset.id), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({da_trinh: e.target.checked})

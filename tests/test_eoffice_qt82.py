@@ -158,6 +158,19 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertLess(customer_card, prepare_button)
         self.assertLess(prepare_button, preflight_card)
 
+    def test_history_navigation_preserves_reverse_proxy_script_prefix(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(doc_num="2500000001")
+        html = self.client.get(
+            f"/eoffice/{phieu_id}",
+            environ_overrides={"SCRIPT_NAME": "/bk"},
+        ).get_data(as_text=True)
+
+        self.assertIn('const eofficePageUrlTemplate = "/bk/eoffice/0";', html)
+        self.assertIn('const historyApiUrl = "/bk/api/history";', html)
+        self.assertIn('const daTrinhApiUrlTemplate = "/bk/api/da-trinh/0";', html)
+        self.assertNotIn("link.href = '/eoffice/'", html)
+
     def test_qt82_form_url_can_change_only_within_pnj_eoffice_workflow(self):
         self.login(role="admin")
         phieu_id = self.create_phieu(doc_num="2500000001")
