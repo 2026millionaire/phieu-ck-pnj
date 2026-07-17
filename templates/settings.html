@@ -144,7 +144,7 @@
 
         <div class="card mb-3 border-primary">
             <div class="card-header py-2">
-                <i class="bi bi-database-up"></i> Cập nhật dữ liệu khách hàng
+                <i class="bi bi-database-up"></i> Cập nhật dữ liệu KH mới
             </div>
             <div class="card-body">
                 <div class="row g-2 mb-3">
@@ -172,6 +172,39 @@
                     </div>
                     <div class="small mt-2" id="customerImportResult"></div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 border-success">
+            <div class="card-header py-2">
+                <i class="bi bi-person-vcard"></i> Cập nhật CCCD — dữ liệu KH cũ
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Tổng mã có CCCD</small><strong id="identityRecordCount">—</strong></div></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Dữ liệu gần nhất</small><strong id="identitySourceDate">—</strong></div></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Cập nhật gần nhất</small><strong id="identityLastImport">—</strong></div></div>
+                </div>
+                <p class="small text-muted mb-2">
+                    Dùng cho KH cũ quay lại bán sản phẩm. Hệ thống lấy CMND không trống đầu tiên của mỗi Vendor theo đúng thứ tự dòng trong file.
+                </p>
+                <label class="form-label" for="identityImportFile">Chọn file bảng kê XLSX</label>
+                <input type="file" class="form-control form-control-sm" id="identityImportFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                <div class="form-text">Chỉ Admin được sử dụng. File tạm bị xóa ngay sau mỗi lần kiểm tra hoặc cập nhật.</div>
+                <button type="button" class="btn btn-sm btn-outline-success mt-3" id="btnIdentityPreview">
+                    <i class="bi bi-search"></i> Kiểm tra dữ liệu
+                </button>
+                <div class="mt-3 d-none" id="identityPreviewBox">
+                    <div class="alert alert-light border small mb-2" id="identityPreviewResult"></div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="identityImportConfirm">
+                        <label class="form-check-label" for="identityImportConfirm">Tôi xác nhận cập nhật đúng file vừa kiểm tra.</label>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-success mt-2" id="btnIdentityApply">
+                        <i class="bi bi-shield-check"></i> Xác nhận cập nhật
+                    </button>
+                </div>
+                <div class="small mt-2" id="identityImportMessage"></div>
             </div>
         </div>
 
@@ -306,6 +339,9 @@ const settingsAppUrl = (path) => settingsAppBasePath + path;
 const customerImportCsrf = {{ customer_import_csrf|tojson }};
 const customerImportSummaryUrl = settingsAppUrl({{ url_for('api_customer_import_summary')|tojson }});
 const customerImportUploadUrl = settingsAppUrl({{ url_for('api_customer_import_upload')|tojson }});
+const identitySummaryUrl = settingsAppUrl({{ url_for('api_customer_identity_import_summary')|tojson }});
+const identityPreviewUrl = settingsAppUrl({{ url_for('api_customer_identity_import_preview')|tojson }});
+const identityApplyUrl = settingsAppUrl({{ url_for('api_customer_identity_import_apply')|tojson }});
 let customerImportPollTimer = null;
 
 function formatCustomerImportNumber(value) {
@@ -428,6 +464,110 @@ document.getElementById('btnCustomerImport').addEventListener('click', async fun
     }
 });
 
+function formatIdentityDate(value) {
+    if (!value) return 'Chưa có';
+    const parts = String(value).split('-');
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+}
+
+function renderIdentitySummary(data) {
+    document.getElementById('identityRecordCount').textContent = formatCustomerImportNumber(data.record_count);
+    document.getElementById('identitySourceDate').textContent = formatIdentityDate(data.source_date_max);
+    document.getElementById('identityLastImport').textContent = formatCustomerImportTime(data.last_import_at);
+}
+
+async function loadIdentitySummary() {
+    try {
+        const response = await fetch(identitySummaryUrl, {
+            credentials: 'same-origin', cache: 'no-store', headers: {Accept: 'application/json'}
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể đọc thống kê CCCD.');
+        renderIdentitySummary(data.data);
+    } catch (error) {
+        document.getElementById('identitySourceDate').textContent = 'Không thể tải';
+    }
+}
+
+document.getElementById('btnIdentityPreview').addEventListener('click', async function() {
+    const input = document.getElementById('identityImportFile');
+    const file = input.files && input.files[0];
+    if (!file) { alert('Vui lòng chọn file bảng kê XLSX.'); return; }
+    const message = document.getElementById('identityImportMessage');
+    const previewBox = document.getElementById('identityPreviewBox');
+    this.disabled = true;
+    previewBox.classList.add('d-none');
+    message.className = 'small mt-2 text-muted';
+    message.textContent = 'Đang kiểm tra file; chưa cập nhật CSDL...';
+    const form = new FormData();
+    form.append('file', file);
+    try {
+        const response = await fetch(identityPreviewUrl, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: {'X-CSRF-Token': customerImportCsrf, Accept: 'application/json'}, body: form
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể kiểm tra file.');
+        const p = data.data;
+        const result = document.getElementById('identityPreviewResult');
+        result.style.whiteSpace = 'pre-line';
+        result.textContent = [
+            `Chế độ: ${p.mode === 'initial' ? 'Nhập nền lần đầu — không điều chỉnh tên' : 'Cập nhật định kỳ — có đối chiếu tên'}`,
+            `Dòng dữ liệu: ${formatCustomerImportNumber(p.source_rows)}`,
+            `Vendor duy nhất: ${formatCustomerImportNumber(p.unique_vendors)}`,
+            `Có CCCD/CMND/hộ chiếu: ${formatCustomerImportNumber(p.with_identity)}`,
+            `Không có thông tin định danh: ${formatCustomerImportNumber(p.missing_identity)}`,
+            `Thêm mới: ${formatCustomerImportNumber(p.inserted_rows)}`,
+            `Cập nhật: ${formatCustomerImportNumber(p.updated_rows)}`,
+            `Giữ nguyên: ${formatCustomerImportNumber(p.unchanged_rows)}`,
+            `Tên cần điều chỉnh: ${p.mode === 'initial' ? '0 (bỏ qua lần đầu)' : formatCustomerImportNumber(p.name_changes)}`,
+            `Ngày dữ liệu gần nhất: ${formatIdentityDate(p.source_date_max)}`
+        ].join('\n');
+        document.getElementById('identityImportConfirm').checked = false;
+        previewBox.classList.remove('d-none');
+        message.textContent = 'Đã kiểm tra xong. CSDL chưa thay đổi.';
+    } catch (error) {
+        message.className = 'small mt-2 text-danger';
+        message.textContent = error.message;
+    } finally {
+        this.disabled = false;
+    }
+});
+
+document.getElementById('btnIdentityApply').addEventListener('click', async function() {
+    if (!document.getElementById('identityImportConfirm').checked) {
+        alert('Vui lòng xác nhận cập nhật đúng file vừa kiểm tra.'); return;
+    }
+    const file = document.getElementById('identityImportFile').files[0];
+    if (!file) { alert('File đã chọn không còn khả dụng.'); return; }
+    const message = document.getElementById('identityImportMessage');
+    const form = new FormData();
+    form.append('file', file);
+    form.append('confirmed', 'yes');
+    this.disabled = true;
+    message.className = 'small mt-2 text-muted';
+    message.textContent = 'Đang sao lưu, mã hóa và cập nhật CSDL CCCD...';
+    try {
+        const response = await fetch(identityApplyUrl, {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: {'X-CSRF-Token': customerImportCsrf, Accept: 'application/json'}, body: form
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Cập nhật CCCD không thành công.');
+        const r = data.data;
+        message.className = 'small mt-2 text-success';
+        message.textContent = `Hoàn tất: thêm ${formatCustomerImportNumber(r.inserted_rows)}, cập nhật ${formatCustomerImportNumber(r.updated_rows)}, giữ nguyên ${formatCustomerImportNumber(r.unchanged_rows)}, điều chỉnh tên ${formatCustomerImportNumber(r.name_updated)}.`;
+        renderIdentitySummary(r.dataset);
+        document.getElementById('identityImportFile').value = '';
+        document.getElementById('identityPreviewBox').classList.add('d-none');
+    } catch (error) {
+        message.className = 'small mt-2 text-danger';
+        message.textContent = error.message;
+    } finally {
+        this.disabled = false;
+    }
+});
+
 // ── TVV CRUD ──
 function loadTvv() {
     fetch('/api/tvv').then(r => r.json()).then(json => {
@@ -512,6 +652,7 @@ function delLydo(id) {
 
 document.addEventListener('DOMContentLoaded', function() {
     loadCustomerImportSummary();
+    loadIdentitySummary();
     loadTvv();
     loadLydo();
 });

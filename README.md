@@ -48,6 +48,15 @@ python scripts\import_customer_lookup.py "<file-1.txt>" "<file-2.txt>" --expecte
 
 Không đưa file SAP nguồn, `customer_lookup.db`, `master-key.dpapi`, log tra cứu hoặc khóa production vào repository.
 
+### CSDL CCCD độc lập
+
+- Dữ liệu bảng kê Huế được lưu riêng tại `customer_identity.db`, ngoài repository.
+- Payload CCCD/CMND/hộ chiếu, tên xác minh, ngày nguồn và plant được mã hóa AES-256-GCM; mã KH chỉ dùng khóa tra cứu HMAC.
+- Trang Cài đặt Admin có hai bước **Kiểm tra dữ liệu** và **Xác nhận cập nhật**. File XLSX tạm bị xóa ngay sau từng request.
+- Lần nhập đầu chỉ bổ sung giấy tờ định danh. Các lần định kỳ mới lưu tên xác minh từ đúng dòng có giấy tờ được chọn.
+- Mỗi Vendor lấy ô CMND không trống đầu tiên theo thứ tự dòng nguồn. Cột Plant được lưu cùng bản ghi để truy vết nguồn nhưng không bị giới hạn theo khu vực.
+- Có thể đổi vị trí CSDL bằng biến môi trường `CUSTOMER_IDENTITY_DB`; khóa chính dùng chung cơ chế bảo vệ với kho tra cứu nhưng được dẫn xuất thành bộ khóa riêng.
+
 ## Cấu trúc
 
 ```

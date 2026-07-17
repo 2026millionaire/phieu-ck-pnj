@@ -5,3 +5,4 @@ ocr_debug.txt
 *.log
 *.dpapi
 customer_lookup.db*
+customer_identity.db*

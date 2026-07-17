@@ -46,6 +46,15 @@ except ImportError:
     normalize_customer_code = None
     suggestion_for_field = None
 
+try:
+    from customer_identity import (
+        CustomerIdentityStore,
+        default_identity_db_path,
+    )
+except ImportError:
+    CustomerIdentityStore = None
+    default_identity_db_path = None
+
 # ---------------------------------------------------------------------------
 # App config
 # ---------------------------------------------------------------------------
@@ -69,8 +78,10 @@ CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
     "CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME", ""
 ).strip()
 _customer_lookup_store = None
+_customer_identity_store = None
 CUSTOMER_IMPORT_MAX_BYTES = 500 * 1024 * 1024
 CUSTOMER_IMPORT_MAX_FILES = 10
+CUSTOMER_IDENTITY_IMPORT_MAX_BYTES = 50 * 1024 * 1024
 _customer_import_jobs_lock = threading.Lock()
 PDF_TOKEN_MAX_AGE = 15 * 60
 DEFAULT_QT82_FORM_URL = (
@@ -220,6 +231,24 @@ def get_customer_lookup_store():
         store = CustomerLookupStore.from_environment(create=False)
         store.initialize()
         _customer_lookup_store = store
+        return store
+    except CustomerLookupError:
+        return None
+
+
+def get_customer_identity_store(create=False):
+    """Mở kho CCCD độc lập; chỉ Admin/import mới được phép tạo kho mới."""
+    global _customer_identity_store
+    if CustomerIdentityStore is None or default_identity_db_path is None:
+        return None
+    if _customer_identity_store is not None:
+        return _customer_identity_store
+    try:
+        if not create and not default_identity_db_path().is_file():
+            return None
+        store = CustomerIdentityStore.from_environment(create=create)
+        store.initialize()
+        _customer_identity_store = store
         return store
     except CustomerLookupError:
         return None
@@ -1642,6 +1671,26 @@ def api_customer_suggestion():
 
         record = store.get_record(canonical)
         suggestions = store.get_suggestions(canonical, field)
+        identity_record = None
+        identity_store = get_customer_identity_store(create=False)
+        if identity_store is not None and field in ("name", "cccd"):
+            identity_record = identity_store.get_record(canonical)
+        identity_value = ""
+        if identity_record and field == "cccd":
+            raw_identity = str(identity_record.get("identity_value") or "").strip()
+            # Hiện tại biểu mẫu/eOffice chỉ nhận CCCD 12 số. Hộ chiếu vẫn được
+            # lưu mã hóa nhưng chưa đưa ra giao diện cho đến khi đổi validation.
+            if re.fullmatch(r"[0-9]{12}", raw_identity):
+                identity_value = raw_identity
+        elif identity_record and field == "name":
+            identity_value = str(identity_record.get("verified_name") or "").strip()
+            if not identity_value and record is None:
+                identity_value = str(identity_record.get("source_name") or "").strip()
+        if identity_value:
+            suggestions = [
+                {"value": identity_value, "source": "verified_bk"},
+                *[item for item in suggestions if item.get("value") != identity_value],
+            ]
         suggestion = suggestions[0]["value"] if suggestions else None
         store.record_event(
             session_id=lookup_session_id,
@@ -1650,7 +1699,7 @@ def api_customer_suggestion():
             requested_field=field,
             outcome="suggestion" if suggestion is not None else "no_suggestion",
             lookup_performed=True,
-            record_found=record is not None,
+            record_found=record is not None or identity_record is not None,
             suggestion_shown=bool(suggestions),
             captcha_passed=captcha_passed,
         )
@@ -2095,6 +2144,134 @@ def api_customer_import_job(job_id):
         return _customer_lookup_json({"ok": False, "error": "Không tìm thấy tiến trình."}, 404)
     data = _public_customer_import_job(job)
     return _customer_lookup_json({"ok": True, "job": data})
+
+
+def _save_identity_upload(uploaded, store):
+    """Lưu file tạm quyền 0600 và luôn để caller xóa trong finally."""
+    temporary_dir = store.db_path.parent / "identity-upload-tmp"
+    temporary_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(temporary_dir, 0o700)
+    except OSError:
+        pass
+    descriptor, raw_path = tempfile.mkstemp(
+        prefix="identity-", suffix=".xlsx", dir=temporary_dir
+    )
+    os.close(descriptor)
+    path = Path(raw_path)
+    try:
+        uploaded.save(path)
+        size = path.stat().st_size
+        if size <= 0 or size > CUSTOMER_IDENTITY_IMPORT_MAX_BYTES:
+            raise CustomerLookupError("File CCCD bị trống hoặc vượt quá 50 MB.")
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+        return path
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+
+
+@app.route("/api/customer-identity-import/summary", methods=["GET"])
+def api_customer_identity_import_summary():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    store = get_customer_identity_store(create=True)
+    if store is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Kho CCCD chưa sẵn sàng."}, 503
+        )
+    return _customer_lookup_json({"ok": True, "data": store.get_summary()})
+
+
+@app.route("/api/customer-identity-import/preview", methods=["POST"])
+def api_customer_identity_import_preview():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    csrf = request.headers.get("X-CSRF-Token", "")
+    expected_csrf = session.get("customer_import_csrf", "")
+    if not csrf or not expected_csrf or not secrets.compare_digest(csrf, expected_csrf):
+        return _customer_lookup_json({"ok": False, "error": "Phiên xác nhận không hợp lệ."}, 403)
+    if request.content_length is not None and request.content_length > CUSTOMER_IDENTITY_IMPORT_MAX_BYTES:
+        return _customer_lookup_json({"ok": False, "error": "File CCCD vượt quá 50 MB."}, 413)
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return _customer_lookup_json({"ok": False, "error": "Bạn chưa chọn file XLSX."}, 400)
+    store = get_customer_identity_store(create=True)
+    if store is None:
+        return _customer_lookup_json({"ok": False, "error": "Kho CCCD chưa sẵn sàng."}, 503)
+    path = None
+    try:
+        path = _save_identity_upload(uploaded, store)
+        preview = store.preview_file(path)
+        session["customer_identity_preview"] = {
+            "sha256": preview["source_sha256"],
+            "mode": preview["mode"],
+            "user_id": current_user_id(),
+            "expires_at": time.time() + 15 * 60,
+        }
+        public_preview = {
+            key: value for key, value in preview.items() if key != "source_sha256"
+        }
+        return _customer_lookup_json({"ok": True, "data": public_preview})
+    except CustomerLookupError as exc:
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+    except Exception:
+        app.logger.exception("Lỗi kiểm tra file CCCD; không ghi dữ liệu PII vào log.")
+        return _customer_lookup_json({"ok": False, "error": "Không thể kiểm tra file CCCD."}, 500)
+    finally:
+        if path is not None:
+            path.unlink(missing_ok=True)
+
+
+@app.route("/api/customer-identity-import/apply", methods=["POST"])
+def api_customer_identity_import_apply():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    csrf = request.headers.get("X-CSRF-Token", "")
+    expected_csrf = session.get("customer_import_csrf", "")
+    if not csrf or not expected_csrf or not secrets.compare_digest(csrf, expected_csrf):
+        return _customer_lookup_json({"ok": False, "error": "Phiên xác nhận không hợp lệ."}, 403)
+    preview = session.get("customer_identity_preview") or {}
+    if (
+        request.form.get("confirmed") != "yes"
+        or preview.get("user_id") != current_user_id()
+        or float(preview.get("expires_at") or 0) < time.time()
+        or preview.get("mode") not in ("initial", "periodic")
+        or not re.fullmatch(r"[0-9a-f]{64}", str(preview.get("sha256") or ""))
+    ):
+        return _customer_lookup_json(
+            {"ok": False, "error": "Bản kiểm tra đã hết hạn; vui lòng kiểm tra lại file."}, 409
+        )
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return _customer_lookup_json({"ok": False, "error": "Bạn chưa gửi lại file đã kiểm tra."}, 400)
+    store = get_customer_identity_store(create=True)
+    path = None
+    try:
+        path = _save_identity_upload(uploaded, store)
+        result = store.import_file(path, preview["sha256"], preview["mode"])
+        session.pop("customer_identity_preview", None)
+        return _customer_lookup_json({"ok": True, "data": result})
+    except CustomerLookupError as exc:
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+    except Exception:
+        app.logger.exception("Lỗi cập nhật CSDL CCCD; không ghi dữ liệu PII vào log.")
+        return _customer_lookup_json(
+            {"ok": False, "error": "Cập nhật CCCD không thành công; CSDL đã rollback."}, 500
+        )
+    finally:
+        if path is not None:
+            path.unlink(missing_ok=True)
 
 
 @app.route("/api/settings", methods=["GET"])
