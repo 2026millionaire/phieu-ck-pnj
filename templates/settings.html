@@ -142,6 +142,18 @@
         <hr class="my-4">
         <h6 class="text-muted mb-3"><i class="bi bi-shield-lock"></i> Quản trị (chỉ Admin)</h6>
 
+        <div class="card mb-3 border-info">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
+                <span><i class="bi bi-geo-alt"></i> Plant miền Trung</span>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnManageCentralPlants" data-bs-toggle="modal" data-bs-target="#centralPlantsModal">
+                    <i class="bi bi-pencil-square"></i> Điều chỉnh plant M.Trung
+                </button>
+            </div>
+            <div class="card-body py-2 small text-muted">
+                Danh mục dùng cho nút Copy plant M.Trung ở màn hình Tạo phiếu. Chỉ Admin được thay đổi.
+            </div>
+        </div>
+
         <div class="card mb-3 border-primary">
             <div class="card-header py-2">
                 <i class="bi bi-database-up"></i> Cập nhật dữ liệu KH mới
@@ -175,6 +187,31 @@
                         <div class="progress-bar progress-bar-striped progress-bar-animated" id="customerImportProgress" role="progressbar" style="width:0%"></div>
                     </div>
                     <div class="small mt-2" id="customerImportResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="centralPlantsModal" tabindex="-1" aria-labelledby="centralPlantsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="centralPlantsModalLabel">Điều chỉnh Plant miền Trung</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-sm-6"><label class="form-label" for="newCentralProvince">Tỉnh</label><input class="form-control form-control-sm" id="newCentralProvince" maxlength="80" placeholder="VD: Quảng Trị"></div>
+                            <div class="col-sm-4"><label class="form-label" for="newCentralPlant">Plant</label><input class="form-control form-control-sm" id="newCentralPlant" inputmode="numeric" maxlength="4" placeholder="4 chữ số"></div>
+                            <div class="col-sm-2 d-grid"><button type="button" class="btn btn-sm btn-success" id="btnAddCentralPlant"><i class="bi bi-plus-lg"></i> Thêm</button></div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover list-table align-middle mb-0">
+                                <thead><tr><th style="width:62px">STT</th><th><button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" id="btnSortCentralProvince">Tỉnh <i class="bi bi-arrow-down-up"></i></button></th><th style="width:130px">Plant</th><th style="width:130px"></th></tr></thead>
+                                <tbody id="centralPlantsBody"><tr><td colspan="4" class="text-center text-muted">Đang tải...</td></tr></tbody>
+                            </table>
+                        </div>
+                        <div class="small mt-2" id="centralPlantsMessage"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -346,7 +383,97 @@ const customerImportUploadUrl = settingsAppUrl({{ url_for('api_customer_import_u
 const identitySummaryUrl = settingsAppUrl({{ url_for('api_customer_identity_import_summary')|tojson }});
 const identityPreviewUrl = settingsAppUrl({{ url_for('api_customer_identity_import_preview')|tojson }});
 const identityApplyUrl = settingsAppUrl({{ url_for('api_customer_identity_import_apply')|tojson }});
+const centralPlantsUrl = settingsAppUrl('/api/central-plants');
 let customerImportPollTimer = null;
+let centralPlants = [];
+let centralPlantsProvinceAscending = true;
+
+function escapeCentralPlantHtml(value) {
+    return String(value || '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+}
+
+function setCentralPlantsMessage(message, type) {
+    const el = document.getElementById('centralPlantsMessage');
+    el.className = `small mt-2 text-${type || 'muted'}`;
+    el.textContent = message || '';
+}
+
+function renderCentralPlants() {
+    const body = document.getElementById('centralPlantsBody');
+    const direction = centralPlantsProvinceAscending ? 1 : -1;
+    const rows = [...centralPlants].sort((left, right) => {
+        const province = left.province.localeCompare(right.province, 'vi', {sensitivity: 'base'});
+        return (province || left.plant.localeCompare(right.plant, 'vi', {numeric: true})) * direction;
+    });
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chưa có Plant</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map((item, index) => `<tr>
+        <td>${index + 1}</td>
+        <td><input class="form-control form-control-sm" data-central-province="${item.id}" value="${escapeCentralPlantHtml(item.province)}" maxlength="80"></td>
+        <td><input class="form-control form-control-sm" data-central-plant="${item.id}" value="${escapeCentralPlantHtml(item.plant)}" inputmode="numeric" maxlength="4"></td>
+        <td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" onclick="saveCentralPlant(${item.id})"><i class="bi bi-check-lg"></i></button> <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteCentralPlant(${item.id})"><i class="bi bi-trash"></i></button></td>
+    </tr>`).join('');
+}
+
+async function loadCentralPlants() {
+    setCentralPlantsMessage('Đang tải...', 'muted');
+    try {
+        const response = await fetch(centralPlantsUrl, {credentials: 'same-origin', cache: 'no-store'});
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể tải danh mục Plant.');
+        centralPlants = data.data;
+        renderCentralPlants();
+        setCentralPlantsMessage(`${centralPlants.length} Plant miền Trung.`, 'muted');
+    } catch (error) {
+        setCentralPlantsMessage(error.message, 'danger');
+    }
+}
+
+async function centralPlantMutation(path, method, payload) {
+    const response = await fetch(path, {
+        method,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': customerImportCsrf, Accept: 'application/json'},
+        body: payload ? JSON.stringify(payload) : undefined
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể cập nhật Plant.');
+}
+
+async function addCentralPlant() {
+    const province = document.getElementById('newCentralProvince').value.trim();
+    const plant = document.getElementById('newCentralPlant').value.trim();
+    if (!province || !plant) { setCentralPlantsMessage('Nhập đủ Tỉnh và Plant.', 'danger'); return; }
+    try {
+        await centralPlantMutation(centralPlantsUrl, 'POST', {province, plant});
+        document.getElementById('newCentralProvince').value = '';
+        document.getElementById('newCentralPlant').value = '';
+        await loadCentralPlants();
+        setCentralPlantsMessage('Đã thêm Plant.', 'success');
+    } catch (error) { setCentralPlantsMessage(error.message, 'danger'); }
+}
+
+async function saveCentralPlant(id) {
+    const province = document.querySelector(`[data-central-province="${id}"]`).value.trim();
+    const plant = document.querySelector(`[data-central-plant="${id}"]`).value.trim();
+    try {
+        await centralPlantMutation(`${centralPlantsUrl}/${id}`, 'PUT', {province, plant});
+        await loadCentralPlants();
+        setCentralPlantsMessage('Đã lưu Plant.', 'success');
+    } catch (error) { setCentralPlantsMessage(error.message, 'danger'); }
+}
+
+async function deleteCentralPlant(id) {
+    if (!confirm('Xóa Plant này?')) return;
+    try {
+        await centralPlantMutation(`${centralPlantsUrl}/${id}`, 'DELETE');
+        await loadCentralPlants();
+        setCentralPlantsMessage('Đã xóa Plant.', 'success');
+    } catch (error) { setCentralPlantsMessage(error.message, 'danger'); }
+}
 
 async function readIdentityImportResponse(response) {
     const contentType = response.headers.get('content-type') || '';
@@ -683,6 +810,12 @@ document.addEventListener('DOMContentLoaded', function() {
     loadIdentitySummary();
     loadTvv();
     loadLydo();
+    document.getElementById('btnManageCentralPlants').addEventListener('click', loadCentralPlants);
+    document.getElementById('btnAddCentralPlant').addEventListener('click', addCentralPlant);
+    document.getElementById('btnSortCentralProvince').addEventListener('click', function() {
+        centralPlantsProvinceAscending = !centralPlantsProvinceAscending;
+        renderCentralPlants();
+    });
 });
 {% endif %}
 </script>

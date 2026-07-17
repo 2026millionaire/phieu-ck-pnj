@@ -110,6 +110,27 @@ QT82_EXTENSION_FILES = (
     "README.md",
 )
 
+CENTRAL_PLANTS_SEED = (
+    ("Huế", "1304"), ("Huế", "1305"), ("Huế", "1394"), ("Huế", "1398"),
+    ("Huế", "1465"), ("Huế", "1570"), ("Huế", "1613"),
+    ("Quảng Trị", "1339"), ("Quảng Trị", "1530"), ("Quảng Trị", "1671"),
+    ("Quảng Bình", "1397"), ("Quảng Bình", "1331"), ("Quảng Bình", "1540"),
+    ("Quảng Bình", "1490"), ("Quảng Bình", "1619"),
+    ("Đà Nẵng", "1267"), ("Đà Nẵng", "1268"), ("Đà Nẵng", "1269"),
+    ("Đà Nẵng", "1270"), ("Đà Nẵng", "1271"), ("Đà Nẵng", "1272"),
+    ("Đà Nẵng", "1273"), ("Đà Nẵng", "1274"), ("Đà Nẵng", "1275"),
+    ("Đà Nẵng", "1276"), ("Đà Nẵng", "1369"), ("Đà Nẵng", "1395"),
+    ("Đà Nẵng", "1416"), ("Đà Nẵng", "1427"), ("Đà Nẵng", "1428"),
+    ("Đà Nẵng", "1454"), ("Đà Nẵng", "1563"), ("Đà Nẵng", "1669"),
+    ("Bình Định", "1241"), ("Bình Định", "1242"), ("Bình Định", "1243"),
+    ("Bình Định", "1366"), ("Bình Định", "1464"), ("Bình Định", "1500"),
+    ("Bình Định", "1531"), ("Bình Định", "1598"), ("Bình Định", "1622"),
+    ("Quảng Nam", "1332"), ("Quảng Nam", "1512"), ("Quảng Nam", "1529"),
+    ("Quảng Nam", "1333"), ("Quảng Nam", "1588"),
+    ("Quảng Ngãi", "1335"), ("Quảng Ngãi", "1429"), ("Quảng Ngãi", "1448"),
+    ("Quảng Ngãi", "1466"), ("Quảng Ngãi", "1515"), ("Quảng Ngãi", "1612"),
+)
+
 
 def normalize_qt82_form_url(value):
     """Chỉ cho phép URL HTTPS thuộc workflow eOffice PNJ, không nhận credential/fragment."""
@@ -385,6 +406,18 @@ def init_db():
             value TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS central_plants (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            province TEXT NOT NULL,
+            plant    TEXT NOT NULL UNIQUE
+        )
+    """)
+    if conn.execute("SELECT COUNT(*) FROM central_plants").fetchone()[0] == 0:
+        conn.executemany(
+            "INSERT INTO central_plants (province, plant) VALUES (?, ?)",
+            CENTRAL_PLANTS_SEED,
+        )
     # Default settings
     defaults = {
         "cht_name": "HỒ THỊ HÀ MY",
@@ -2981,6 +3014,90 @@ def api_tvv():
     rows = db.execute("SELECT id, ma, ten FROM tvv ORDER BY ma").fetchall()
     data = [{"id": r["id"], "ma": r["ma"], "ten": r["ten"]} for r in rows]
     return jsonify({"ok": True, "data": data})
+
+
+def _central_plant_payload(data):
+    province = str(data.get("province") or "").strip()
+    plant = str(data.get("plant") or "").strip()
+    if not province or len(province) > 80:
+        raise ValueError("Tỉnh không hợp lệ.")
+    if not re.fullmatch(r"\d{4}", plant):
+        raise ValueError("Mã Plant phải gồm đúng 4 chữ số.")
+    return province, plant
+
+
+def _central_plants_admin_guard(require_json=True):
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if (require_json and not request.is_json) or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    csrf = request.headers.get("X-CSRF-Token", "")
+    expected_csrf = session.get("customer_import_csrf", "")
+    if not csrf or not expected_csrf or not secrets.compare_digest(csrf, expected_csrf):
+        return _customer_lookup_json({"ok": False, "error": "Phiên xác nhận không hợp lệ."}, 403)
+    return None
+
+
+@app.route("/api/central-plants")
+def api_central_plants():
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, province, plant FROM central_plants ORDER BY province COLLATE NOCASE, plant"
+    ).fetchall()
+    return _customer_lookup_json({"ok": True, "data": [dict(row) for row in rows]})
+
+
+@app.route("/api/central-plants", methods=["POST"])
+def api_central_plants_add():
+    denied = _central_plants_admin_guard()
+    if denied:
+        return denied
+    try:
+        province, plant = _central_plant_payload(request.get_json(silent=True) or {})
+        db = get_db()
+        db.execute("INSERT INTO central_plants (province, plant) VALUES (?, ?)", (province, plant))
+        db.commit()
+    except ValueError as exc:
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+    except sqlite3.IntegrityError:
+        return _customer_lookup_json({"ok": False, "error": "Mã Plant đã tồn tại."}, 409)
+    return _customer_lookup_json({"ok": True})
+
+
+@app.route("/api/central-plants/<int:plant_id>", methods=["PUT"])
+def api_central_plants_update(plant_id):
+    denied = _central_plants_admin_guard()
+    if denied:
+        return denied
+    try:
+        province, plant = _central_plant_payload(request.get_json(silent=True) or {})
+        db = get_db()
+        result = db.execute(
+            "UPDATE central_plants SET province = ?, plant = ? WHERE id = ?",
+            (province, plant, plant_id),
+        )
+        if result.rowcount == 0:
+            return _customer_lookup_json({"ok": False, "error": "Không tìm thấy Plant."}, 404)
+        db.commit()
+    except ValueError as exc:
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+    except sqlite3.IntegrityError:
+        return _customer_lookup_json({"ok": False, "error": "Mã Plant đã tồn tại."}, 409)
+    return _customer_lookup_json({"ok": True})
+
+
+@app.route("/api/central-plants/<int:plant_id>", methods=["DELETE"])
+def api_central_plants_delete(plant_id):
+    denied = _central_plants_admin_guard(require_json=False)
+    if denied:
+        return denied
+    db = get_db()
+    result = db.execute("DELETE FROM central_plants WHERE id = ?", (plant_id,))
+    if result.rowcount == 0:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy Plant."}, 404)
+    db.commit()
+    return _customer_lookup_json({"ok": True})
 
 
 @app.route("/api/tvv", methods=["POST"])

@@ -4,6 +4,13 @@
 {% block nav_home %}active{% endblock %}
 {% block page_title %}Tạo phiếu xác nhận chuyển khoản{% endblock %}
 
+{% block topbar_right %}
+<button type="button" class="btn btn-sm btn-outline-primary" id="btnCopyCentralPlants" title="Sao chép Plant miền Trung, mỗi dòng một mã">
+    <i class="bi bi-clipboard"></i> Copy plant M.Trung
+</button>
+<span class="small text-success ms-2 d-none" id="centralPlantsCopyMessage">Đã copy</span>
+{% endblock %}
+
 {% block extra_css %}
 .preview-panel {
     position: sticky;
@@ -662,6 +669,27 @@ textarea#sap_data {
 document.addEventListener('DOMContentLoaded', function() {
     const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
     const appUrl = (path) => appBasePath + path;
+    const copyCentralPlantsButton = document.getElementById('btnCopyCentralPlants');
+    const centralPlantsCopyMessage = document.getElementById('centralPlantsCopyMessage');
+    copyCentralPlantsButton.addEventListener('click', async function() {
+        copyCentralPlantsButton.disabled = true;
+        try {
+            const response = await fetch(appUrl('/api/central-plants'), {
+                credentials: 'same-origin', cache: 'no-store'
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok || !Array.isArray(data.data) || !data.data.length) {
+                throw new Error();
+            }
+            await navigator.clipboard.writeText(data.data.map(item => item.plant).join('\n'));
+            centralPlantsCopyMessage.textContent = `Đã copy ${data.data.length} Plant`;
+            centralPlantsCopyMessage.classList.remove('d-none');
+        } catch (_error) {
+            alert('Không thể copy danh sách Plant miền Trung lúc này.');
+        } finally {
+            copyCentralPlantsButton.disabled = false;
+        }
+    });
     const customerLookupEnabled = {{ customer_lookup_enabled|tojson }};
     const customerLookupTurnstileSitekey = {{ customer_lookup_turnstile_sitekey|tojson }};
     const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_tk', 'ngan_hang'];

@@ -176,7 +176,10 @@ class CustomerUpdateApiTests(unittest.TestCase):
 
     def test_admin_previews_then_applies_encrypted_identity_file(self):
         self.login(role="admin", user_id=1)
-        self.client.get("/settings")
+        settings_page = self.client.get("/settings")
+        self.assertIn(b"btnManageCentralPlants", settings_page.data)
+        self.assertIn(b"centralPlantsModal", settings_page.data)
+        self.assertIn(b"btnCopyCentralPlants", self.client.get("/").data)
         with self.client.session_transaction() as session:
             csrf = session["customer_import_csrf"]
         content = self.identity_xlsx()
@@ -214,6 +217,42 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/customer-identity-import/summary").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-identity-import/preview").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-identity-import/apply").status_code, 403)
+
+    def test_central_plants_are_seeded_and_admin_can_manage_them(self):
+        seeded = self.client.get("/api/central-plants")
+        self.assertEqual(seeded.status_code, 200)
+        plants = seeded.get_json()["data"]
+        self.assertEqual(len(plants), 53)
+        self.assertIn({"province": "Huế", "plant": "1305"}, [
+            {"province": item["province"], "plant": item["plant"]} for item in plants
+        ])
+
+        self.login(role="user", user_id=2)
+        self.assertEqual(
+            self.client.post("/api/central-plants", json={"province": "Test", "plant": "2000"}).status_code,
+            403,
+        )
+
+        self.login(role="admin", user_id=1)
+        self.client.get("/settings")
+        with self.client.session_transaction() as session:
+            csrf = session["customer_import_csrf"]
+        headers = {"X-CSRF-Token": csrf, "Origin": "http://localhost"}
+        added = self.client.post(
+            "/api/central-plants", json={"province": "Test", "plant": "2000"}, headers=headers
+        )
+        self.assertEqual(added.status_code, 200)
+        added_id = next(
+            item["id"] for item in self.client.get("/api/central-plants").get_json()["data"]
+            if item["plant"] == "2000"
+        )
+        updated = self.client.put(
+            f"/api/central-plants/{added_id}",
+            json={"province": "Test mới", "plant": "2001"},
+            headers=headers,
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/central-plants/{added_id}", headers=headers).status_code, 200)
 
     def test_identity_summary_includes_employee_statistics(self):
         self.login(role="admin", user_id=1)
