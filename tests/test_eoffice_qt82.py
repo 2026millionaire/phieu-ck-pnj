@@ -113,6 +113,19 @@ class EofficeQt82Tests(unittest.TestCase):
             )
             self.assertEqual(manifest["version"], current_version)
 
+    def test_extension_uses_workflow_catalog_before_filling_qt82(self):
+        extension_dir = app_module.QT82_EXTENSION_DIR
+        background = (extension_dir / "background.js").read_text(encoding="utf-8")
+        filler = (extension_dir / "eoffice-fill.js").read_text(encoding="utf-8")
+        manifest = json.loads((extension_dir / "manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["version"], "0.1.13")
+        self.assertIn("/workflow/sitepages/createworkflow.aspx?rcid=8&rscid=0&wid=0", background)
+        self.assertIn("chrome.tabs.create({url: CREATE_WORKFLOW_URL})", background)
+        self.assertIn('text === "qt82 quy trinh thanh toan"', filler)
+        self.assertIn("sessionStorage.setItem(HUB_CLICK_NONCE_KEY, nonce)", filler)
+        self.assertIn("handleDraftOnCurrentPage(activeDraft, false)", filler)
+
     def test_missing_sap_document_uses_1234_without_falling_back_to_bk(self):
         self.login(role="admin")
         phieu_id = self.create_phieu(doc_num="")

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PNJ QT82 Draft Helper",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Chuyển bản nháp QT82 từ dangkhoa.io.vn sang eOffice trong bộ nhớ phiên Chrome.",
   "permissions": ["storage", "alarms"],
   "host_permissions": [

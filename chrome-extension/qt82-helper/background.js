@@ -2,6 +2,7 @@ const DRAFT_KEY = "pnjQt82Draft";
 const DRAFT_TTL_MS = 5 * 60 * 1000;
 const DRAFT_EXPIRY_ALARM = "pnjQt82DraftExpiry";
 const MAX_TEMPLATE_BYTES = 1024 * 1024;
+const CREATE_WORKFLOW_URL = "https://eoffice.pnj.com.vn/workflow/sitepages/createworkflow.aspx?rcid=8&rscid=0&wid=0";
 
 function validEofficeFormUrl(rawUrl) {
   try {
@@ -99,7 +100,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     };
     chrome.storage.session.set({[DRAFT_KEY]: envelope})
       .then(() => chrome.alarms.create(DRAFT_EXPIRY_ALARM, {when: envelope.expiresAt}))
-      .then(() => chrome.tabs.create({url: message.draft.formUrl}))
+      // Luôn đi qua danh mục quy trình để eOffice tự cấp link tạo QT82 hiện hành.
+      // Link sâu NewWorkflow vẫn nằm trong draft để dùng làm phương án thủ công.
+      .then(() => chrome.tabs.create({url: CREATE_WORKFLOW_URL}))
       .then(() => sendResponse({ok: true}))
       .catch(() => sendResponse({ok: false, error: "Không thể mở QT82."}));
     return true;

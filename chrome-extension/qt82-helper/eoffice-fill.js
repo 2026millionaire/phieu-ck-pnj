@@ -5,6 +5,8 @@
   let filling = false;
   const templateImportAttempts = new Set();
   const SAFE_DIAGNOSTIC_MODE = false;
+  const WORKFLOW_HUB_PATH = "/workflow/sitepages/createworkflow.aspx";
+  const HUB_CLICK_NONCE_KEY = "pnjQt82HubClickNonce";
   const TARGET_LABELS = [
     "Mục đích", "Loại tiền", "TP phê duyệt", "Cửa hàng trưởng",
     "Đối tượng thanh toán", "Mã đối tượng", "Nhóm chi phí",
@@ -109,6 +111,110 @@
 
   function elementText(element) {
     return String(element && (element.innerText || element.textContent) || "").trim();
+  }
+
+  function isWorkflowHubPage() {
+    return String(window.location.pathname || "").toLowerCase() === WORKFLOW_HUB_PATH;
+  }
+
+  function qt82WorkflowTextMatches(value) {
+    const text = normalizeText(value);
+    return text === "qt82 quy trinh thanh toan"
+      || (text.startsWith("qt82") && text.includes("quy trinh thanh toan") && text.length <= 60);
+  }
+
+  function findQt82WorkflowTile() {
+    const candidates = Array.from(document.querySelectorAll(
+      "a, button, [role='button'], [onclick], div, span, p, h1, h2, h3, h4, h5",
+    )).filter(isVisible).filter((element) => {
+      const text = elementText(element);
+      return text.length <= 120 && qt82WorkflowTextMatches(text);
+    }).sort((a, b) => elementText(a).length - elementText(b).length);
+    if (!candidates.length) return null;
+
+    const label = candidates[0];
+    let node = label;
+    for (let depth = 0; node && depth < 7; depth += 1, node = node.parentElement) {
+      const tag = String(node.tagName || "").toLowerCase();
+      const style = window.getComputedStyle(node);
+      if (
+        tag === "a"
+        || tag === "button"
+        || node.getAttribute("role") === "button"
+        || node.hasAttribute("onclick")
+        || node.tabIndex >= 0
+        || style.cursor === "pointer"
+      ) return node;
+    }
+    // Click vào nhãn vẫn làm sự kiện nổi bọt đến thẻ cha nếu eOffice gắn handler bằng JavaScript.
+    return label;
+  }
+
+  function dispatchSingleClick(target) {
+    if (!target) return false;
+    target.scrollIntoView({behavior: "auto", block: "center", inline: "center"});
+    const view = (target.ownerDocument && target.ownerDocument.defaultView) || window;
+    ["pointerdown", "mousedown", "pointerup", "mouseup"].forEach((name) => {
+      target.dispatchEvent(new view.MouseEvent(name, {
+        bubbles: true,
+        cancelable: true,
+        view,
+        button: 0,
+      }));
+    });
+    target.click();
+    return true;
+  }
+
+  async function openQt82FromWorkflowHub(draft, manualRetry) {
+    if (window.top !== window || !draft) return false;
+    activeDraft = draft;
+    const nonce = String(draft.nonce || "");
+    const alreadyClicked = sessionStorage.getItem(HUB_CLICK_NONCE_KEY) === nonce;
+    if (alreadyClicked && !manualRetry) {
+      renderStatus(
+        "QT82 đã được nhấn một lần cho bản nháp này. Nếu form chưa mở, hãy kiểm tra đăng nhập rồi nhấn Thử lại.",
+        ["Mở form QT82"],
+        false,
+      );
+      return false;
+    }
+
+    renderStatus("Đang tìm QT82 trong danh sách Tạo yêu cầu...", [], true);
+    const deadline = Date.now() + 30000;
+    let tile = null;
+    while (Date.now() < deadline) {
+      tile = findQt82WorkflowTile();
+      if (tile) break;
+      await delay(300);
+    }
+    if (!tile) {
+      renderStatus(
+        "Không tìm thấy QT82 sau 30 giây. Hãy kiểm tra phiên đăng nhập eOffice hoặc tải lại trang Tạo yêu cầu.",
+        ["QT82. Quy trình thanh toán"],
+        false,
+      );
+      return false;
+    }
+
+    sessionStorage.setItem(HUB_CLICK_NONCE_KEY, nonce);
+    renderStatus("Đã tìm thấy QT82. Đang mở form tạo yêu cầu...", [], true);
+    const pageUrlBeforeClick = window.location.href;
+    dispatchSingleClick(tile);
+    setTimeout(() => {
+      if (
+        window.location.href === pageUrlBeforeClick
+        && activeDraft
+        && String(activeDraft.nonce || "") === nonce
+      ) {
+        renderStatus(
+          "Đã nhấn QT82 nhưng tab hiện tại chưa chuyển trang. Nếu form chưa mở ở tab khác, hãy nhấn Thử mở QT82 lại.",
+          ["Mở form QT82"],
+          false,
+        );
+      }
+    }, 8000);
+    return true;
   }
 
   function findLabel(labelText) {
@@ -669,9 +775,9 @@
     diagnostic.addEventListener("click", () => copyDiagnosticReport(diagnostic));
     const retry = document.createElement("button");
     retry.type = "button";
-    retry.textContent = busy ? "Đang điền..." : "Điền lại";
+    retry.textContent = busy ? "Đang xử lý..." : (isWorkflowHubPage() ? "Thử mở QT82 lại" : "Điền lại");
     retry.disabled = Boolean(busy || !activeDraft);
-    retry.addEventListener("click", () => fillDraft(activeDraft));
+    retry.addEventListener("click", () => handleDraftOnCurrentPage(activeDraft, true));
     const clear = document.createElement("button");
     clear.type = "button";
     clear.textContent = "Xóa dữ liệu tạm";
@@ -768,6 +874,16 @@
     }
   }
 
+  async function handleDraftOnCurrentPage(draft, manualRetry) {
+    if (!draft) return;
+    activeDraft = draft;
+    if (isWorkflowHubPage()) {
+      await openQt82FromWorkflowHub(draft, Boolean(manualRetry));
+      return;
+    }
+    await fillDraft(draft);
+  }
+
   function requestDraft(attempt) {
     chrome.runtime.sendMessage({type: "GET_DRAFT"}, (response) => {
       if (chrome.runtime.lastError) {
@@ -781,7 +897,7 @@
         if (window.top === window) {
           renderStatus("Đã nhận bản nháp. Đang chờ form QT82 sẵn sàng...", [], true);
         }
-        delay(250).then(() => fillDraft(activeDraft));
+        delay(250).then(() => handleDraftOnCurrentPage(activeDraft, false));
         return;
       }
       if (attempt < 8) {

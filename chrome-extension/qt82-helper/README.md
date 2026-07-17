@@ -59,3 +59,5 @@ Phiên bản `0.1.10` xử lý Loại tiền như AutoComplete, kiểm tra giá 
 Phiên bản `0.1.11` thay delay cố định bằng cổng sẵn sàng: chờ document hoàn tất, Kendo hoạt động, không còn lớp loading và các control bắt buộc ổn định liên tục 1,5 giây trước khi điền.
 
 Phiên bản `0.1.12` nhận URL form QT82 từ cấu hình ADMIN. Extension vẫn chỉ mở HTTPS đúng miền `eoffice.pnj.com.vn` và đường dẫn `/workflow/`, nên có thể cập nhật LID/wid mà không nới quyền sang miền khác.
+
+Phiên bản `0.1.13` không phụ thuộc link sâu `NewWorkflow`. Tiện ích mở trang **Tạo yêu cầu**, tìm đúng thẻ **QT82. Quy trình thanh toán**, chỉ nhấn tự động một lần cho mỗi bản nháp, sau đó chờ form QT82 tải ổn định mới bắt đầu điền. Link sâu cấu hình ADMIN vẫn được giữ làm phương án mở thủ công.

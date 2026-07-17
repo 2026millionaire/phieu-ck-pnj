@@ -75,10 +75,10 @@
                         <strong class="small">Tiện ích Chrome</strong>
                         <span class="badge bg-secondary" id="qt82ExtensionStatus">Đang kiểm tra...</span>
                     </div>
-                    <div class="small text-muted mb-2">Dữ liệu chỉ được giữ tạm trong bộ nhớ Chrome tối đa 5 phút.</div>
+                    <div class="small text-muted mb-2">Tiện ích mở trang Tạo yêu cầu, chọn QT82 rồi mới điền. Dữ liệu chỉ được giữ tạm trong bộ nhớ Chrome tối đa 5 phút.</div>
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-primary" id="btnPrepareQt82" {% if not qt82_payload.ready %}disabled{% endif %}>
-                            <i class="bi bi-box-arrow-up-right"></i> Tạo bản nháp QT82 trên Chrome
+                            <i class="bi bi-box-arrow-up-right"></i> Mở Tạo yêu cầu và điền QT82
                         </button>
                         <a href="{{ url_for('api_template_tt', phieu_id=phieu.id) }}" class="btn btn-outline-success qt82-action" id="btnDownloadTemplate">
                             <i class="bi bi-file-earmark-excel"></i> Tải Template TT
