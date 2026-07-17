@@ -151,9 +151,12 @@
 {% block scripts %}
 <script>
 const currentId = {{ phieu.id if phieu else 0 }};
-const eofficePageUrlTemplate = {{ url_for('eoffice_page', phieu_id=0)|tojson }};
-const historyApiUrl = {{ url_for('api_history')|tojson }};
-const daTrinhApiUrlTemplate = {{ url_for('api_da_trinh', phieu_id=0)|tojson }};
+function appPath(suffix) {
+    const match = window.location.pathname.match(/^(.*)\/eoffice(?:\/\d+)?\/?$/i);
+    const basePath = match ? match[1] : '';
+    return basePath + suffix;
+}
+const historyApiUrl = appPath('/api/history');
 const draftNode = document.getElementById('qt82DraftPayload');
 const qt82Draft = draftNode ? JSON.parse(draftNode.textContent) : null;
 const MAX_TEMPLATE_BYTES = 1024 * 1024;
@@ -277,7 +280,10 @@ setTimeout(function() {
 }, 1500);
 
 document.addEventListener('DOMContentLoaded', function() {
-    fetch(historyApiUrl).then(r => r.json()).then(json => {
+    fetch(historyApiUrl, {credentials: 'same-origin', cache: 'no-store'}).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    }).then(json => {
         if (!json.ok || !json.data) return;
         const tbody = document.getElementById('histBody');
         if (!tbody) return;
@@ -315,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const actionCell = document.createElement('td');
             const link = document.createElement('a');
-            link.href = eofficePageUrlTemplate.replace(/0$/, String(p.id));
+            link.href = appPath('/eoffice/' + p.id);
             link.className = 'btn btn-sm btn-outline-primary py-0 px-1';
             link.title = 'Chọn';
             link.innerHTML = '<i class="bi bi-arrow-right-short"></i>';
@@ -327,12 +333,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
         tbody.addEventListener('change', function(e) {
             if (!e.target.classList.contains('da-trinh')) return;
-            fetch(daTrinhApiUrlTemplate.replace(/0$/, e.target.dataset.id), {
+            fetch(appPath('/api/da-trinh/' + e.target.dataset.id), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({da_trinh: e.target.checked})
             });
         });
+    }).catch(function() {
+        const tbody = document.getElementById('histBody');
+        if (!tbody) return;
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 6;
+        cell.className = 'text-center text-danger py-3';
+        cell.textContent = 'Không tải được lịch sử phiếu. Vui lòng tải lại trang.';
+        row.appendChild(cell);
+        tbody.replaceChildren(row);
     });
 });
 
