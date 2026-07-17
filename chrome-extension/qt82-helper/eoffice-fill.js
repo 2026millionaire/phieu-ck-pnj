@@ -6,6 +6,7 @@
   const templateImportAttempts = new Set();
   const SAFE_DIAGNOSTIC_MODE = false;
   const WORKFLOW_HUB_PATH = "/workflow/sitepages/createworkflow.aspx";
+  const CREATE_WORKFLOW_URL = "https://eoffice.pnj.com.vn/workflow/sitepages/createworkflow.aspx?rcid=8&rscid=0&wid=0";
   const HUB_CLICK_NONCE_KEY = "pnjQt82HubClickNonce";
   const TARGET_LABELS = [
     "Mục đích", "Loại tiền", "TP phê duyệt", "Cửa hàng trưởng",
@@ -115,6 +116,28 @@
 
   function isWorkflowHubPage() {
     return String(window.location.pathname || "").toLowerCase() === WORKFLOW_HUB_PATH;
+  }
+
+  function isQt82FormPage() {
+    return Boolean(findControl("Mục đích") && findControl("Mã chứng từ SAP"));
+  }
+
+  function isKnownNonFormWorkflowPage() {
+    return String(window.location.pathname || "").toLowerCase() === "/workflow/default.aspx";
+  }
+
+  async function waitForQt82FormPage(timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (isQt82FormPage()) return true;
+      await delay(250);
+    }
+    return false;
+  }
+
+  function redirectToWorkflowHub() {
+    if (window.top !== window) return;
+    window.location.replace(CREATE_WORKFLOW_URL);
   }
 
   function qt82WorkflowTextMatches(value) {
@@ -879,6 +902,11 @@
     activeDraft = draft;
     if (isWorkflowHubPage()) {
       await openQt82FromWorkflowHub(draft, Boolean(manualRetry));
+      return;
+    }
+    if (isKnownNonFormWorkflowPage() || !(await waitForQt82FormPage(20000))) {
+      renderStatus("Trang hiện tại chưa phải QT82. Đang chuyển đến Tạo yêu cầu...", [], true);
+      redirectToWorkflowHub();
       return;
     }
     await fillDraft(draft);

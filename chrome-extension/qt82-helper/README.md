@@ -61,3 +61,5 @@ Phiên bản `0.1.11` thay delay cố định bằng cổng sẵn sàng: chờ d
 Phiên bản `0.1.12` nhận URL form QT82 từ cấu hình ADMIN. Extension vẫn chỉ mở HTTPS đúng miền `eoffice.pnj.com.vn` và đường dẫn `/workflow/`, nên có thể cập nhật LID/wid mà không nới quyền sang miền khác.
 
 Phiên bản `0.1.13` không phụ thuộc link sâu `NewWorkflow`. Tiện ích mở trang **Tạo yêu cầu**, tìm đúng thẻ **QT82. Quy trình thanh toán**, chỉ nhấn tự động một lần cho mỗi bản nháp, sau đó chờ form QT82 tải ổn định mới bắt đầu điền. Link sâu cấu hình ADMIN vẫn được giữ làm phương án mở thủ công.
+
+Phiên bản `0.1.14` nhận diện tab không phải form QT82 (ví dụ Trang chủ eOffice) và tự quay về **Tạo yêu cầu** trước khi tiếp tục. Tiện ích không còn chờ vô hạn để điền trên các trang workflow không phải QT82.

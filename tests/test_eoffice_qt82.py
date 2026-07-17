@@ -119,11 +119,13 @@ class EofficeQt82Tests(unittest.TestCase):
         filler = (extension_dir / "eoffice-fill.js").read_text(encoding="utf-8")
         manifest = json.loads((extension_dir / "manifest.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(manifest["version"], "0.1.13")
+        self.assertEqual(manifest["version"], "0.1.14")
         self.assertIn("/workflow/sitepages/createworkflow.aspx?rcid=8&rscid=0&wid=0", background)
         self.assertIn("chrome.tabs.create({url: CREATE_WORKFLOW_URL})", background)
         self.assertIn('text === "qt82 quy trinh thanh toan"', filler)
         self.assertIn("sessionStorage.setItem(HUB_CLICK_NONCE_KEY, nonce)", filler)
+        self.assertIn("function isQt82FormPage()", filler)
+        self.assertIn("window.location.replace(CREATE_WORKFLOW_URL)", filler)
         self.assertIn("handleDraftOnCurrentPage(activeDraft, false)", filler)
 
     def test_missing_sap_document_uses_1234_without_falling_back_to_bk(self):
