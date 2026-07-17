@@ -145,9 +145,14 @@
         <div class="card mb-3 border-info">
             <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                 <span><i class="bi bi-geo-alt"></i> Plant miền Trung</span>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btnManageCentralPlants" data-bs-toggle="modal" data-bs-target="#centralPlantsModal">
-                    <i class="bi bi-pencil-square"></i> Điều chỉnh plant M.Trung
-                </button>
+                <div class="d-flex gap-2 flex-wrap justify-content-end">
+                    <button type="button" class="btn btn-sm btn-outline-success" id="btnCopyCentralPlants">
+                        <i class="bi bi-clipboard"></i> Copy plant M.Trung
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnManageCentralPlants" data-bs-toggle="modal" data-bs-target="#centralPlantsModal">
+                        <i class="bi bi-pencil-square"></i> Điều chỉnh plant M.Trung
+                    </button>
+                </div>
             </div>
             <div class="card-body py-2 small text-muted">
                 Danh mục dùng cho nút Copy plant M.Trung ở màn hình Tạo phiếu. Chỉ Admin được thay đổi.
@@ -428,6 +433,24 @@ async function loadCentralPlants() {
         setCentralPlantsMessage(`${centralPlants.length} Plant miền Trung.`, 'muted');
     } catch (error) {
         setCentralPlantsMessage(error.message, 'danger');
+    }
+}
+
+async function copyCentralPlants() {
+    const button = document.getElementById('btnCopyCentralPlants');
+    button.disabled = true;
+    try {
+        const response = await fetch(centralPlantsUrl, {credentials: 'same-origin', cache: 'no-store'});
+        const data = await response.json();
+        if (!response.ok || !data.ok || !Array.isArray(data.data) || !data.data.length) {
+            throw new Error('Danh mục Plant đang trống.');
+        }
+        await navigator.clipboard.writeText(data.data.map(item => item.plant).join('\n'));
+        setCentralPlantsMessage(`Đã copy ${data.data.length} Plant vào clipboard.`, 'success');
+    } catch (error) {
+        setCentralPlantsMessage(error.message || 'Không thể copy danh sách Plant.', 'danger');
+    } finally {
+        button.disabled = false;
     }
 }
 
@@ -810,6 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadIdentitySummary();
     loadTvv();
     loadLydo();
+    document.getElementById('btnCopyCentralPlants').addEventListener('click', copyCentralPlants);
     document.getElementById('btnManageCentralPlants').addEventListener('click', loadCentralPlants);
     document.getElementById('btnAddCentralPlant').addEventListener('click', addCentralPlant);
     document.getElementById('btnSortCentralProvince').addEventListener('click', function() {
