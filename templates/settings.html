@@ -583,7 +583,7 @@ document.getElementById('btnIdentityApply').addEventListener('click', async func
         const employeeText = r.employee_result
             ? ` Mã NV: thêm ${formatCustomerImportNumber(r.employee_result.inserted_rows)}, cập nhật ${formatCustomerImportNumber(r.employee_result.updated_rows)}, giữ nguyên ${formatCustomerImportNumber(r.employee_result.unchanged_rows)}.`
             : '';
-        message.textContent = `Hoàn tất KH: thêm ${formatCustomerImportNumber(r.inserted_rows)}, cập nhật ${formatCustomerImportNumber(r.updated_rows)}, giữ nguyên ${formatCustomerImportNumber(r.unchanged_rows)}, điều chỉnh tên ${formatCustomerImportNumber(r.name_updated)}.${employeeText}`;
+        message.textContent = `Hoàn tất KH: thêm ${formatCustomerImportNumber(r.inserted_rows)}, cập nhật ${formatCustomerImportNumber(r.updated_rows)}, giữ nguyên ${formatCustomerImportNumber(r.unchanged_rows)}, ghi nhận tên lần đầu ${formatCustomerImportNumber(r.name_initialized)}, điều chỉnh tên đã có ${formatCustomerImportNumber(r.name_updated)}.${employeeText}`;
         renderIdentitySummary(r.dataset);
         loadIdentitySummary();
         document.getElementById('identityImportFile').value = '';

@@ -109,10 +109,19 @@ class CustomerIdentityTests(unittest.TestCase):
         self.assertEqual(preview["mode"], "periodic")
         result = self.store.import_file(second, preview["source_sha256"], "periodic")
         self.assertEqual(result["updated_rows"], 1)
+        self.assertEqual(result["name_initialized"], 0)
         self.assertEqual(result["name_updated"], 1)
         record = self.store.get_record("100000001")
         self.assertEqual(record["identity_value"], "A7654321")
         self.assertEqual(record["verified_name"], "TEN DUNG")
+
+        third = self.root / "third.xlsx"
+        make_workbook(third, [["18.07.2026", "100000002", "TEN MOI", "P1234567", "1305"]])
+        preview = self.store.preview_file(third)
+        result = self.store.import_file(third, preview["source_sha256"], "periodic")
+        self.assertEqual(result["inserted_rows"], 1)
+        self.assertEqual(result["name_initialized"], 1)
+        self.assertEqual(result["name_updated"], 0)
 
         database_bytes = (self.root / "identity.db").read_bytes()
         self.assertNotIn(b"A7654321", database_bytes)

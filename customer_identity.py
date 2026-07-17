@@ -479,7 +479,7 @@ class CustomerIdentityStore:
         if mode != current_mode:
             raise CustomerLookupError("Trạng thái CSDL đã thay đổi; vui lòng kiểm tra lại file.")
         self.create_backup()
-        inserted = updated = unchanged = name_updated = 0
+        inserted = updated = unchanged = name_initialized = name_updated = 0
         connection = self.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
@@ -510,9 +510,15 @@ class CustomerIdentityStore:
                     continue
                 verified_name = str(current.get("verified_name") or "")
                 source_name = item["customer_name"].strip()
-                if mode == "periodic" and source_name and source_name != verified_name:
-                    verified_name = source_name
-                    name_updated += 1
+                if mode == "periodic" and source_name:
+                    if row is None:
+                        # Mã mới chưa có tên đã xác minh; đây là ghi nhận lần đầu,
+                        # không phải điều chỉnh tên đã có.
+                        verified_name = source_name
+                        name_initialized += 1
+                    elif source_name != verified_name:
+                        verified_name = source_name
+                        name_updated += 1
                 payload = {
                     "customer_code": item["vendor"],
                     "identity_value": item["identity_value"],
@@ -574,6 +580,7 @@ class CustomerIdentityStore:
             "inserted_rows": inserted,
             "updated_rows": updated,
             "unchanged_rows": unchanged,
+            "name_initialized": name_initialized,
             "name_updated": name_updated,
             "dataset": self.get_summary(),
         }
