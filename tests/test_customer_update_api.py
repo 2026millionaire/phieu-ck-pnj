@@ -144,6 +144,18 @@ class CustomerUpdateApiTests(unittest.TestCase):
             [{"value": "TEN MOI", "source": "approved"}],
         )
 
+    def test_settings_shows_pending_review_count_for_admin(self):
+        self.store.record_tvv_values(
+            customer_code="100000000",
+            values={"phone": "0912345678"},
+            user_id=2,
+            phieu_id=100,
+        )
+        self.login(role="admin", user_id=1)
+        response = self.client.get("/settings")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Cài đặt (1)", response.get_data(as_text=True))
+
     def test_cccd_suggestion_api_returns_candidate_list(self):
         self.login()
         self.store.record_tvv_values(
@@ -202,6 +214,12 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/customer-identity-import/summary").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-identity-import/preview").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-identity-import/apply").status_code, 403)
+
+    def test_identity_summary_includes_employee_statistics(self):
+        self.login(role="admin", user_id=1)
+        response = self.client.get("/api/customer-identity-import/summary")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["employee"]["record_count"], 0)
 
     def test_identity_import_routes_e01_codes_to_employee_database(self):
         self.login(role="admin", user_id=1)

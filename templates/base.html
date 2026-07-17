@@ -252,7 +252,7 @@
                 {% if admin %}
                     <li class="nav-item">
                         <a class="nav-link {% block nav_settings %}{% endblock %}" href="{{ url_for('settings_page') }}">
-                            <i class="bi bi-gear"></i> Cài đặt
+                            <i class="bi bi-gear"></i> Cài đặt{% if pending_customer_update_count %} ({{ pending_customer_update_count }}){% endif %}
                         </a>
                     </li>
                 {% endif %}

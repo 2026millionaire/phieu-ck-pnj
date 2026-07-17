@@ -151,6 +151,10 @@
                     <div class="col-md-4"><div class="customer-import-stat"><small>Tổng bản ghi</small><strong id="customerImportRecordCount">—</strong></div></div>
                     <div class="col-md-4"><div class="customer-import-stat"><small>Mã KH lớn nhất</small><strong id="customerImportMaxCode">—</strong></div></div>
                     <div class="col-md-4"><div class="customer-import-stat"><small>Cập nhật gần nhất</small><strong id="customerImportLastTime">—</strong></div></div>
+                    <div class="col-12 pt-2"><small class="text-muted fw-semibold">Mã NV</small></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Tổng bản ghi mã NV</small><strong id="employeeRecordCount">—</strong></div></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Mã NV mới nhất</small><strong id="employeeLatestCode">—</strong></div></div>
+                    <div class="col-md-4"><div class="customer-import-stat"><small>Cập nhật gần nhất</small><strong id="employeeLastImport">—</strong></div></div>
                 </div>
                 <label class="form-label" for="customerImportFiles">Chọn file dữ liệu SAP</label>
                 <input type="file" class="form-control form-control-sm" id="customerImportFiles" multiple>
@@ -212,7 +216,7 @@
             <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                     <strong>Dữ liệu khách hàng TVV đề xuất</strong>
-                    <div class="small text-muted">Duyệt hoặc từ chối từng thay đổi Tên KH, SĐT và CCCD.</div>
+                    <div class="small text-muted">Duyệt hoặc từ chối từng thay đổi Tên KH, SĐT và CCCD. {% if pending_customer_update_count %}<strong class="text-warning-emphasis">Đang chờ duyệt: {{ pending_customer_update_count }}.</strong>{% else %}<span class="text-success">Không có đề xuất chờ duyệt.</span>{% endif %}</div>
                 </div>
                 <a class="btn btn-sm btn-outline-warning" href="{{ url_for('customer_updates_page') }}">
                     <i class="bi bi-person-check"></i> Mở báo cáo duyệt
@@ -476,6 +480,12 @@ function renderIdentitySummary(data) {
     document.getElementById('identityLastImport').textContent = formatCustomerImportTime(data.last_import_at);
 }
 
+function renderEmployeeSummary(data) {
+    document.getElementById('employeeRecordCount').textContent = formatCustomerImportNumber(data && data.record_count);
+    document.getElementById('employeeLatestCode').textContent = data && data.latest_new_code || 'Chưa có';
+    document.getElementById('employeeLastImport').textContent = formatCustomerImportTime(data && data.last_import_at);
+}
+
 async function loadIdentitySummary() {
     try {
         const response = await fetch(identitySummaryUrl, {
@@ -484,6 +494,7 @@ async function loadIdentitySummary() {
         const data = await response.json();
         if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể đọc thống kê CCCD.');
         renderIdentitySummary(data.data);
+        renderEmployeeSummary(data.employee);
     } catch (error) {
         document.getElementById('identitySourceDate').textContent = 'Không thể tải';
     }
@@ -562,6 +573,7 @@ document.getElementById('btnIdentityApply').addEventListener('click', async func
             : '';
         message.textContent = `Hoàn tất KH: thêm ${formatCustomerImportNumber(r.inserted_rows)}, cập nhật ${formatCustomerImportNumber(r.updated_rows)}, giữ nguyên ${formatCustomerImportNumber(r.unchanged_rows)}, điều chỉnh tên ${formatCustomerImportNumber(r.name_updated)}.${employeeText}`;
         renderIdentitySummary(r.dataset);
+        loadIdentitySummary();
         document.getElementById('identityImportFile').value = '';
         document.getElementById('identityPreviewBox').classList.add('d-none');
     } catch (error) {

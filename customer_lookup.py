@@ -867,6 +867,15 @@ class CustomerLookupStore:
             "has_next": offset + len(items) < total,
         }
 
+    def pending_candidate_count(self) -> int:
+        """Đếm đề xuất chờ duyệt mà không giải mã dữ liệu khách hàng."""
+        with closing(self.connect()) as connection:
+            return int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM customer_field_candidates WHERE status = 'pending'"
+                ).fetchone()[0]
+            )
+
     def import_files(
         self,
         paths: Iterable[Path | str],

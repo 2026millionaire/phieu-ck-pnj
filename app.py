@@ -1346,7 +1346,20 @@ def is_admin():
 @app.context_processor
 def inject_template_permissions():
     """Expose server-verified permissions to shared navigation templates."""
-    return {"admin": is_admin()}
+    admin = is_admin()
+    pending_customer_update_count = 0
+    if admin:
+        store = get_customer_lookup_store()
+        if store is not None:
+            try:
+                pending_customer_update_count = store.pending_candidate_count()
+            except CustomerLookupError:
+                # Không để lỗi thống kê ảnh hưởng đến toàn bộ giao diện quản trị.
+                pass
+    return {
+        "admin": admin,
+        "pending_customer_update_count": pending_customer_update_count,
+    }
 
 
 def _customer_lookup_json(payload, status=200):
@@ -2217,7 +2230,16 @@ def api_customer_identity_import_summary():
         return _customer_lookup_json(
             {"ok": False, "error": "Kho CCCD chưa sẵn sàng."}, 503
         )
-    return _customer_lookup_json({"ok": True, "data": store.get_summary()})
+    employee_summary = None
+    employee_store = get_employee_lookup_store(create=False)
+    if employee_store is not None:
+        try:
+            employee_summary = employee_store.get_summary()
+        except CustomerLookupError:
+            employee_summary = None
+    return _customer_lookup_json(
+        {"ok": True, "data": store.get_summary(), "employee": employee_summary}
+    )
 
 
 @app.route("/api/customer-identity-import/preview", methods=["POST"])
