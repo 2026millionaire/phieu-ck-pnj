@@ -2313,6 +2313,14 @@ def api_lookup_account():
 @app.route("/api/ocr-bk", methods=["POST"])
 def api_ocr_bk():
     """OCR ảnh bảng kê SAP → trích xuất Số BK, Mã KH, CCCD, SĐT."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if request.content_length is not None and request.content_length > 10 * 1024 * 1024:
+        return _customer_lookup_json({"ok": False, "error": "Ảnh vượt quá 10 MB."}, 413)
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+
     import asyncio
     from chrome_lens_py import LensAPI
 
@@ -2445,11 +2453,6 @@ def api_ocr_bk():
 
         ten_kh = " ".join(name_words) if name_words else ""
 
-    # Log raw text to file for debugging
-    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_debug.txt")
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write(text)
-
     return jsonify({
         "ok": True,
         "so_bk": so_bk,
@@ -2457,7 +2460,6 @@ def api_ocr_bk():
         "cccd": cccd,
         "sdt": sdt,
         "ten_kh": ten_kh,
-        "raw_text": text[:800],
     })
 
 

@@ -285,9 +285,11 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
 });
 
 {% if admin %}
+const settingsAppBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
+const settingsAppUrl = (path) => settingsAppBasePath + path;
 const customerImportCsrf = {{ customer_import_csrf|tojson }};
-const customerImportSummaryUrl = {{ url_for('api_customer_import_summary')|tojson }};
-const customerImportUploadUrl = {{ url_for('api_customer_import_upload')|tojson }};
+const customerImportSummaryUrl = settingsAppUrl({{ url_for('api_customer_import_summary')|tojson }});
+const customerImportUploadUrl = settingsAppUrl({{ url_for('api_customer_import_upload')|tojson }});
 let customerImportPollTimer = null;
 
 function formatCustomerImportNumber(value) {

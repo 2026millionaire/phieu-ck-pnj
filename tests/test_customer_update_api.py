@@ -186,6 +186,8 @@ class CustomerUpdateApiTests(unittest.TestCase):
         user_html = user_index.get_data(as_text=True)
         self.assertEqual(user_index.status_code, 200)
         self.assertNotIn('href="/settings"', user_html)
+        self.assertNotIn('id="btnOcrClip"', user_html)
+        self.assertNotIn("appUrl('/api/ocr-bk')", user_html)
         self.assertIn('aria-expanded="false" aria-controls="sapDataCollapse"', user_html)
         self.assertIn('<div class="collapse" id="sapDataCollapse">', user_html)
 
@@ -198,6 +200,7 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertEqual(settings_page.status_code, 403)
         self.assertEqual(settings_get.status_code, 403)
         self.assertEqual(settings_post.status_code, 403)
+        self.assertEqual(self.client.post("/api/ocr-bk").status_code, 403)
         self.assertEqual(settings_get.headers.get("Cache-Control"), "no-store, max-age=0")
         connection = sqlite3.connect(self.root / "phieu.db")
         try:
@@ -212,6 +215,8 @@ class CustomerUpdateApiTests(unittest.TestCase):
         admin_index = self.client.get("/")
         admin_html = admin_index.get_data(as_text=True)
         self.assertIn('href="/settings"', admin_html)
+        self.assertIn('id="btnOcrClip"', admin_html)
+        self.assertIn("appUrl('/api/ocr-bk')", admin_html)
         self.assertIn('aria-expanded="true" aria-controls="sapDataCollapse"', admin_html)
         self.assertIn('<div class="collapse show" id="sapDataCollapse">', admin_html)
 
@@ -219,6 +224,7 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertEqual(settings_page.status_code, 200)
         self.assertEqual(settings_page.headers.get("Cache-Control"), "no-store, max-age=0")
         self.assertIn(b"customerImportFiles", settings_page.data)
+        self.assertIn(b"settingsAppUrl", settings_page.data)
         self.assertEqual(self.client.get("/api/settings").status_code, 200)
         rejected = self.client.post(
             "/api/settings",
