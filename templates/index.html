@@ -690,7 +690,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function validLookupCustomerCode(value) {
         const code = (value || '').trim();
-        return /^1[0-9]{8}$/.test(code) || /^0[0-9]{9}$/.test(code);
+        return /^1[0-9]{8}$/.test(code) || /^0[0-9]{9}$/.test(code)
+            || /^E01(?:[MF][0-9]{4}|[0-9]{5})$/i.test(code);
     }
 
     function hideCustomerSuggestions(exceptField) {
@@ -853,6 +854,10 @@ document.addEventListener('DOMContentLoaded', function() {
             target.input.addEventListener('click', () => requestCustomerSuggestion(field));
         });
         document.getElementById('ma_kh').addEventListener('input', function() {
+            // Mã NV có ký tự chữ; chuẩn hóa ngay khi nhập để API và các bước
+            // lưu/in phiếu luôn nhận cùng một mã E01... viết hoa.
+            const normalized = this.value.toUpperCase();
+            if (this.value !== normalized) this.value = normalized;
             customerSuggestionCache.clear();
             hideCustomerSuggestions();
         });
@@ -1846,7 +1851,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ma_kh').value = maKh;
         // Validate: 9 số bắt đầu 10, hoặc 8 ký tự bắt đầu E (NV PNJ). Chỉ cảnh báo.
         const maKhValid = /^\d{9}$/.test(maKh) && maKh.startsWith('10')
-                       || /^E\d{7}$/i.test(maKh);
+                       || /^E01(?:[MF]\d{4}|\d{5})$/i.test(maKh);
         if (!maKhValid) {
             if (!confirm('Mã KH có vẻ không đúng định dạng:\n• 9 số bắt đầu bằng "10" (VD: 103888401)\n• hoặc 8 ký tự bắt đầu bằng "E" (VD: E0123458)\n\nBạn có muốn tiếp tục không?')) {
                 document.getElementById('ma_kh').focus();

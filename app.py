@@ -50,10 +50,19 @@ try:
     from customer_identity import (
         CustomerIdentityStore,
         default_identity_db_path,
+        select_identity_records,
     )
 except ImportError:
     CustomerIdentityStore = None
     default_identity_db_path = None
+    select_identity_records = None
+
+try:
+    from employee_lookup import EmployeeLookupStore, default_employee_db_path, normalize_employee_code
+except ImportError:
+    EmployeeLookupStore = None
+    default_employee_db_path = None
+    normalize_employee_code = None
 
 # ---------------------------------------------------------------------------
 # App config
@@ -79,9 +88,12 @@ CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
 ).strip()
 _customer_lookup_store = None
 _customer_identity_store = None
+_employee_lookup_store = None
 CUSTOMER_IMPORT_MAX_BYTES = 500 * 1024 * 1024
 CUSTOMER_IMPORT_MAX_FILES = 10
-CUSTOMER_IDENTITY_IMPORT_MAX_BYTES = 50 * 1024 * 1024
+# Bảng kê miền Trung có thể lớn hơn nhiều lần bộ Huế. Giới hạn vẫn hữu hạn để
+# tránh một tài khoản Admin bị lạm dụng làm đầy ổ đĩa bằng file nén độc hại.
+CUSTOMER_IDENTITY_IMPORT_MAX_BYTES = 150 * 1024 * 1024
 _customer_import_jobs_lock = threading.Lock()
 PDF_TOKEN_MAX_AGE = 15 * 60
 DEFAULT_QT82_FORM_URL = (
@@ -249,6 +261,23 @@ def get_customer_identity_store(create=False):
         store = CustomerIdentityStore.from_environment(create=create)
         store.initialize()
         _customer_identity_store = store
+        return store
+    except CustomerLookupError:
+        return None
+
+
+def get_employee_lookup_store(create=False):
+    global _employee_lookup_store
+    if EmployeeLookupStore is None or default_employee_db_path is None:
+        return None
+    if _employee_lookup_store is not None:
+        return _employee_lookup_store
+    try:
+        if not create and not default_employee_db_path().is_file():
+            return None
+        store = EmployeeLookupStore.from_environment(create=create)
+        store.initialize()
+        _employee_lookup_store = store
         return store
     except CustomerLookupError:
         return None
@@ -1604,7 +1633,7 @@ def index():
         settings=settings,
         bk_prefix=bk_prefix,
         admin=is_admin(),
-        customer_lookup_enabled=get_customer_lookup_store() is not None,
+        customer_lookup_enabled=(get_customer_lookup_store() is not None or get_employee_lookup_store() is not None),
         customer_lookup_turnstile_sitekey=CUSTOMER_LOOKUP_TURNSTILE_SITEKEY,
     )
 
@@ -1628,6 +1657,9 @@ def api_customer_suggestion():
     if field not in ("name", "phone", "cccd"):
         return _customer_lookup_json({"ok": False, "error": "Trường tra cứu không hợp lệ."}, 400)
     canonical = normalize_customer_code(data.get("customer_code"))
+    employee_code = normalize_employee_code(data.get("customer_code")) if normalize_employee_code else None
+    is_employee_code = canonical is None and employee_code is not None
+    canonical = canonical or employee_code
     if canonical is None:
         return _customer_lookup_json({"ok": True, "suggestions": [], "suggestion": None})
 
@@ -1669,11 +1701,12 @@ def api_customer_suggestion():
                 )
             captcha_passed = True
 
-        record = store.get_record(canonical)
-        suggestions = store.get_suggestions(canonical, field)
+        record = store.get_record(canonical) if not is_employee_code else None
+        employee_store = get_employee_lookup_store(create=False) if is_employee_code else None
+        suggestions = (employee_store.get_suggestions(canonical, field) if employee_store else []) if is_employee_code else store.get_suggestions(canonical, field)
         identity_record = None
         identity_store = get_customer_identity_store(create=False)
-        if identity_store is not None and field in ("name", "cccd"):
+        if not is_employee_code and identity_store is not None and field in ("name", "cccd"):
             identity_record = identity_store.get_record(canonical)
         identity_value = ""
         if identity_record and field == "cccd":
@@ -1699,7 +1732,7 @@ def api_customer_suggestion():
             requested_field=field,
             outcome="suggestion" if suggestion is not None else "no_suggestion",
             lookup_performed=True,
-            record_found=record is not None or identity_record is not None,
+            record_found=record is not None or identity_record is not None or bool(employee_store and employee_store.get_record(canonical)),
             suggestion_shown=bool(suggestions),
             captcha_passed=captcha_passed,
         )
@@ -2163,7 +2196,7 @@ def _save_identity_upload(uploaded, store):
         uploaded.save(path)
         size = path.stat().st_size
         if size <= 0 or size > CUSTOMER_IDENTITY_IMPORT_MAX_BYTES:
-            raise CustomerLookupError("File CCCD bị trống hoặc vượt quá 50 MB.")
+            raise CustomerLookupError("File CCCD bị trống hoặc vượt quá 150 MB.")
         try:
             os.chmod(path, 0o600)
         except OSError:
@@ -2199,7 +2232,7 @@ def api_customer_identity_import_preview():
     if not csrf or not expected_csrf or not secrets.compare_digest(csrf, expected_csrf):
         return _customer_lookup_json({"ok": False, "error": "Phiên xác nhận không hợp lệ."}, 403)
     if request.content_length is not None and request.content_length > CUSTOMER_IDENTITY_IMPORT_MAX_BYTES:
-        return _customer_lookup_json({"ok": False, "error": "File CCCD vượt quá 50 MB."}, 413)
+        return _customer_lookup_json({"ok": False, "error": "File CCCD vượt quá 150 MB."}, 413)
     uploaded = request.files.get("file")
     if not uploaded or not uploaded.filename:
         return _customer_lookup_json({"ok": False, "error": "Bạn chưa chọn file XLSX."}, 400)
@@ -2210,6 +2243,12 @@ def api_customer_identity_import_preview():
     try:
         path = _save_identity_upload(uploaded, store)
         preview = store.preview_file(path)
+        records, _source = select_identity_records(path)
+        employee_records = [
+            item for item in records
+            if normalize_employee_code is not None and normalize_employee_code(item.get("vendor"))
+        ]
+        preview["employee_with_identity"] = len(employee_records)
         session["customer_identity_preview"] = {
             "sha256": preview["source_sha256"],
             "mode": preview["mode"],
@@ -2259,7 +2298,22 @@ def api_customer_identity_import_apply():
     path = None
     try:
         path = _save_identity_upload(uploaded, store)
+        records, _source = select_identity_records(path)
+        employee_records = [
+            item for item in records
+            if normalize_employee_code is not None and normalize_employee_code(item.get("vendor"))
+        ]
+        employee_result = None
+        if employee_records:
+            employee_store = get_employee_lookup_store(create=True)
+            if employee_store is None:
+                raise CustomerLookupError("Kho mã NV chưa sẵn sàng.")
+            employee_result = employee_store.import_identity_records(
+                employee_records, preview["sha256"]
+            )
         result = store.import_file(path, preview["sha256"], preview["mode"])
+        result["employee_with_identity"] = len(employee_records)
+        result["employee_result"] = employee_result
         session.pop("customer_identity_preview", None)
         return _customer_lookup_json({"ok": True, "data": result})
     except CustomerLookupError as exc:

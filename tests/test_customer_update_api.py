@@ -11,6 +11,7 @@ from unittest.mock import patch
 import app as app_module
 from customer_identity import CustomerIdentityStore
 from customer_lookup import CustomerLookupStore
+from employee_lookup import EmployeeLookupStore
 from openpyxl import Workbook
 
 
@@ -21,6 +22,7 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.original_db_path = app_module.DB_PATH
         self.original_store = app_module._customer_lookup_store
         self.original_identity_store = app_module._customer_identity_store
+        self.original_employee_store = app_module._employee_lookup_store
         app_module.DB_PATH = str(self.root / "phieu.db")
         app_module.init_db()
 
@@ -36,6 +38,9 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.identity_store = CustomerIdentityStore(self.root / "identity.db", bytes(range(32)))
         self.identity_store.initialize()
         app_module._customer_identity_store = self.identity_store
+        self.employee_store = EmployeeLookupStore(self.root / "employee.db", bytes(range(32)))
+        self.employee_store.initialize()
+        app_module._employee_lookup_store = self.employee_store
         app_module.app.config.update(TESTING=True)
         self.client = app_module.app.test_client()
 
@@ -43,6 +48,7 @@ class CustomerUpdateApiTests(unittest.TestCase):
         app_module.DB_PATH = self.original_db_path
         app_module._customer_lookup_store = self.original_store
         app_module._customer_identity_store = self.original_identity_store
+        app_module._employee_lookup_store = self.original_employee_store
         self.temp_dir.cleanup()
 
     def login(self, role="admin", user_id=1):
@@ -72,6 +78,16 @@ class CustomerUpdateApiTests(unittest.TestCase):
         sheet.append(["Inv.Date", "Vendor", "Tên Vendor", "CMND", "Plant"])
         sheet.append(["17.07.2026", "100000000", "TEN XAC MINH", "", "1305"])
         sheet.append(["16.07.2026", "100000000", "TEN XAC MINH", "012345678901", "1305"])
+        workbook.save(stream)
+        return stream.getvalue()
+
+    def mixed_identity_xlsx(self):
+        stream = io.BytesIO()
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Inv.Date", "Vendor", "Tên Vendor", "CMND", "Plant"])
+        sheet.append(["17.07.2026", "100000000", "TEN KH", "012345678901", "1305"])
+        sheet.append(["17.07.2026", "E0100001", "TEN NHAN VIEN", "012345678902", "1305"])
         workbook.save(stream)
         return stream.getvalue()
 
@@ -186,6 +202,40 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/customer-identity-import/summary").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-identity-import/preview").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-identity-import/apply").status_code, 403)
+
+    def test_identity_import_routes_e01_codes_to_employee_database(self):
+        self.login(role="admin", user_id=1)
+        self.client.get("/settings")
+        with self.client.session_transaction() as session:
+            csrf = session["customer_import_csrf"]
+        content = self.mixed_identity_xlsx()
+        preview = self.client.post(
+            "/api/customer-identity-import/preview",
+            data={"file": (io.BytesIO(content), "bang-ke.xlsx")},
+            headers={"X-CSRF-Token": csrf, "Origin": "http://localhost"},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(preview.status_code, 200, preview.get_json())
+        self.assertEqual(preview.get_json()["data"]["with_identity"], 1)
+        self.assertEqual(preview.get_json()["data"]["employee_with_identity"], 1)
+
+        applied = self.client.post(
+            "/api/customer-identity-import/apply",
+            data={"confirmed": "yes", "file": (io.BytesIO(content), "bang-ke.xlsx")},
+            headers={"X-CSRF-Token": csrf, "Origin": "http://localhost"},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(applied.status_code, 200, applied.get_json())
+        self.assertEqual(self.identity_store.get_summary()["record_count"], 1)
+        employee = self.employee_store.get_record("E0100001")
+        self.assertEqual(employee["cccd"], "012345678902")
+        name_suggestion = self.client.post(
+            "/api/customer-suggestion",
+            json={"customer_code": "e0100001", "field": "name"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(name_suggestion.status_code, 200)
+        self.assertEqual(name_suggestion.get_json()["suggestion"], "TEN NHAN VIEN")
 
     def test_admin_can_upload_arbitrarily_named_sap_file(self):
         self.login(role="admin", user_id=1)

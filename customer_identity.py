@@ -33,8 +33,11 @@ from customer_lookup import (
 
 
 IDENTITY_DB_ENV_NAME = "CUSTOMER_IDENTITY_DB"
-MAX_XLSX_UNCOMPRESSED_BYTES = 300 * 1024 * 1024
+# Giữ trần giải nén và số dòng để chống ZIP bomb/chiếm bộ nhớ; đủ cho một lần
+# cập nhật miền Trung khoảng bốn lần bộ Huế.
+MAX_XLSX_UNCOMPRESSED_BYTES = 750 * 1024 * 1024
 MAX_XLSX_ENTRIES = 5000
+MAX_XLSX_SOURCE_ROWS = 600_000
 
 
 def normalize_identity_customer_code(value: object) -> str | None:
@@ -47,6 +50,11 @@ def normalize_identity_customer_code(value: object) -> str | None:
     if re.fullmatch(r"E[A-Z0-9]{7}", raw):
         return raw
     return None
+
+
+def is_numeric_customer_code(value: object) -> bool:
+    """Chỉ mã KH 10... được lưu trong kho CCCD khách hàng."""
+    return bool(re.fullmatch(r"1[0-9]{8}", str(value or "").strip()))
 
 
 def default_identity_db_path() -> Path:
@@ -172,6 +180,10 @@ def select_identity_records(path: Path | str) -> tuple[list[dict[str, str]], dic
 
         rows_to_insert = []
         for row_number, cells in enumerate(worksheet.iter_rows(min_row=2), 2):
+            if row_number > MAX_XLSX_SOURCE_ROWS + 1:
+                raise CustomerLookupError(
+                    "File bảng kê vượt quá 600.000 dòng; vui lòng tách thành các file nhỏ hơn."
+                )
             vendor_raw = _cell_text(cells[indexes["vendor"]])
             if not vendor_raw:
                 continue
@@ -350,8 +362,47 @@ class CustomerIdentityStore:
             "mode": "initial" if count == 0 else "periodic",
         }
 
+    def list_records_for_codes(self, codes: list[str]) -> list[dict]:
+        """Đọc bản ghi mã hóa theo danh sách mã; không ghi log dữ liệu rõ."""
+        self.initialize()
+        found = []
+        with closing(self.connect()) as connection:
+            for code in codes:
+                canonical = normalize_identity_customer_code(code)
+                if canonical is None:
+                    continue
+                key = self.lookup_key(canonical)
+                row = connection.execute(
+                    "SELECT lookup_key,payload_nonce,payload_ciphertext FROM identity_records WHERE lookup_key=?",
+                    (key,),
+                ).fetchone()
+                if row:
+                    found.append(self._decrypt(row))
+        return found
+
+    def delete_records_for_codes(self, codes: list[str]) -> int:
+        self.initialize()
+        deleted = 0
+        with closing(self.connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                for code in codes:
+                    canonical = normalize_identity_customer_code(code)
+                    if canonical is None:
+                        continue
+                    deleted += connection.execute(
+                        "DELETE FROM identity_records WHERE lookup_key=?", (self.lookup_key(canonical),)
+                    ).rowcount
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return deleted
+
     def preview_file(self, path: Path | str) -> dict:
         records, source = select_identity_records(path)
+        records = [item for item in records if is_numeric_customer_code(item["vendor"])]
+        source = {**source, "with_identity": len(records)}
         self.initialize()
         inserted = updated = unchanged = name_changes = 0
         mode = "initial" if self.get_summary()["record_count"] == 0 else "periodic"
@@ -418,6 +469,8 @@ class CustomerIdentityStore:
 
     def import_file(self, path: Path | str, expected_sha256: str, mode: str) -> dict:
         records, source = select_identity_records(path)
+        records = [item for item in records if is_numeric_customer_code(item["vendor"])]
+        source = {**source, "with_identity": len(records)}
         if not hmac.compare_digest(source["source_sha256"], expected_sha256):
             raise CustomerLookupError("File xác nhận không trùng với file đã kiểm tra.")
         if mode not in ("initial", "periodic"):

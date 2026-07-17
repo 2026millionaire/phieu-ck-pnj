@@ -68,15 +68,16 @@ class CustomerIdentityTests(unittest.TestCase):
         self.assertEqual(summary["with_identity"], 1)
         self.assertEqual(records[0]["plant"], "9999")
 
-    def test_accepts_e_vendor_and_can_lookup_it(self):
+    def test_keeps_e_vendor_out_of_customer_identity_store(self):
         path = self.root / "e-vendor.xlsx"
         make_workbook(path, [["17.07.2026", "e01f2345", "TEN E", "P1234567", "1305"]])
+        records, summary = select_identity_records(path)
+        self.assertEqual(records[0]["vendor"], "E01F2345")
+        self.assertEqual(summary["with_identity"], 1)
         preview = self.store.preview_file(path)
         result = self.store.import_file(path, preview["source_sha256"], "initial")
-        self.assertEqual(result["inserted_rows"], 1)
-        record = self.store.get_record("E01F2345")
-        self.assertEqual(record["customer_code"], "E01F2345")
-        self.assertEqual(record["identity_value"], "P1234567")
+        self.assertEqual(result["inserted_rows"], 0)
+        self.assertIsNone(self.store.get_record("E01F2345"))
 
     def test_reports_and_skips_invalid_vendor_rows(self):
         path = self.root / "invalid-vendor.xlsx"
