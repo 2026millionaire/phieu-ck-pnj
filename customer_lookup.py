@@ -409,9 +409,18 @@ class CustomerLookupStore:
                     "SELECT key, value FROM lookup_metadata"
                 ).fetchall()
             }
-            record_count = int(
-                connection.execute("SELECT COUNT(*) FROM lookup_customers").fetchone()[0]
-            )
+            record_count_value = metadata.get("record_count")
+            if record_count_value is None:
+                record_count = int(
+                    connection.execute("SELECT COUNT(*) FROM lookup_customers").fetchone()[0]
+                )
+                connection.execute(
+                    "INSERT OR REPLACE INTO lookup_metadata (key, value) VALUES ('record_count', ?)",
+                    (str(record_count),),
+                )
+                connection.commit()
+            else:
+                record_count = int(record_count_value)
             last_batch = connection.execute(
                 "SELECT imported_at FROM import_batches ORDER BY id DESC LIMIT 1"
             ).fetchone()
@@ -878,6 +887,16 @@ class CustomerLookupStore:
         connection = self.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            existing_count_row = connection.execute(
+                "SELECT value FROM lookup_metadata WHERE key = 'record_count'"
+            ).fetchone()
+            existing_count = (
+                int(existing_count_row[0])
+                if existing_count_row
+                else int(
+                    connection.execute("SELECT COUNT(*) FROM lookup_customers").fetchone()[0]
+                )
+            )
             for path in source_paths:
                 batch_rows = batch_inserted = batch_updated = batch_unchanged = 0
                 batch_delf = 0
@@ -984,6 +1003,10 @@ class CustomerLookupStore:
             connection.execute(
                 "INSERT OR REPLACE INTO lookup_metadata (key, value) VALUES ('last_import_at', ?)",
                 (str(imported_at),),
+            )
+            connection.execute(
+                "INSERT OR REPLACE INTO lookup_metadata (key, value) VALUES ('record_count', ?)",
+                (str(existing_count + inserted),),
             )
             connection.commit()
         except Exception:
