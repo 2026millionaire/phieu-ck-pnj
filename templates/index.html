@@ -107,6 +107,10 @@ textarea#sap_data {
     position: relative;
 }
 
+.customer-suggestion-field:focus-within {
+    z-index: 1090;
+}
+
 .customer-input-wrap {
     position: relative;
 }
@@ -147,16 +151,19 @@ textarea#sap_data {
 
 .customer-suggestion-menu {
     position: absolute;
-    top: calc(100% + 3px);
+    bottom: calc(100% + 3px);
     left: 0;
     right: 0;
     z-index: 1080;
     display: none;
+    max-height: min(40vh, 260px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.35rem;
     background: #fff;
     border: 1px solid #cbd5e1;
     border-radius: 0.45rem;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.16);
 }
 
 .customer-suggestion-menu.show {
