@@ -170,6 +170,23 @@ textarea#sap_data {
     display: block;
 }
 
+.search-dropup-field {
+    position: relative;
+}
+
+.search-dropup-field:focus-within {
+    z-index: 1090;
+}
+
+.search-dropup-menu {
+    top: auto !important;
+    bottom: calc(100% + 3px) !important;
+    max-height: min(40vh, 250px) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.16);
+}
+
 .customer-suggestion-option {
     width: 100%;
     min-height: 42px;
@@ -319,7 +336,7 @@ textarea#sap_data {
                         </div>
                         <div class="col-md-7">
                             <label class="form-label">Ngân hàng</label>
-                            <div class="position-relative">
+                            <div class="search-dropup-field">
                                 <div class="input-group input-group-sm">
                                     <input type="text" class="form-control" id="bank_search"
                                            autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
@@ -327,7 +344,7 @@ textarea#sap_data {
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 </div>
-                                <div id="bankDropdown" class="dropdown-menu w-100" style="max-height:250px;overflow-y:auto;font-size:0.8rem;"></div>
+                                <div id="bankDropdown" class="dropdown-menu search-dropup-menu w-100" style="font-size:0.8rem;"></div>
                             </div>
                             <div id="bankFullName" class="text-muted small mt-1 d-none" style="font-size:0.78rem;">
                                 <i class="bi bi-bank"></i> <span id="bankFullNameText"></span>
@@ -374,13 +391,13 @@ textarea#sap_data {
                         </div>
                         <div class="tvv-field col-12">
                             <label class="form-label">TVV - Tư vấn viên</label>
-                            <div class="position-relative">
+                            <div class="search-dropup-field">
                                 <div class="input-group input-group-sm">
                                     <input type="text" class="form-control" id="tvv_search"
-                                           autocomplete="off" placeholder="Gõ mã TVV (E01...)">
+                                           autocomplete="off" placeholder="Nhập thông tin TVV">
                                     <button class="btn btn-outline-secondary" type="button" id="btnClearTvv">Xóa</button>
                                 </div>
-                                <div id="tvvDropdown" class="dropdown-menu w-100" style="max-height:200px;overflow-y:auto;font-size:0.8rem;"></div>
+                                <div id="tvvDropdown" class="dropdown-menu search-dropup-menu w-100" style="font-size:0.8rem;"></div>
                             </div>
                             <div id="tvvQuickTags" class="tvv-quick-tags mt-2 d-none" aria-label="Chọn nhanh mã TVV"></div>
                             <input type="hidden" id="tvv_code" name="tvv_code" value="">

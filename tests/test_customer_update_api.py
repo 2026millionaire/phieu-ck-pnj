@@ -188,6 +188,9 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertNotIn('href="/settings"', user_html)
         self.assertNotIn('id="btnOcrClip"', user_html)
         self.assertNotIn("appUrl('/api/ocr-bk')", user_html)
+        self.assertIn('id="bankDropdown" class="dropdown-menu search-dropup-menu w-100"', user_html)
+        self.assertIn('id="tvvDropdown" class="dropdown-menu search-dropup-menu w-100"', user_html)
+        self.assertIn('placeholder="Nhập thông tin TVV"', user_html)
         self.assertIn('aria-expanded="false" aria-controls="sapDataCollapse"', user_html)
         self.assertIn('<div class="collapse" id="sapDataCollapse">', user_html)
 
