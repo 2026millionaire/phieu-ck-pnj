@@ -354,6 +354,11 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertEqual(settings_page.headers.get("Cache-Control"), "no-store, max-age=0")
         self.assertIn(b"customerImportFiles", settings_page.data)
         self.assertIn(b"settingsAppUrl", settings_page.data)
+        self.assertIn(b"readIdentityImportResponse", settings_page.data)
+        self.assertIn(
+            "Kiểm tra file quá thời gian chờ của máy chủ.",
+            settings_page.get_data(as_text=True),
+        )
         self.assertEqual(self.client.get("/api/settings").status_code, 200)
         rejected = self.client.post(
             "/api/settings",

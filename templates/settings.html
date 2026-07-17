@@ -348,6 +348,18 @@ const identityPreviewUrl = settingsAppUrl({{ url_for('api_customer_identity_impo
 const identityApplyUrl = settingsAppUrl({{ url_for('api_customer_identity_import_apply')|tojson }});
 let customerImportPollTimer = null;
 
+async function readIdentityImportResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) return response.json();
+    if (response.status === 504) {
+        throw new Error('Kiểm tra file quá thời gian chờ của máy chủ. Hãy thử lại sau khi hệ thống hoàn tất xử lý file trước đó.');
+    }
+    if (response.status === 413) {
+        throw new Error('File vượt quá giới hạn dung lượng cho phép.');
+    }
+    throw new Error(`Máy chủ trả lỗi HTTP ${response.status || 'không xác định'}.`);
+}
+
 function formatCustomerImportNumber(value) {
     return Number(value || 0).toLocaleString('vi-VN');
 }
@@ -517,7 +529,7 @@ document.getElementById('btnIdentityPreview').addEventListener('click', async fu
             method: 'POST', credentials: 'same-origin', cache: 'no-store',
             headers: {'X-CSRF-Token': customerImportCsrf, Accept: 'application/json'}, body: form
         });
-        const data = await response.json();
+        const data = await readIdentityImportResponse(response);
         if (!response.ok || !data.ok) throw new Error(data.error || 'Không thể kiểm tra file.');
         const p = data.data;
         const result = document.getElementById('identityPreviewResult');
@@ -564,7 +576,7 @@ document.getElementById('btnIdentityApply').addEventListener('click', async func
             method: 'POST', credentials: 'same-origin', cache: 'no-store',
             headers: {'X-CSRF-Token': customerImportCsrf, Accept: 'application/json'}, body: form
         });
-        const data = await response.json();
+        const data = await readIdentityImportResponse(response);
         if (!response.ok || !data.ok) throw new Error(data.error || 'Cập nhật CCCD không thành công.');
         const r = data.data;
         message.className = 'small mt-2 text-success';
