@@ -424,17 +424,17 @@ textarea#sap_data {
                 </div>
             </div>
 
-            <!-- 4. Dữ liệu SAP: hiển thị mặc định, người dùng chủ động ẩn/hiện -->
+            <!-- 4. Dữ liệu SAP: ADMIN mở mặc định; user thường thu gọn mặc định -->
             <div class="card mb-3">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                     <span><i class="bi bi-table"></i> 4. Tự nhập dữ liệu SAP (ZFIE0029)</span>
                     <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 sap-toggle"
                             data-bs-toggle="collapse" data-bs-target="#sapDataCollapse"
-                            aria-expanded="true" aria-controls="sapDataCollapse">
+                            aria-expanded="{{ 'true' if admin else 'false' }}" aria-controls="sapDataCollapse">
                         <span class="when-collapsed">Hiện</span><span class="when-expanded">Ẩn</span>
                     </button>
                 </div>
-                <div class="collapse show" id="sapDataCollapse">
+                <div class="collapse{% if admin %} show{% endif %}" id="sapDataCollapse">
                     <div class="card-body">
                         <label class="form-label">Dán dữ liệu SAP</label>
                         <textarea class="form-control" id="sap_data" rows="5"

@@ -1148,6 +1148,12 @@ def is_admin():
     return False
 
 
+@app.context_processor
+def inject_template_permissions():
+    """Expose server-verified permissions to shared navigation templates."""
+    return {"admin": is_admin()}
+
+
 def _customer_lookup_json(payload, status=200):
     response = jsonify(payload)
     response.headers["Cache-Control"] = "no-store, max-age=0"
@@ -1689,18 +1695,23 @@ def eoffice_page(phieu_id):
 @app.route("/settings")
 def settings_page():
     """Settings page."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
     settings = get_settings()
-    admin = is_admin()
-    customer_import_csrf = ""
-    if admin:
-        customer_import_csrf = session.get("customer_import_csrf") or secrets.token_urlsafe(32)
-        session["customer_import_csrf"] = customer_import_csrf
-    return render_template(
-        "settings.html",
-        settings=settings,
-        admin=admin,
-        customer_import_csrf=customer_import_csrf,
+    customer_import_csrf = session.get("customer_import_csrf") or secrets.token_urlsafe(32)
+    session["customer_import_csrf"] = customer_import_csrf
+    response = app.make_response(
+        render_template(
+            "settings.html",
+            settings=settings,
+            admin=True,
+            customer_import_csrf=customer_import_csrf,
+        )
     )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @app.route("/customer-updates")
@@ -1920,18 +1931,30 @@ def api_customer_import_job(job_id):
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     """Get all settings."""
-    return jsonify({"ok": True, "data": get_settings()})
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    return _customer_lookup_json({"ok": True, "data": get_settings()})
 
 
 @app.route("/api/settings", methods=["POST"])
 def api_save_settings():
     """Save settings."""
-    data = request.get_json(force=True)
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if request.content_length is not None and request.content_length > 65536:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return _customer_lookup_json({"ok": False, "error": "Dữ liệu cài đặt không hợp lệ."}, 400)
     db = get_db()
     for k, v in data.items():
         db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, str(v)))
     db.commit()
-    return jsonify({"ok": True})
+    return _customer_lookup_json({"ok": True})
 
 
 @app.route("/api/da-trinh/<int:phieu_id>", methods=["POST"])

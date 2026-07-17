@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import io
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -166,7 +167,7 @@ class CustomerUpdateApiTests(unittest.TestCase):
 
     def test_customer_import_requires_admin_and_csrf(self):
         self.login(role="user", user_id=2)
-        self.assertNotIn(b"customerImportFiles", self.client.get("/settings").data)
+        self.assertEqual(self.client.get("/settings").status_code, 403)
         self.assertEqual(self.client.get("/api/customer-import/summary").status_code, 403)
         self.assertEqual(self.client.post("/api/customer-import").status_code, 403)
 
@@ -178,6 +179,59 @@ class CustomerUpdateApiTests(unittest.TestCase):
             content_type="multipart/form-data",
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_settings_and_default_sap_state_follow_server_role(self):
+        self.login(role="user", user_id=2)
+        user_index = self.client.get("/")
+        user_html = user_index.get_data(as_text=True)
+        self.assertEqual(user_index.status_code, 200)
+        self.assertNotIn('href="/settings"', user_html)
+        self.assertIn('aria-expanded="false" aria-controls="sapDataCollapse"', user_html)
+        self.assertIn('<div class="collapse" id="sapDataCollapse">', user_html)
+
+        settings_page = self.client.get("/settings")
+        settings_get = self.client.get("/api/settings")
+        settings_post = self.client.post(
+            "/api/settings",
+            json={"mb_password": "khong-duoc-ghi"},
+        )
+        self.assertEqual(settings_page.status_code, 403)
+        self.assertEqual(settings_get.status_code, 403)
+        self.assertEqual(settings_post.status_code, 403)
+        self.assertEqual(settings_get.headers.get("Cache-Control"), "no-store, max-age=0")
+        connection = sqlite3.connect(self.root / "phieu.db")
+        try:
+            stored = connection.execute(
+                "SELECT value FROM settings WHERE key = 'mb_password'"
+            ).fetchone()
+        finally:
+            connection.close()
+        self.assertTrue(stored is None or stored[0] != "khong-duoc-ghi")
+
+        self.login(role="admin", user_id=1)
+        admin_index = self.client.get("/")
+        admin_html = admin_index.get_data(as_text=True)
+        self.assertIn('href="/settings"', admin_html)
+        self.assertIn('aria-expanded="true" aria-controls="sapDataCollapse"', admin_html)
+        self.assertIn('<div class="collapse show" id="sapDataCollapse">', admin_html)
+
+        settings_page = self.client.get("/settings")
+        self.assertEqual(settings_page.status_code, 200)
+        self.assertEqual(settings_page.headers.get("Cache-Control"), "no-store, max-age=0")
+        self.assertIn(b"customerImportFiles", settings_page.data)
+        self.assertEqual(self.client.get("/api/settings").status_code, 200)
+        rejected = self.client.post(
+            "/api/settings",
+            json={"plant": "9999"},
+            headers={"Origin": "https://khong-hop-le.example"},
+        )
+        self.assertEqual(rejected.status_code, 400)
+        saved = self.client.post(
+            "/api/settings",
+            json={"plant": "1305"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(saved.status_code, 200)
 
     def test_bank_api_does_not_send_eoffice_code_to_admin(self):
         self.login(role="admin", user_id=1)

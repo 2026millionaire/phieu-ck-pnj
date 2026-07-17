@@ -247,11 +247,13 @@
                         <i class="bi bi-arrow-left-right"></i> Chế độ thu đổi
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% block nav_settings %}{% endblock %}" href="{{ url_for('settings_page') }}">
-                        <i class="bi bi-gear"></i> Cài đặt
-                    </a>
-                </li>
+                {% if admin %}
+                    <li class="nav-item">
+                        <a class="nav-link {% block nav_settings %}{% endblock %}" href="{{ url_for('settings_page') }}">
+                            <i class="bi bi-gear"></i> Cài đặt
+                        </a>
+                    </li>
+                {% endif %}
             </ul>
         </div>
         <div class="sidebar-footer">
