@@ -80,6 +80,23 @@ textarea#sap_data {
     border-radius: 999px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    color: hsl(var(--tvv-hue, 210), 48%, 24%);
+    background-color: hsl(var(--tvv-hue, 210), 72%, 88%);
+    border-color: hsl(var(--tvv-hue, 210), 48%, 67%);
+}
+
+.tvv-quick-tag:hover,
+.tvv-quick-tag:focus-visible {
+    color: hsl(var(--tvv-hue, 210), 52%, 20%);
+    background-color: hsl(var(--tvv-hue, 210), 72%, 82%);
+    border-color: hsl(var(--tvv-hue, 210), 52%, 56%);
+}
+
+.tvv-quick-tag.is-selected {
+    color: hsl(var(--tvv-hue, 210), 58%, 18%);
+    background-color: hsl(var(--tvv-hue, 210), 74%, 76%);
+    border-color: hsl(var(--tvv-hue, 210), 58%, 48%);
+    box-shadow: 0 0 0 2px hsl(var(--tvv-hue, 210), 70%, 90%);
 }
 
 .tvv-field {
@@ -746,10 +763,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function updateTvvTagSelection() {
+        tvvQuickTags.querySelectorAll('button[data-ma]').forEach(function(button) {
+            button.classList.toggle('is-selected', 'E01' + button.dataset.ma === tvvCodeInput.value);
+        });
+    }
+
     function clearTvvSelectionState() {
         tvvCodeInput.value = '';
         tvvNameInput.value = '';
         updateTvvSignerPreview('');
+        updateTvvTagSelection();
     }
 
     function selectTvv(tvv) {
@@ -758,6 +782,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tvvCodeInput.value = code;
         tvvNameInput.value = tvv.ten;
         updateTvvSignerPreview(tvv.ten);
+        updateTvvTagSelection();
         tvvDropdown.classList.remove('show');
         updateTvvQuickTagsVisibility();
     }
@@ -779,11 +804,25 @@ document.addEventListener('DOMContentLoaded', function() {
             button.textContent = tvv.ma;
             button.dataset.ma = tvv.ma;
             button.dataset.ten = tvv.ten;
+            button.style.setProperty('--tvv-hue', pastelHueForTvv(tvv.ma));
             button.title = `E01${tvv.ma} - ${tvv.ten}`;
             button.setAttribute('aria-label', `Chọn TVV ${tvv.ma} - ${tvv.ten}`);
             tvvQuickTags.appendChild(button);
         });
+        updateTvvTagSelection();
         updateTvvQuickTagsVisibility();
+    }
+
+    function pastelHueForTvv(code) {
+        // FNV-1a + dải 61 sắc độ: ổn định theo mã, không phụ thuộc vị trí danh sách.
+        let hash = 2166136261;
+        for (const char of code) {
+            hash ^= char.charCodeAt(0);
+            hash = Math.imul(hash, 16777619) >>> 0;
+        }
+        hash ^= hash >>> 16;
+        const colorSlot = (((hash >>> 0) % 61) * 7) % 61;
+        return Math.round(colorSlot * 360 / 61);
     }
 
     fetch('/api/tvv').then(r => r.json()).then(d => {
@@ -1587,6 +1626,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('tvv_code').value = p.tvv_code || '';
                 document.getElementById('tvv_name').value = p.tvv_name || '';
                 document.getElementById('tvv_search').value = p.tvv_code ? (p.tvv_code + ' - ' + (p.tvv_name || '')) : (p.tvv_name || '');
+                updateTvvTagSelection();
                 updateTvvQuickTagsVisibility();
                 if (p.nguoi_ki) {
                     const radio = document.querySelector('input[name="nguoi_ki"][value="' + p.nguoi_ki + '"]');
