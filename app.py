@@ -72,6 +72,30 @@ CUSTOMER_IMPORT_MAX_BYTES = 500 * 1024 * 1024
 CUSTOMER_IMPORT_MAX_FILES = 10
 _customer_import_jobs_lock = threading.Lock()
 PDF_TOKEN_MAX_AGE = 15 * 60
+DEFAULT_QT82_FORM_URL = (
+    "https://eoffice.pnj.com.vn/workflow/SitePages/NewWorkflow.aspx"
+    "?mode=1&LID=4ABC02AE-DF6F-4EE7-95CC-E431993C78BB&wid=1346"
+)
+
+
+def normalize_qt82_form_url(value):
+    """Chỉ cho phép URL HTTPS thuộc workflow eOffice PNJ, không nhận credential/fragment."""
+    try:
+        parsed = urllib.parse.urlsplit(str(value or "").strip())
+        if (
+            parsed.scheme.lower() != "https"
+            or parsed.hostname != "eoffice.pnj.com.vn"
+            or parsed.username
+            or parsed.password
+            or parsed.port not in (None, 443)
+            or not parsed.path.lower().startswith("/workflow/")
+            or parsed.fragment
+        ):
+            return ""
+        netloc = "eoffice.pnj.com.vn" if parsed.port is None else "eoffice.pnj.com.vn:443"
+        return urllib.parse.urlunsplit(("https", netloc, parsed.path, parsed.query, ""))
+    except (TypeError, ValueError):
+        return ""
 
 # ---------------------------------------------------------------------------
 # Load data from Excel
@@ -278,6 +302,8 @@ def init_db():
     defaults = {
         "cht_name": "HỒ THỊ HÀ MY",
         "cht_short_name": "Hà My",
+        "qt82_store_manager_query": "my.hth",
+        "qt82_form_url": DEFAULT_QT82_FORM_URL,
         "kt1_name": "CHÂU ĐĂNG KHOA",
         "kt1_short_name": "Khoa",
         "kt2_name": "LÊ THỊ MỸ TUYỀN",
@@ -702,6 +728,86 @@ def build_noi_dung(plant, so_bk, ngay, ten_kh):
     Format: '1305_CK BK {so_bk} ngày {date} cho {ten_kh}'
     """
     return f"{plant}_CK BK {so_bk} ngày {ngay} cho {ten_kh}"
+
+
+def find_eoffice_bank_code(ngan_hang):
+    """Tìm mã dùng để chọn ngân hàng trên QT82, không gửi cả danh mục ra client."""
+    bank_name = str(ngan_hang or "").strip()
+    for bank in BANK_LIST:
+        if bank["ten_tra_cuu"] and bank["ten_tra_cuu"] in bank_name:
+            return bank["eoffice"]
+    for bank in BANK_LIST:
+        if bank["ten_gd"] and bank["ten_gd"].lower() in bank_name.lower():
+            return bank["eoffice"]
+    return ""
+
+
+def build_qt82_payload(phieu, settings):
+    """Chuẩn bị bản nháp QT82; không lưu, gửi hay chứa thông tin đăng nhập eOffice."""
+    chung_tu = phieu.get("chung_tu") or []
+    doc_nums = []
+    for item in chung_tu:
+        doc_num = remove_all_whitespace(item.get("doc_num", ""))
+        if doc_num and doc_num not in doc_nums:
+            doc_nums.append(doc_num)
+
+    sap_placeholder = not doc_nums
+    sap_document = ", ".join(doc_nums) if doc_nums else "1234"
+    account_name = str(phieu.get("ten_tk", "") or "").strip()
+    account_number = normalize_account_number(phieu.get("so_tk", ""))
+    bank_query = find_eoffice_bank_code(phieu.get("ngan_hang", ""))
+    customer_code = remove_all_whitespace(phieu.get("ma_kh", ""))
+    customer_name = str(phieu.get("ten_kh", "") or "").strip()
+    cccd = re.sub(r"\D", "", str(phieu.get("cccd", "") or ""))
+    total_amount = int(round(float(phieu.get("tong_ck", 0) or 0)))
+    detail_documents = []
+    for item in chung_tu:
+        detail_document = remove_all_whitespace(item.get("so_ct", ""))
+        if detail_document and detail_document not in detail_documents:
+            detail_documents.append(detail_document)
+
+    checks = [
+        {"key": "customer", "label": "Mã và tên khách hàng", "ok": bool(customer_code and customer_name)},
+        {"key": "account_name", "label": "Tên tài khoản đã xác minh", "ok": bool(account_name)},
+        {
+            "key": "account_number",
+            "label": "Số tài khoản không có khoảng trắng hoặc dấu gạch",
+            "ok": bool(re.fullmatch(r"[A-Za-z0-9]+", account_number)),
+        },
+        {"key": "bank", "label": "Mã ngân hàng eOffice", "ok": bool(bank_query)},
+        {"key": "cccd", "label": "CCCD đủ 12 số", "ok": bool(re.fullmatch(r"\d{12}", cccd))},
+        {"key": "amount", "label": "Tổng chuyển khoản lớn hơn 0", "ok": total_amount > 0},
+        {"key": "details", "label": "Có chi tiết thanh toán", "ok": bool(chung_tu)},
+    ]
+
+    return {
+        "version": 1,
+        "phieuId": int(phieu.get("id") or 0),
+        "formUrl": normalize_qt82_form_url(settings.get("qt82_form_url")) or DEFAULT_QT82_FORM_URL,
+        "purpose": "Thanh toán cho khách hàng(Mua lại)",
+        "currency": "VND",
+        "managerApproval": "Có",
+        "storeManagerQuery": settings.get("qt82_store_manager_query", "my.hth").strip() or "my.hth",
+        "storeManagerName": settings.get("cht_name", "").strip(),
+        "paymentObjectName": customer_name,
+        "paymentObjectCode": customer_code,
+        "costGroup": "Hàng hóa(ML)",
+        "requestContent": str(phieu.get("eo_noi_dung", "") or ""),
+        "paymentMethod": "Bank transfer – Chuyển khoản",
+        "paymentAmount": total_amount,
+        "sapDocument": sap_document,
+        "sapPlaceholder": sap_placeholder,
+        "companyCode": "1000",
+        "desiredDateMode": "browser_today",
+        "accountName": account_name,
+        "accountNumber": account_number,
+        "bankQuery": bank_query,
+        "customerId": cccd,
+        "detailCount": len(chung_tu),
+        "detailDocuments": detail_documents,
+        "ready": all(item["ok"] for item in checks),
+        "checks": checks,
+    }
 
 
 def build_created_at_from_form(data, chung_tu_list):
@@ -1136,6 +1242,8 @@ def current_user_id():
 
 def is_admin():
     """Check if current user has admin role (from shared DB)."""
+    if not REQUIRE_LOGIN and not session.get("user_id"):
+        return True
     if session.get("role") == "admin":
         return True
     uid = session.get("user_id")
@@ -1629,17 +1737,24 @@ def cao_hml_print():
 
 @app.route("/eoffice")
 def eoffice_index():
-    """eOffice QT82 page without phieu selected."""
-    return render_template("eoffice.html", phieu=None)
+    """Trang chuẩn bị QT82 chỉ dành cho ADMIN."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
+    response = app.make_response(render_template("eoffice.html", phieu=None, qt82_payload=None))
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.route("/eoffice/<int:phieu_id>")
 def eoffice_page(phieu_id):
-    """eOffice QT82 page with copyable fields."""
+    """Trang chuẩn bị bản nháp QT82 của một phiếu, chỉ dành cho ADMIN."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
     db = get_db()
     row = get_accessible_phieu(db, phieu_id)
     if not row:
-        return render_template("eoffice.html", phieu=None)
+        return "Không tìm thấy phiếu.", 404
 
     d = row_to_dict(row)
     try:
@@ -1661,26 +1776,11 @@ def eoffice_page(phieu_id):
     # Số BK: ưu tiên từ form input (44xx), fallback từ chứng từ
     so_bk = d.get("so_bk", "")
 
-    # Số chứng từ SAP gốc (14xx, 25xx, 16xx...)
-    doc_nums = [ct.get("doc_num", ct.get("so_ct", "")) for ct in d["chung_tu"] if ct.get("doc_num") or ct.get("so_ct")]
-    d["eo_so_ct_sap"] = ", ".join(doc_nums)
-
     d["eo_ma_kh"] = d.get("ma_kh", "")
     d["eo_noi_dung"] = build_noi_dung(plant, so_bk, ngay_str, d.get("ten_kh", ""))
-    d["eo_ten_tk"] = d.get("ten_tk", "") or d.get("ten_kh", "")
+    d["eo_ten_tk"] = d.get("ten_tk", "")
     d["eo_so_tk"] = normalize_account_number(d.get("so_tk", ""))
-    # Mã NH eOffice: tìm từ BANK_LIST
-    eo_ma_nh = ""
-    for b in BANK_LIST:
-        if b["ten_tra_cuu"] and b["ten_tra_cuu"] in d.get("ngan_hang", ""):
-            eo_ma_nh = b["eoffice"]
-            break
-    if not eo_ma_nh:
-        for b in BANK_LIST:
-            if b["ten_gd"] and b["ten_gd"].lower() in d.get("ngan_hang", "").lower():
-                eo_ma_nh = b["eoffice"]
-                break
-    d["eo_ma_nh"] = eo_ma_nh
+    d["eo_ma_nh"] = find_eoffice_bank_code(d.get("ngan_hang", ""))
     d["eo_cccd"] = re.sub(r"\D", "", d.get("cccd", ""))
     # Tên file: "1305_BK HO THI MY VAN"
     def remove_diacritics(s):
@@ -1688,8 +1788,16 @@ def eoffice_page(phieu_id):
         s = s.replace("đ", "d").replace("Đ", "D")
         return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
     d["eo_ten_file"] = f"{plant}_BK {remove_diacritics(d.get('ten_kh', ''))}"
+    qt82_payload = build_qt82_payload(d, settings)
+    d["eo_so_ct_sap"] = qt82_payload["sapDocument"]
 
-    return render_template("eoffice.html", phieu=d)
+    response = app.make_response(
+        render_template("eoffice.html", phieu=d, qt82_payload=qt82_payload)
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @app.route("/settings")
@@ -1706,6 +1814,7 @@ def settings_page():
             settings=settings,
             admin=True,
             customer_import_csrf=customer_import_csrf,
+            default_qt82_form_url=DEFAULT_QT82_FORM_URL,
         )
     )
     response.headers["Cache-Control"] = "no-store, max-age=0"
@@ -1950,6 +2059,17 @@ def api_save_settings():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return _customer_lookup_json({"ok": False, "error": "Dữ liệu cài đặt không hợp lệ."}, 400)
+    if "qt82_form_url" in data:
+        qt82_form_url = normalize_qt82_form_url(data.get("qt82_form_url"))
+        if not qt82_form_url:
+            return _customer_lookup_json(
+                {
+                    "ok": False,
+                    "error": "URL QT82 phải dùng HTTPS, đúng miền eoffice.pnj.com.vn và đường dẫn /workflow/.",
+                },
+                400,
+            )
+        data["qt82_form_url"] = qt82_form_url
     db = get_db()
     for k, v in data.items():
         db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, str(v)))
@@ -2466,10 +2586,9 @@ def api_ocr_bk():
 @app.route("/api/template-tt/<int:phieu_id>")
 def api_template_tt(phieu_id):
     """Generate filled eOffice QT82 template Excel for a phieu."""
+    if not is_admin():
+        return "Bạn không có quyền tải dữ liệu QT82.", 403
     from openpyxl import load_workbook
-    from flask import send_file
-    import tempfile
-
     db = get_db()
     row = get_accessible_phieu(db, phieu_id)
     if not row:
@@ -2512,14 +2631,23 @@ def api_template_tt(phieu_id):
         ws.cell(row=r, column=1, value=i + 1)
         ws.cell(row=r, column=7, value=True)
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
-    wb.save(tmp.name)
-    tmp.close()
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
 
-    so_bk = d.get("so_bk", "phieu")
+    so_bk = re.sub(r"[^0-9A-Za-z._-]", "_", str(d.get("so_bk") or "phieu"))[:80]
     filename = f"Template - TT {so_bk}.xlsx"
-    return send_file(tmp.name, as_attachment=True, download_name=filename,
-                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response = send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        max_age=0,
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @app.route("/api/banks")

@@ -2,7 +2,7 @@
 
 {% block title %}eOffice QT82{% endblock %}
 {% block nav_eoffice %}active{% endblock %}
-{% block page_title %}eOffice QT82{% endblock %}
+{% block page_title %}Chuẩn bị đề xuất eOffice QT82{% endblock %}
 
 {% block extra_css %}
 .copy-field {
@@ -15,36 +15,67 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    transition: border-color 0.15s;
 }
 .copy-field:hover { border-color: #0ea5e9; }
 .copy-field .field-label {
-    font-size: 0.7rem; font-weight: 600; color: #64748b;
-    text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px;
+    font-size: .7rem; font-weight: 600; color: #64748b;
+    text-transform: uppercase; letter-spacing: .3px; margin-bottom: 1px;
 }
 .copy-field .field-value {
-    font-size: 0.9rem; font-weight: 400; color: #1e293b; word-break: break-all;
+    font-size: .9rem; color: #1e293b; word-break: break-word;
     font-family: "Segoe UI", sans-serif;
 }
 .btn-copy {
-    flex-shrink: 0; padding: 4px 10px; font-size: 0.75rem; font-weight: 600;
+    flex-shrink: 0; padding: 4px 10px; font-size: .75rem; font-weight: 600;
     border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc;
-    color: #475569; cursor: pointer; transition: all 0.15s;
+    color: #475569; cursor: pointer;
 }
 .btn-copy:hover { background: #e0f2fe; border-color: #0ea5e9; color: #0369a1; }
 .btn-copy.copied { background: #dcfce7; border-color: #22c55e; color: #166534; }
-
-.history-mini th { font-size: 0.72rem; background: #f8fafc; }
-.history-mini td { font-size: 0.8rem; vertical-align: middle; }
+.qt82-check {
+    display: flex; align-items: center; gap: 8px; padding: 5px 0;
+    border-bottom: 1px dashed #e2e8f0; font-size: .84rem;
+}
+.qt82-check:last-child { border-bottom: 0; }
+.qt82-check.ok i { color: #16a34a; }
+.qt82-check.fail i { color: #dc2626; }
+.qt82-warning { border-left: 3px solid #f59e0b; background: #fffbeb; }
+.history-mini th { font-size: .72rem; background: #f8fafc; }
+.history-mini td { font-size: .8rem; vertical-align: middle; }
 .history-mini .active-row { background: #eff6ff !important; }
 .history-mini .amount { text-align: right; font-weight: 600; color: #0369a1; white-space: nowrap; }
+@media (max-width: 575.98px) {
+    #btnPrepareQt82, .qt82-action { width: 100%; }
+}
 {% endblock %}
 
 {% block content %}
+{% if phieu %}
 <div class="row g-3">
-    <!-- LEFT: Copy fields -->
-    <div class="col-lg-4">
-        {% if phieu %}
+    <div class="col-xl-5">
+        <div class="card mb-3">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
+                <span><i class="bi bi-clipboard-check"></i> <strong>Kiểm tra trước khi tạo QT82</strong></span>
+                <span class="badge {{ 'bg-success' if qt82_payload.ready else 'bg-danger' }}">
+                    {{ 'Sẵn sàng' if qt82_payload.ready else 'Thiếu dữ liệu' }}
+                </span>
+            </div>
+            <div class="card-body py-2">
+                {% for check in qt82_payload.checks %}
+                <div class="qt82-check {{ 'ok' if check.ok else 'fail' }}">
+                    <i class="bi {{ 'bi-check-circle-fill' if check.ok else 'bi-x-circle-fill' }}"></i>
+                    <span>{{ check.label }}</span>
+                </div>
+                {% endfor %}
+                {% if qt82_payload.sapPlaceholder %}
+                <div class="qt82-warning rounded p-2 mt-2 small">
+                    <strong>Mã chứng từ SAP đang tạm dùng 1234.</strong><br>
+                    Bạn cần thay bằng mã thật trên eOffice trước khi bấm Gửi.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header py-2 d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-clipboard-data"></i> <strong>{{ phieu.ten_kh }}</strong></span>
@@ -52,50 +83,45 @@
             </div>
             <div class="card-body p-2">
                 <div id="copyFields">
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã KH</div><div class="field-value" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Nội dung</div><div class="field-value" id="val_noi_dung" style="font-size:0.8rem;">{{ phieu.eo_noi_dung }}</div></div><button class="btn-copy" onclick="copyField('noi_dung')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Số CT SAP</div><div class="field-value" id="val_so_ct_sap" style="font-size:0.8rem;">{{ phieu.eo_so_ct_sap }}</div></div><button class="btn-copy" onclick="copyField('so_ct_sap')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Tên TK</div><div class="field-value" id="val_ten_tk">{{ phieu.eo_ten_tk }}</div></div><button class="btn-copy" onclick="copyField('ten_tk')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Số TK</div><div class="field-value" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Mã NH</div><div class="field-value" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">CCCD</div><div class="field-value" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div class="field-info"><div class="field-label">Tên file</div><div class="field-value" id="val_ten_file">{{ phieu.eo_ten_file }}</div></div><button class="btn-copy" onclick="copyField('ten_file')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Mã KH</div><div class="field-value" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Nội dung</div><div class="field-value" id="val_noi_dung">{{ phieu.eo_noi_dung }}</div></div><button class="btn-copy" type="button" onclick="copyField('noi_dung')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Mã chứng từ SAP</div><div class="field-value" id="val_so_ct_sap">{{ phieu.eo_so_ct_sap }}</div></div><button class="btn-copy" type="button" onclick="copyField('so_ct_sap')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Tên tài khoản</div><div class="field-value" id="val_ten_tk">{{ phieu.eo_ten_tk }}</div></div><button class="btn-copy" type="button" onclick="copyField('ten_tk')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Số tài khoản</div><div class="field-value" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" type="button" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Mã ngân hàng</div><div class="field-value" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">CCCD</div><div class="field-value" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" type="button" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
                 </div>
-                <div class="d-flex gap-2 mt-2">
-                    <a href="/api/print/{{ phieu.id }}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer"></i> In</a>
-                    <a href="/api/template-tt/{{ phieu.id }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Template TT</a>
+
+                <div class="border rounded p-2 mt-3 bg-light">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <strong class="small">Tiện ích Chrome</strong>
+                        <span class="badge bg-secondary" id="qt82ExtensionStatus">Đang kiểm tra...</span>
+                    </div>
+                    <div class="small text-muted mb-2">Dữ liệu chỉ được giữ tạm trong bộ nhớ Chrome tối đa 5 phút.</div>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary" id="btnPrepareQt82" {% if not qt82_payload.ready %}disabled{% endif %}>
+                            <i class="bi bi-box-arrow-up-right"></i> Tạo bản nháp QT82 trên Chrome
+                        </button>
+                        <a href="{{ url_for('api_template_tt', phieu_id=phieu.id) }}" class="btn btn-outline-success qt82-action" id="btnDownloadTemplate">
+                            <i class="bi bi-file-earmark-excel"></i> Tải Template TT
+                        </a>
+                        <a href="{{ qt82_payload.formUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary qt82-action">
+                            <i class="bi bi-box-arrow-up-right"></i> Mở QT82 không tự điền
+                        </a>
+                    </div>
+                    <div class="small mt-2 d-none" id="qt82BridgeMessage"></div>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="card">
-            <div class="card-body text-center py-5 text-muted">
-                <i class="bi bi-arrow-right" style="font-size:2rem;"></i>
-                <p class="mt-2">Chọn phiếu từ danh sách bên phải</p>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
-    <!-- RIGHT: History mini -->
-    <div class="col-lg-8">
+    <div class="col-xl-7">
         <div class="card">
-            <div class="card-header py-2">
-                <i class="bi bi-clock-history"></i> Lịch sử phiếu CK
-            </div>
+            <div class="card-header py-2"><i class="bi bi-clock-history"></i> Lịch sử phiếu CK</div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover table-sm history-mini mb-0">
-                        <thead>
-                            <tr>
-                                <th>Ngày</th>
-                                <th>Tên KH</th>
-                                <th>TVV</th>
-                                <th class="text-end">Số tiền</th>
-                                <th class="text-center" style="width:55px;">Trình</th>
-                                <th style="width:40px;"></th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>Ngày</th><th>Tên KH</th><th>TVV</th><th class="text-end">Số tiền</th><th class="text-center" style="width:55px;">Trình</th><th style="width:40px;"></th></tr></thead>
                         <tbody id="histBody"></tbody>
                     </table>
                 </div>
@@ -103,34 +129,191 @@
         </div>
     </div>
 </div>
+<script type="application/json" id="qt82DraftPayload">{{ qt82_payload|tojson }}</script>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-arrow-right" style="font-size:2rem;"></i>
+        <p class="mt-2 mb-0">Chọn phiếu từ lịch sử để chuẩn bị QT82.</p>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
 const currentId = {{ phieu.id if phieu else 0 }};
+const draftNode = document.getElementById('qt82DraftPayload');
+const qt82Draft = draftNode ? JSON.parse(draftNode.textContent) : null;
+const MAX_TEMPLATE_BYTES = 1024 * 1024;
+let preparingQt82 = false;
+
+function browserToday() {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(-2);
+    return dd + '/' + mm + '/' + yy;
+}
+
+function setBridgeMessage(message, type) {
+    const el = document.getElementById('qt82BridgeMessage');
+    if (!el) return;
+    el.className = 'small mt-2 text-' + (type || 'muted');
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
+}
+
+function safeTemplateFilename(response) {
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+    let filename = 'Template-TT.xlsx';
+    try {
+        if (utf8Match) filename = decodeURIComponent(utf8Match[1]);
+        else if (plainMatch) filename = plainMatch[1];
+    } catch (_error) {
+        filename = 'Template-TT.xlsx';
+    }
+    filename = filename.split(/[\\/]/).pop().replace(/[<>:"|?*]/g, '_').slice(0, 180);
+    return filename.toLowerCase().endsWith('.xlsx') ? filename : filename + '.xlsx';
+}
+
+async function loadTemplateIntoMemory() {
+    const link = document.getElementById('btnDownloadTemplate');
+    if (!link) throw new Error('Không tìm thấy đường dẫn Template TT.');
+    const response = await fetch(link.href, {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+    });
+    if (!response.ok) throw new Error('Không tải được Template TT (' + response.status + ').');
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    if (!bytes.length || bytes.length > MAX_TEMPLATE_BYTES) {
+        throw new Error('Template TT phải có dung lượng từ 1 byte đến 1 MB.');
+    }
+    if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+        throw new Error('Template TT không phải tệp XLSX hợp lệ.');
+    }
+    if (!window.crypto || !window.crypto.subtle) {
+        throw new Error('Trình duyệt không hỗ trợ kiểm tra SHA-256.');
+    }
+    const digest = new Uint8Array(await window.crypto.subtle.digest('SHA-256', buffer));
+    const sha256 = Array.from(digest).map(b => b.toString(16).padStart(2, '0')).join('');
+    return {
+        name: safeTemplateFilename(response),
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size: bytes.length,
+        sha256: sha256,
+        base64: bytesToBase64(bytes)
+    };
+}
+
+window.addEventListener('message', function(event) {
+    if (event.source !== window || !event.data || event.data.source !== 'PNJ_QT82_EXTENSION') return;
+    const status = document.getElementById('qt82ExtensionStatus');
+    if (event.data.type === 'READY') {
+        if (status) { status.className = 'badge bg-success'; status.textContent = 'Đã kết nối'; }
+    } else if (event.data.type === 'DRAFT_ACCEPTED') {
+        setBridgeMessage('Đã chuyển bản nháp sang Chrome. Không đóng tab QT82 cho đến khi tiện ích điền xong.', 'success');
+    } else if (event.data.type === 'ERROR') {
+        setBridgeMessage(event.data.message || 'Không thể chuyển bản nháp sang tiện ích.', 'danger');
+    }
+});
+
+const prepareButton = document.getElementById('btnPrepareQt82');
+if (prepareButton && qt82Draft) {
+    prepareButton.addEventListener('click', async function() {
+        if (preparingQt82) return;
+        preparingQt82 = true;
+        prepareButton.disabled = true;
+        setBridgeMessage('Đang tạo và kiểm tra Template TT trong bộ nhớ...', 'muted');
+        try {
+            const templateFile = await loadTemplateIntoMemory();
+            const draft = Object.assign({}, qt82Draft, {
+                desiredDate: browserToday(),
+                issuedAt: Date.now(),
+                nonce: window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+                templateFile: templateFile
+            });
+            setBridgeMessage('Đang chuyển bản nháp và Template TT sang tiện ích Chrome...', 'muted');
+            window.postMessage({source: 'PNJ_QT82_WEB', type: 'STORE_AND_OPEN', draft: draft}, window.location.origin);
+        } catch (error) {
+            preparingQt82 = false;
+            prepareButton.disabled = false;
+            setBridgeMessage(error && error.message ? error.message : 'Không chuẩn bị được Template TT.', 'danger');
+        }
+    });
+}
+
+setTimeout(function() {
+    const status = document.getElementById('qt82ExtensionStatus');
+    if (status && status.textContent === 'Đang kiểm tra...') {
+        status.className = 'badge bg-warning text-dark';
+        status.textContent = 'Chưa cài/không hoạt động';
+    }
+}, 1500);
 
 document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/history').then(r => r.json()).then(json => {
         if (!json.ok || !json.data) return;
         const tbody = document.getElementById('histBody');
+        if (!tbody) return;
         json.data.forEach(function(p) {
-            const active = p.id === currentId ? 'active-row' : '';
-            const checked = p.da_trinh ? 'checked' : '';
-            const amt = p.tong_ck ? Math.round(p.tong_ck).toLocaleString('vi-VN') : '0';
-            const date = p.created_at ? p.created_at.substring(5, 16) : '';
             const tr = document.createElement('tr');
-            tr.className = active;
-            tr.innerHTML =
-                '<td style="white-space:nowrap;font-size:0.75rem;">' + date + '</td>' +
-                '<td><strong style="font-size:0.8rem;">' + (p.ten_kh || '') + '</strong></td>' +
-                '<td style="font-size:0.75rem;">' + (p.tvv_name || '') + '</td>' +
-                '<td class="amount">' + amt + '</td>' +
-                '<td class="text-center"><input type="checkbox" class="form-check-input da-trinh" data-id="' + p.id + '" ' + checked + '></td>' +
-                '<td><a href="/eoffice/' + p.id + '" class="btn btn-sm btn-outline-primary py-0 px-1" title="Chọn"><i class="bi bi-arrow-right-short"></i></a></td>';
+            if (p.id === currentId) tr.className = 'active-row';
+
+            const dateCell = document.createElement('td');
+            dateCell.style.whiteSpace = 'nowrap';
+            dateCell.style.fontSize = '.75rem';
+            dateCell.textContent = p.created_at ? p.created_at.substring(5, 16) : '';
+
+            const nameCell = document.createElement('td');
+            const nameStrong = document.createElement('strong');
+            nameStrong.style.fontSize = '.8rem';
+            nameStrong.textContent = p.ten_kh || '';
+            nameCell.appendChild(nameStrong);
+
+            const tvvCell = document.createElement('td');
+            tvvCell.style.fontSize = '.75rem';
+            tvvCell.textContent = p.tvv_name || '';
+
+            const amountCell = document.createElement('td');
+            amountCell.className = 'amount';
+            amountCell.textContent = Math.round(Number(p.tong_ck || 0)).toLocaleString('vi-VN');
+
+            const submittedCell = document.createElement('td');
+            submittedCell.className = 'text-center';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input da-trinh';
+            checkbox.dataset.id = p.id;
+            checkbox.checked = Boolean(p.da_trinh);
+            submittedCell.appendChild(checkbox);
+
+            const actionCell = document.createElement('td');
+            const link = document.createElement('a');
+            link.href = '/eoffice/' + p.id;
+            link.className = 'btn btn-sm btn-outline-primary py-0 px-1';
+            link.title = 'Chọn';
+            link.innerHTML = '<i class="bi bi-arrow-right-short"></i>';
+            actionCell.appendChild(link);
+
+            [dateCell, nameCell, tvvCell, amountCell, submittedCell, actionCell].forEach(cell => tr.appendChild(cell));
             tbody.appendChild(tr);
         });
 
-        // Checkbox Đã Trình
         tbody.addEventListener('change', function(e) {
             if (!e.target.classList.contains('da-trinh')) return;
             fetch('/api/da-trinh/' + e.target.dataset.id, {

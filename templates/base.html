@@ -232,11 +232,13 @@
                         <i class="bi bi-clock-history"></i> Lịch sử
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% block nav_eoffice %}{% endblock %}" href="{{ url_for('eoffice_index') }}">
-                        <i class="bi bi-clipboard-data"></i> eOffice QT82
-                    </a>
-                </li>
+                {% if admin %}
+                    <li class="nav-item">
+                        <a class="nav-link {% block nav_eoffice %}{% endblock %}" href="{{ url_for('eoffice_index') }}">
+                            <i class="bi bi-clipboard-data"></i> eOffice QT82
+                        </a>
+                    </li>
+                {% endif %}
                 <li class="nav-item">
                     <a class="nav-link {% block nav_bieumau %}{% endblock %}" href="{{ url_for('bieu_mau_page') }}">
                         <i class="bi bi-file-earmark-text"></i> Biểu Mẫu

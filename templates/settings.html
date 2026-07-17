@@ -35,6 +35,20 @@
                         <input type="text" class="form-control form-control-sm" id="s_cht_short_name"
                                value="{{ settings.get('cht_short_name', 'Hà My') }}">
                     </div>
+                    <div class="col-12">
+                        <label class="form-label">Tài khoản eOffice CHT dùng cho QT82</label>
+                        <input type="text" class="form-control form-control-sm" id="s_qt82_store_manager_query"
+                               value="{{ settings.get('qt82_store_manager_query', 'my.hth') }}"
+                               placeholder="VD: my.hth" autocomplete="off">
+                        <small class="text-muted">Tiện ích Chrome dùng chuỗi này để tìm và chọn đúng Cửa hàng trưởng trên eOffice.</small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">URL form eOffice QT82</label>
+                        <input type="url" class="form-control form-control-sm" id="s_qt82_form_url"
+                               value="{{ settings.get('qt82_form_url', default_qt82_form_url) }}"
+                               placeholder="https://eoffice.pnj.com.vn/workflow/..." autocomplete="off">
+                        <small class="text-muted">Có thể cập nhật khi eOffice đổi LID/wid. Hệ thống chỉ chấp nhận HTTPS thuộc eoffice.pnj.com.vn/workflow/.</small>
+                    </div>
                     <div class="col-md-8">
                         <label class="form-label">Kế toán 1</label>
                         <input type="text" class="form-control form-control-sm" id="s_kt1_name"
@@ -253,6 +267,8 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
     const payload = {
         cht_name: document.getElementById('s_cht_name').value.trim().toUpperCase(),
         cht_short_name: document.getElementById('s_cht_short_name').value.trim(),
+        qt82_store_manager_query: document.getElementById('s_qt82_store_manager_query').value.trim(),
+        qt82_form_url: document.getElementById('s_qt82_form_url').value.trim(),
         kt1_name: document.getElementById('s_kt1_name').value.trim().toUpperCase(),
         kt1_short_name: document.getElementById('s_kt1_short_name').value.trim(),
         kt2_name: document.getElementById('s_kt2_name').value.trim().toUpperCase(),

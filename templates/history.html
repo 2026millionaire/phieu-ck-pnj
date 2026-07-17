@@ -372,13 +372,19 @@ function renderTable(data) {
             '<div class="history-customer">' + escapeHtml(p.ten_kh) + '</div>' +
             '<div class="history-amount mt-1">' + tongCk + '</div>' +
             '<div class="history-sub mt-1">' + statusBadge + ' - ' + daTrinhText + '</div>';
+        {% if admin %}
+        var qt82Actions =
+            '<a href="eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a>' +
+            '<a href="api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a>';
+        {% else %}
+        var qt82Actions = '';
+        {% endif %}
         var actionGrid =
             '<div class="action-grid">' +
-                '<a href="eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a>' +
+                qt82Actions +
                 refillAction +
                 '<a href="api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a>' +
                 '<a href="api/pdf/' + p.id + (p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '') + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a>' +
-                '<a href="api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a>' +
                 deleteAction +
             '</div>';
         var tr = document.createElement('tr');
