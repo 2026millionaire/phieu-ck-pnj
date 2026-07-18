@@ -244,8 +244,12 @@ window.addEventListener('message', function(event) {
     if (event.data.type === 'READY') {
         if (status) { status.className = 'badge bg-success'; status.textContent = 'Đã kết nối'; }
     } else if (event.data.type === 'DRAFT_ACCEPTED') {
+        preparingQt82 = false;
+        if (prepareButton && qt82Draft && qt82Draft.ready) prepareButton.disabled = false;
         setBridgeMessage('Đã chuyển bản nháp sang Chrome. Không đóng tab QT82 cho đến khi tiện ích điền xong.', 'success');
     } else if (event.data.type === 'ERROR') {
+        preparingQt82 = false;
+        if (prepareButton && qt82Draft && qt82Draft.ready) prepareButton.disabled = false;
         setBridgeMessage(event.data.message || 'Không thể chuyển bản nháp sang tiện ích.', 'danger');
     }
 });

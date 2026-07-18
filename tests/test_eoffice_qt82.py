@@ -129,6 +129,9 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("function redirectForDraft(draft)", filler)
         self.assertIn('disable.textContent = "Tắt helper"', filler)
         self.assertIn("handleDraftOnCurrentPage(activeDraft, false)", filler)
+        html = self.client.get(f"/eoffice/{self.create_phieu()}").get_data(as_text=True)
+        self.assertIn("preparingQt82 = false;", html)
+        self.assertIn("if (prepareButton && qt82Draft && qt82Draft.ready) prepareButton.disabled = false;", html)
 
     def test_missing_sap_document_uses_1234_without_falling_back_to_bk(self):
         self.login(role="admin")
