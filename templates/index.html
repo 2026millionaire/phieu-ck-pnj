@@ -246,12 +246,74 @@ textarea#sap_data {
 
 /* Table: fixed layout to enforce column widths */
 .sap-table { table-layout: fixed; }
-.sap-table .col-loai { width: 13%; }
+.sap-table .col-loai { width: 15%; }
 .sap-table .col-soct { width: 33%; }
-.sap-table .col-gt   { width: 30%; }
+.sap-table .col-gt   { width: 28%; }
 .sap-table .col-gio  { width: 15%; }
 .sap-table .col-del  { width: 9%; }
-.sap-table td input, .sap-table td select { width: 100%; box-sizing: border-box; }
+.sap-table td input { width: 100%; box-sizing: border-box; }
+.sap-table tbody tr.sap-row-bk   > td { background-color: #fff7ed; }
+.sap-table tbody tr.sap-row-hd   > td { background-color: #ecfdf5; }
+.sap-table tbody tr.sap-row-coc  > td { background-color: #fff1f2; }
+.sap-table tbody tr.sap-row-hbtl > td { background-color: #fdf2f8; }
+.sap-table tbody tr.sap-row-tncn > td { background-color: #eff6ff; }
+.sap-table tbody tr.sap-row-thu  > td { background-color: #f0fdfa; }
+.sap-table tbody tr.sap-row-chi  > td { background-color: #f5f3ff; }
+
+.sap-doc-type-dropdown {
+    min-width: 4.8rem;
+}
+
+.sap-doc-type-btn {
+    width: 100%;
+    min-width: 4.2rem;
+    min-height: 32px;
+    padding: 0.18rem 0.35rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+}
+
+.sap-doc-type-btn:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.sap-doc-type-menu {
+    min-width: 15rem;
+    padding: 0.35rem;
+}
+
+.sap-doc-type-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.45rem;
+    font-size: 0.9rem;
+}
+
+.sap-doc-type-mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.2rem;
+    min-height: 1.7rem;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.78rem;
+}
+
+.sap-doc-type-bk   { color: #9a3412; background-color: #fed7aa; border-color: #fb923c; }
+.sap-doc-type-hd   { color: #166534; background-color: #bbf7d0; border-color: #4ade80; }
+.sap-doc-type-coc  { color: #9f1239; background-color: #fecdd3; border-color: #fb7185; }
+.sap-doc-type-hbtl { color: #9d174d; background-color: #fbcfe8; border-color: #f472b6; }
+.sap-doc-type-tncn { color: #1d4ed8; background-color: #bfdbfe; border-color: #60a5fa; }
+.sap-doc-type-thu  { color: #0f766e; background-color: #99f6e4; border-color: #2dd4bf; }
+.sap-doc-type-chi  { color: #6d28d9; background-color: #ddd6fe; border-color: #a78bfa; }
 
 /* Mobile: hide preview */
 @media (max-width: 991px) {
@@ -1346,16 +1408,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Loại: value (saved/printed) → display label (dropdown)
     const loaiMap = [
-        { value: 'Bảng kê',        label: 'BK - Bảng kê',         sign: '-' },
-        { value: 'Hóa đơn',        label: 'HĐ - Hóa đơn',        sign: '+' },
-        { value: 'Biên nhận cọc',  label: 'Cọc - Biên nhận cọc',  sign: '-' },
-        { value: 'HBTL',           label: 'HBTL - Hàng bán trả lại', sign: '-' },
-        { value: 'Phải CK khác',   label: 'CK khác - Phải CK khác', sign: '-' },
-        { value: 'Phải thu khác',  label: 'Thu khác - Phải thu khác', sign: '+' },
-        { value: 'Thuế TNCN',      label: 'Thuế TNCN', sign: '+' },
+        { value: 'Bảng kê',        label: 'BK - Bảng kê',             short: 'BK',   tone: 'bk',   sign: '-' },
+        { value: 'Hóa đơn',        label: 'HĐ - Hóa đơn',             short: 'HĐ',   tone: 'hd',   sign: '+' },
+        { value: 'Biên nhận cọc',  label: 'Cọc - Biên nhận cọc',      short: 'Cọc',  tone: 'coc',  sign: '-' },
+        { value: 'HBTL',           label: 'HBTL - Hàng bán trả lại',  short: 'HBTL', tone: 'hbtl', sign: '-' },
+        { value: 'Phải CK khác',   label: 'Chi - Phải CK khác',       short: 'Chi',  tone: 'chi',  sign: '-' },
+        { value: 'Phải thu khác',  label: 'Thu - Phải thu khác',      short: 'Thu',  tone: 'thu',  sign: '+' },
+        { value: 'Thuế TNCN',      label: 'TNCN - Thuế TNCN',         short: 'TNCN', tone: 'tncn', sign: '+' },
     ];
     const loaiSignMap = {};
     loaiMap.forEach(l => loaiSignMap[l.value] = l.sign);
+    const loaiMetaMap = {};
+    loaiMap.forEach(l => loaiMetaMap[l.value] = l);
     const taxDocPrefix = '4800';
     const taxDocLength = 10;
     const docTypePrefixes = {
@@ -1399,6 +1463,41 @@ document.addEventListener('DOMContentLoaded', function() {
         );
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getLoaiMeta(loai) {
+        return loaiMetaMap[loai] || loaiMap[0];
+    }
+
+    function renderLoaiButton(item, idx) {
+        const meta = getLoaiMeta(item.loai);
+        const buttonId = 'sapDocType' + idx;
+        let html = '<div class="dropdown sap-doc-type-dropdown">'
+            + '<button type="button" id="' + buttonId + '" '
+            + 'class="btn btn-sm sap-doc-type-btn sap-doc-type-' + meta.tone + '" '
+            + 'data-bs-toggle="dropdown" aria-expanded="false" '
+            + 'title="' + escapeHtml(meta.label) + '">'
+            + escapeHtml(meta.short)
+            + '</button>'
+            + '<div class="dropdown-menu sap-doc-type-menu" aria-labelledby="' + buttonId + '">';
+        loaiMap.forEach(function(opt) {
+            html += '<button type="button" class="dropdown-item sap-doc-type-option" '
+                + 'data-idx="' + idx + '" data-loai="' + escapeHtml(opt.value) + '">'
+                + '<span class="sap-doc-type-mini sap-doc-type-' + opt.tone + '">' + escapeHtml(opt.short) + '</span>'
+                + '<span>' + escapeHtml(opt.label) + '</span>'
+                + '</button>';
+        });
+        html += '</div></div>';
+        return html;
+    }
+
     function renderSapTable(items) {
         sapItems = items;
         const tbody = document.getElementById('sapTableBody');
@@ -1416,16 +1515,11 @@ document.addEventListener('DOMContentLoaded', function() {
             applyLoaiDefaults(item);
             item.sign = loaiSignMap[item.loai] || '-';
 
-            let loaiSelect = '<select class="form-select form-select-sm sap-edit" data-idx="' + idx + '" data-field="loai" style="font-size:0.78rem;padding:2px 4px;">';
-            loaiMap.forEach(function(opt) {
-                loaiSelect += '<option value="' + opt.value + '"' + (item.loai === opt.value ? ' selected' : '') + '>' + opt.label + '</option>';
-            });
-            loaiSelect += '</select>';
-
             const tr = document.createElement('tr');
+            tr.className = 'sap-row-' + getLoaiMeta(item.loai).tone;
             tr.innerHTML =
-                '<td>' + loaiSelect + '</td>' +
-                '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit" data-idx="' + idx + '" data-field="so_ct" value="' + (item.so_ct || '') + '" style="font-size:0.8rem;"></td>' +
+                '<td>' + renderLoaiButton(item, idx) + '</td>' +
+                '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" style="font-size:0.8rem;"></td>' +
                 '<td><input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" style="font-size:0.8rem;"></td>' +
                 '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" style="font-size:0.75rem;padding:2px 4px;"></td>' +
                 '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
@@ -1441,17 +1535,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     sapItems[idx].gia_tri = parseFloat(this.value.replace(/[.,\s]/g, '')) || 0;
                 } else if (field === 'gio') {
                     sapItems[idx].gio = todayStr + ' ' + this.value;
-                } else if (field === 'loai') {
-                    const previousLoai = sapItems[idx].loai;
-                    sapItems[idx].loai = this.value;
-                    sapItems[idx].sign = loaiSignMap[this.value] || '-';
-                    applyLoaiDefaults(sapItems[idx], previousLoai);
-                    renderSapTable(sapItems);
-                    return;
                 } else {
                     sapItems[idx][field] = this.value;
                 }
                 updateSummary();
+            });
+        });
+
+        tbody.querySelectorAll('.sap-doc-type-option').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.idx);
+                const nextLoai = this.dataset.loai;
+                const previousLoai = sapItems[idx].loai;
+                sapItems[idx].loai = nextLoai;
+                sapItems[idx].sign = loaiSignMap[nextLoai] || '-';
+                applyLoaiDefaults(sapItems[idx], previousLoai);
+                renderSapTable(sapItems);
             });
         });
 
