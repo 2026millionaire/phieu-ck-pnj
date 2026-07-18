@@ -409,7 +409,7 @@ textarea#sap_data {
     .sap-table {
         table-layout: auto;
         border-collapse: separate;
-        border-spacing: 0 0.45rem;
+        border-spacing: 0 0.35rem;
     }
 
     .sap-table thead {
@@ -424,15 +424,12 @@ textarea#sap_data {
     }
 
     .sap-table tbody tr {
-        display: grid;
-        grid-template-columns: 4.2rem minmax(0, 1fr);
-        grid-template-areas:
-            "type doc"
-            "type amount"
-            "type footer";
-        column-gap: 0.55rem;
-        row-gap: 0.35rem;
-        padding: 0.55rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.42rem 0.5rem;
+        padding: 0.5rem;
         border: 1px solid #dbeafe;
         border-radius: 1rem;
         box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
@@ -442,49 +439,42 @@ textarea#sap_data {
         padding: 0;
         background: transparent !important;
         min-width: 0;
+        flex: 0 1 auto;
     }
 
     .sap-table tbody tr > td:nth-child(1) {
-        grid-area: type;
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        padding-top: 0.1rem;
+        order: 1;
     }
 
     .sap-table tbody tr > td:nth-child(2) {
-        grid-area: doc;
+        order: 2;
+        flex: 1 1 10.5rem;
     }
 
     .sap-table tbody tr > td:nth-child(3) {
-        grid-area: amount;
+        order: 3;
+        flex: 1 1 9.8rem;
+        margin-left: auto;
     }
 
     .sap-table tbody tr > td:nth-child(4) {
-        grid-area: footer;
+        order: 4;
         display: flex;
         justify-content: flex-end;
+        margin-left: auto;
     }
 
     .sap-table tbody tr > td:nth-child(5) {
-        grid-area: footer;
+        order: 5;
         display: flex;
         justify-content: flex-end;
         align-items: center;
-        padding-left: 4.5rem;
-        pointer-events: none;
-    }
-
-    .sap-table tbody tr > td:nth-child(4) input {
-        width: 5.2rem;
-        margin-right: 2.55rem;
+        pointer-events: auto;
     }
 
     .sap-table tbody tr > td:nth-child(5) .sap-del {
-        pointer-events: auto;
         min-width: 2.05rem;
         min-height: 2.05rem;
-        margin-top: -2.05rem;
     }
 
     .sap-doc-type-dropdown,
@@ -518,6 +508,7 @@ textarea#sap_data {
     }
 
     .sap-table input[type="time"] {
+        width: 5.2rem;
         min-height: 2.05rem;
         border-radius: 999px;
         font-size: 0.82rem !important;
