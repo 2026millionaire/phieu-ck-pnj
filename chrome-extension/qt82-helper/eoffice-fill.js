@@ -836,6 +836,13 @@
     }
   }
 
+  function endCurrentSession(panel, disableHelper) {
+    chrome.runtime.sendMessage({type: disableHelper ? "DISABLE_HELPER" : "CLEAR_DRAFT"});
+    if (activeDraft && activeDraft.templateFile) activeDraft.templateFile.base64 = "";
+    activeDraft = null;
+    if (panel) panel.remove();
+  }
+
   function renderStatus(message, failures, busy) {
     const panel = createStatusPanel();
     if (!panel) return;
@@ -876,22 +883,12 @@
     retry.addEventListener("click", () => handleDraftOnCurrentPage(activeDraft, true));
     const clear = document.createElement("button");
     clear.type = "button";
-    clear.textContent = "Xóa dữ liệu tạm";
-    clear.addEventListener("click", () => {
-      chrome.runtime.sendMessage({type: "CLEAR_DRAFT"});
-      if (activeDraft && activeDraft.templateFile) activeDraft.templateFile.base64 = "";
-      activeDraft = null;
-      panel.remove();
-    });
+    clear.textContent = activeDraft ? "Xóa dữ liệu tạm" : "Xong/Đóng";
+    clear.addEventListener("click", () => endCurrentSession(panel, false));
     const disable = document.createElement("button");
     disable.type = "button";
     disable.textContent = "Tắt helper";
-    disable.addEventListener("click", () => {
-      chrome.runtime.sendMessage({type: "DISABLE_HELPER"});
-      if (activeDraft && activeDraft.templateFile) activeDraft.templateFile.base64 = "";
-      activeDraft = null;
-      panel.remove();
-    });
+    disable.addEventListener("click", () => endCurrentSession(panel, true));
     [diagnostic, retry, clear, disable].forEach((button) => {
       button.style.cssText = "border:1px solid #b8c2d1;background:#fff;border-radius:5px;padding:5px 9px;cursor:pointer";
       buttons.appendChild(button);
@@ -1016,11 +1013,9 @@
         return;
       }
       if (response && response.disabled) return;
-      if (window.top === window) {
+      if (window.top === window && response && response.expired) {
         renderStatus(
-          response && response.expired
-            ? "Bản nháp đã hết hạn. Quay lại website và nhấn tạo bản nháp một lần nữa."
-            : "Không tìm thấy bản nháp QT82. Quay lại website và nhấn Tạo bản nháp QT82.",
+          "Bản nháp đã hết hạn. Quay lại website và nhấn tạo bản nháp một lần nữa.",
           ["Dữ liệu bản nháp"],
           false,
         );
@@ -1028,8 +1023,5 @@
     });
   }
 
-  if (window.top === window) {
-    renderStatus("Tiện ích đã chạy. Đang tìm bản nháp QT82...", [], true);
-  }
   requestDraft(0);
 })();
