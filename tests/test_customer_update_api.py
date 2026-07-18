@@ -273,7 +273,7 @@ class CustomerUpdateApiTests(unittest.TestCase):
         seeded = self.client.get("/api/central-plants")
         self.assertEqual(seeded.status_code, 200)
         plants = seeded.get_json()["data"]
-        self.assertEqual(len(plants), 53)
+        self.assertEqual(len(plants), 61)
         self.assertIn({"province": "Huế", "plant": "1305"}, [
             {"province": item["province"], "plant": item["plant"]} for item in plants
         ])

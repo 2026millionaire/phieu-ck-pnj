@@ -111,23 +111,23 @@ QT82_EXTENSION_FILES = (
 )
 
 CENTRAL_PLANTS_SEED = (
-    ("Huế", "1304"), ("Huế", "1305"), ("Huế", "1394"), ("Huế", "1398"),
+    ("Huế", "1303"), ("Huế", "1304"), ("Huế", "1305"), ("Huế", "1394"), ("Huế", "1398"),
     ("Huế", "1465"), ("Huế", "1570"), ("Huế", "1613"),
     ("Quảng Trị", "1339"), ("Quảng Trị", "1530"), ("Quảng Trị", "1671"),
     ("Quảng Bình", "1397"), ("Quảng Bình", "1331"), ("Quảng Bình", "1540"),
-    ("Quảng Bình", "1490"), ("Quảng Bình", "1619"),
-    ("Đà Nẵng", "1267"), ("Đà Nẵng", "1268"), ("Đà Nẵng", "1269"),
+    ("Quảng Bình", "1490"), ("Quảng Bình", "1619"), ("Quảng Bình", "1657"),
+    ("Đà Nẵng", "1012"), ("Đà Nẵng", "1022"), ("Đà Nẵng", "1267"), ("Đà Nẵng", "1268"), ("Đà Nẵng", "1269"),
     ("Đà Nẵng", "1270"), ("Đà Nẵng", "1271"), ("Đà Nẵng", "1272"),
     ("Đà Nẵng", "1273"), ("Đà Nẵng", "1274"), ("Đà Nẵng", "1275"),
     ("Đà Nẵng", "1276"), ("Đà Nẵng", "1369"), ("Đà Nẵng", "1395"),
     ("Đà Nẵng", "1416"), ("Đà Nẵng", "1427"), ("Đà Nẵng", "1428"),
-    ("Đà Nẵng", "1454"), ("Đà Nẵng", "1563"), ("Đà Nẵng", "1669"),
+    ("Đà Nẵng", "1454"), ("Đà Nẵng", "1563"), ("Đà Nẵng", "1668"), ("Đà Nẵng", "1669"),
     ("Bình Định", "1241"), ("Bình Định", "1242"), ("Bình Định", "1243"),
     ("Bình Định", "1366"), ("Bình Định", "1464"), ("Bình Định", "1500"),
     ("Bình Định", "1531"), ("Bình Định", "1598"), ("Bình Định", "1622"),
     ("Quảng Nam", "1332"), ("Quảng Nam", "1512"), ("Quảng Nam", "1529"),
-    ("Quảng Nam", "1333"), ("Quảng Nam", "1588"),
-    ("Quảng Ngãi", "1335"), ("Quảng Ngãi", "1429"), ("Quảng Ngãi", "1448"),
+    ("Quảng Nam", "1333"), ("Quảng Nam", "1396"), ("Quảng Nam", "1588"),
+    ("Quảng Ngãi", "1334"), ("Quảng Ngãi", "1335"), ("Quảng Ngãi", "1429"), ("Quảng Ngãi", "1444"), ("Quảng Ngãi", "1448"),
     ("Quảng Ngãi", "1466"), ("Quảng Ngãi", "1515"), ("Quảng Ngãi", "1612"),
 )
 
@@ -415,11 +415,10 @@ def init_db():
             plant    TEXT NOT NULL UNIQUE
         )
     """)
-    if conn.execute("SELECT COUNT(*) FROM central_plants").fetchone()[0] == 0:
-        conn.executemany(
-            "INSERT INTO central_plants (province, plant) VALUES (?, ?)",
-            CENTRAL_PLANTS_SEED,
-        )
+    conn.executemany(
+        "INSERT OR IGNORE INTO central_plants (province, plant) VALUES (?, ?)",
+        CENTRAL_PLANTS_SEED,
+    )
     # Default settings
     defaults = {
         "cht_name": "HỒ THỊ HÀ MY",
