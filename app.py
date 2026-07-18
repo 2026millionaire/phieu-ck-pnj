@@ -1010,23 +1010,39 @@ def create_pdf_token(phieu_id, user_id):
     })
 
 
-def verify_pdf_token(phieu_id):
-    """Return token payload if valid for this phieu, otherwise None."""
-    token = (request.args.get("token") or "").strip()
+def verify_output_token(token):
+    """Return token payload if valid for one printable/downloadable phieu."""
+    token = (token or "").strip()
     if not token:
         return None
     try:
         payload = pdf_token_serializer().loads(token, max_age=PDF_TOKEN_MAX_AGE)
     except (BadSignature, SignatureExpired, TypeError, ValueError):
         return None
-    if payload.get("purpose") != "pdf":
+    try:
+        payload_phieu_id = int(payload.get("phieu_id"))
+        payload_user_id = int(payload.get("user_id"))
+    except (TypeError, ValueError):
         return None
-    if int(payload.get("phieu_id", 0)) != int(phieu_id):
+    if payload.get("purpose") != "pdf" or payload_phieu_id <= 0 or payload_user_id <= 0:
         return None
-    user_id = payload.get("user_id")
-    if not user_id:
+    return {"purpose": "pdf", "phieu_id": payload_phieu_id, "user_id": payload_user_id}
+
+
+def verify_pdf_token(phieu_id):
+    """Return token payload if valid for this phieu, otherwise None."""
+    payload = verify_output_token(request.args.get("token"))
+    if not payload:
         return None
-    return payload
+    try:
+        return payload if payload["phieu_id"] == int(phieu_id) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def verify_print_token():
+    """Return token payload for clean HTML print URLs without exposing row IDs."""
+    return verify_output_token(request.view_args.get("token") if request.view_args else "")
 
 
 def prepare_phieu_for_output(row, settings=None):
@@ -1314,6 +1330,8 @@ def check_auth():
         return
     allowed = ("login_page", "login_action", "logout_action", "static")
     if request.endpoint in allowed:
+        return
+    if request.endpoint == "api_print_token" and verify_print_token():
         return
     if request.endpoint == "api_pdf" and verify_pdf_token(request.view_args.get("phieu_id")):
         return
@@ -2602,6 +2620,30 @@ def api_print(phieu_id):
     d = prepare_phieu_for_output(row, settings)
     d["pdf_token"] = create_pdf_token(phieu_id, row["user_id"])
     return render_template("print.html", p=d, staff=STAFF)
+
+
+@app.route("/p/<token>")
+def api_print_token(token):
+    """Return printable HTML from a short-lived token so browser footer does not expose row IDs."""
+    token_payload = verify_print_token()
+    if not token_payload:
+        return "Link in phiếu đã hết hạn hoặc không hợp lệ.", 404
+    db = get_db()
+    row = db.execute(
+        "SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+        (int(token_payload["phieu_id"]), int(token_payload["user_id"])),
+    ).fetchone()
+    if not row:
+        return "Không tìm thấy phiếu", 404
+
+    settings = get_settings()
+    d = prepare_phieu_for_output(row, settings)
+    d["pdf_token"] = token
+    response = app.make_response(render_template("print.html", p=d, staff=STAFF))
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 

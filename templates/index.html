@@ -1950,7 +1950,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     resetSaveButton();
                     return;
                 }
-                const printUrl = appUrl('/api/print/' + data.id + '?print=1');
+                const printUrl = data.pdf_token
+                    ? appUrl('/p/' + encodeURIComponent(data.pdf_token) + '?print=1')
+                    : appUrl('/api/print/' + data.id + '?print=1');
                 if (printWindow) {
                     printWindow.location.href = printUrl;
                     resetSaveButton();

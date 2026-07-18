@@ -254,6 +254,26 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(sheet.cell(row=5, column=4).value, "4403000001")
         self.assertEqual(sheet.cell(row=5, column=5).value, "012345678901")
 
+    def test_clean_html_print_token_hides_row_id_from_print_url(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(doc_num="2500000001")
+        api_response = self.client.get("/api/history").get_json()
+        phieu = next(item for item in api_response["data"] if item["id"] == phieu_id)
+        token = phieu["pdf_token"]
+
+        index_html = self.client.get("/").get_data(as_text=True)
+        history_html = self.client.get("/history").get_data(as_text=True)
+        self.assertIn("appUrl('/p/' + encodeURIComponent(data.pdf_token) + '?print=1')", index_html)
+        self.assertIn("'p/' + encodeURIComponent(p.pdf_token)", history_html)
+
+        self.login(role="user", user_id=2)
+        response = self.client.get(f"/p/{token}?print=1")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Phiếu xác nhận thông tin thanh toán chuyển khoản", html)
+        self.assertIn(f'href="/api/pdf/{phieu_id}?token=', html)
+        self.assertNotIn(f"/api/print/{phieu_id}", f"/p/{token}?print=1")
+
 
 if __name__ == "__main__":
     unittest.main()

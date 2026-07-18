@@ -383,7 +383,7 @@ function renderTable(data) {
             '<div class="action-grid">' +
                 qt82Actions +
                 refillAction +
-                '<a href="api/print/' + p.id + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a>' +
+                '<a href="' + (p.pdf_token ? 'p/' + encodeURIComponent(p.pdf_token) : 'api/print/' + p.id) + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a>' +
                 '<a href="api/pdf/' + p.id + (p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '') + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a>' +
                 deleteAction +
             '</div>';
