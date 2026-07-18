@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import time
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -91,6 +92,28 @@ class CustomerUpdateApiTests(unittest.TestCase):
         workbook.save(stream)
         return stream.getvalue()
 
+    def insert_identity_record(self, customer_code="100000000", identity_value="012345678901", name="TEN KH"):
+        key = self.identity_store.lookup_key(customer_code)
+        payload = {
+            "vendor": customer_code,
+            "identity_value": identity_value,
+            "source_name": name,
+            "verified_name": name,
+            "plant": "1305",
+            "source_date": "2026-07-17",
+        }
+        nonce, ciphertext, digest = self.identity_store._encrypt(payload, key)
+        with closing(self.identity_store.connect()) as connection:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO identity_records
+                (lookup_key, payload_nonce, payload_ciphertext, payload_digest, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (key, nonce, ciphertext, digest, time.time()),
+            )
+            connection.commit()
+
     def test_draft_does_not_create_candidates_but_printed_does(self):
         self.login()
         draft = self.client.post("/api/save", json=self.printed_payload("draft"))
@@ -173,6 +196,33 @@ class CustomerUpdateApiTests(unittest.TestCase):
             response.get_json()["suggestions"],
             [{"value": "012345678901"}],
         )
+
+    def test_verified_identity_cccd_is_not_reported_as_tvv_update(self):
+        self.insert_identity_record(identity_value="012345678901")
+        self.login(role="admin", user_id=1)
+        payload = self.printed_payload("printed")
+        payload["so_bk"] = "440300099"
+        response = self.client.post("/api/save", json=payload)
+        self.assertEqual(response.status_code, 200)
+
+        report = self.store.list_candidate_report("pending")
+        self.assertEqual({item["field"] for item in report["items"]}, {"name", "phone"})
+        self.assertNotIn("cccd", {item["field"] for item in report["items"]})
+
+    def test_customer_update_report_uses_verified_identity_as_current_cccd(self):
+        candidate_id = self.store.record_tvv_values(
+            customer_code="100000000",
+            values={"cccd": "012345678901"},
+            user_id=2,
+            phieu_id=99,
+        )[0]
+        self.insert_identity_record(identity_value="046183000623")
+        self.login(role="admin", user_id=1)
+
+        response = self.client.get("/api/customer-updates?status=pending")
+        self.assertEqual(response.status_code, 200)
+        item = next(item for item in response.get_json()["data"]["items"] if item["id"] == candidate_id)
+        self.assertEqual(item["original_value"], "046183000623")
 
     def test_admin_previews_then_applies_encrypted_identity_file(self):
         self.login(role="admin", user_id=1)

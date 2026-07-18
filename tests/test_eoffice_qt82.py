@@ -186,6 +186,25 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(payload["detailDocuments"], ["4403000001"])
         self.assertEqual(payload["formUrl"], app_module.DEFAULT_QT82_FORM_URL)
 
+    def test_admin_can_override_sap_document_for_qt82(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(doc_num="")
+
+        response = self.client.post(
+            f"/api/phieu/{phieu_id}/sap-document",
+            json={"sap_document": "2500000001"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["sap_document"], "2500000001")
+
+        html = self.client.get(f"/eoffice/{phieu_id}").get_data(as_text=True)
+        payload = self.payload_from_html(html)
+        self.assertEqual(payload["sapDocument"], "2500000001")
+        self.assertFalse(payload["sapPlaceholder"])
+        self.assertIn('id="btnSaveSapDocument"', html)
+        self.assertIn("tr.addEventListener('dblclick'", html)
+
     def test_preflight_check_is_rendered_below_customer_and_qt82_actions(self):
         self.login(role="admin")
         phieu_id = self.create_phieu(doc_num="2500000001")

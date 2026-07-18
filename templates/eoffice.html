@@ -62,7 +62,21 @@
                 <div id="copyFields">
                     <div class="copy-field"><div><div class="field-label">Mã KH</div><div class="field-value" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div><div class="field-label">Nội dung</div><div class="field-value" id="val_noi_dung">{{ phieu.eo_noi_dung }}</div></div><button class="btn-copy" type="button" onclick="copyField('noi_dung')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div><div class="field-label">Mã chứng từ SAP</div><div class="field-value" id="val_so_ct_sap">{{ phieu.eo_so_ct_sap }}</div></div><button class="btn-copy" type="button" onclick="copyField('so_ct_sap')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field">
+                        <div class="flex-grow-1">
+                            <div class="field-label">Mã chứng từ SAP</div>
+                            {% if admin %}
+                            <input class="form-control form-control-sm mt-1" id="val_so_ct_sap" value="{{ phieu.eo_so_ct_sap }}" maxlength="200" autocomplete="off">
+                            <div class="small mt-1 d-none" id="sapDocumentMessage"></div>
+                            {% else %}
+                            <div class="field-value" id="val_so_ct_sap">{{ phieu.eo_so_ct_sap }}</div>
+                            {% endif %}
+                        </div>
+                        {% if admin %}
+                        <button class="btn-copy" type="button" id="btnSaveSapDocument" title="Lưu số SAP"><i class="bi bi-check2"></i></button>
+                        {% endif %}
+                        <button class="btn-copy" type="button" onclick="copyField('so_ct_sap')"><i class="bi bi-clipboard"></i></button>
+                    </div>
                     <div class="copy-field"><div><div class="field-label">Tên tài khoản</div><div class="field-value" id="val_ten_tk">{{ phieu.eo_ten_tk }}</div></div><button class="btn-copy" type="button" onclick="copyField('ten_tk')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div><div class="field-label">Số tài khoản</div><div class="field-value" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" type="button" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div><div class="field-label">Mã ngân hàng</div><div class="field-value" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
@@ -161,6 +175,7 @@ function appPath(suffix) {
     return basePath + suffix;
 }
 const historyApiUrl = appPath('/api/history');
+const sapDocumentUrl = appPath('/api/phieu/' + currentId + '/sap-document');
 const draftNode = document.getElementById('qt82DraftPayload');
 const qt82Draft = draftNode ? JSON.parse(draftNode.textContent) : null;
 const MAX_TEMPLATE_BYTES = 1024 * 1024;
@@ -301,6 +316,8 @@ document.addEventListener('DOMContentLoaded', function() {
         json.data.forEach(function(p) {
             const tr = document.createElement('tr');
             if (p.id === currentId) tr.className = 'active-row';
+            tr.style.cursor = 'pointer';
+            tr.title = 'Double click để chọn phiếu này';
 
             const dateCell = document.createElement('td');
             dateCell.style.whiteSpace = 'nowrap';
@@ -337,6 +354,10 @@ document.addEventListener('DOMContentLoaded', function() {
             link.title = 'Chọn';
             link.innerHTML = '<i class="bi bi-arrow-right-short"></i>';
             actionCell.appendChild(link);
+            tr.addEventListener('dblclick', function(event) {
+                if (event.target.closest('a, button, input, label')) return;
+                window.location.href = link.href;
+            });
 
             [dateCell, nameCell, tvvCell, amountCell, submittedCell, actionCell].forEach(cell => tr.appendChild(cell));
             tbody.appendChild(tr);
@@ -366,14 +387,53 @@ document.addEventListener('DOMContentLoaded', function() {
 function copyField(fieldName) {
     const el = document.getElementById('val_' + fieldName);
     if (!el) return;
-    navigator.clipboard.writeText(el.textContent.trim()).then(function() {
-        const btn = el.closest('.copy-field').querySelector('.btn-copy');
+    const text = 'value' in el ? el.value.trim() : el.textContent.trim();
+    navigator.clipboard.writeText(text).then(function() {
+        const buttons = el.closest('.copy-field').querySelectorAll('.btn-copy');
+        const btn = buttons[buttons.length - 1];
         btn.classList.add('copied');
         btn.innerHTML = '<i class="bi bi-check-lg"></i>';
         setTimeout(function() {
             btn.classList.remove('copied');
             btn.innerHTML = '<i class="bi bi-clipboard"></i>';
         }, 1200);
+    });
+}
+
+function setSapDocumentMessage(message, type) {
+    const el = document.getElementById('sapDocumentMessage');
+    if (!el) return;
+    el.className = 'small mt-1 text-' + (type || 'muted');
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+const saveSapButton = document.getElementById('btnSaveSapDocument');
+if (saveSapButton) {
+    saveSapButton.addEventListener('click', function() {
+        const input = document.getElementById('val_so_ct_sap');
+        if (!input) return;
+        saveSapButton.disabled = true;
+        setSapDocumentMessage('Đang lưu số SAP...', 'muted');
+        fetch(sapDocumentUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sap_document: input.value})
+        }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(result => {
+            if (!result.ok || !result.data.ok) throw new Error(result.data.error || 'Không lưu được số SAP.');
+            input.value = result.data.sap_document || '';
+            if (qt82Draft) {
+                qt82Draft.sapDocument = result.data.sap_document || '1234';
+                qt82Draft.sapPlaceholder = Boolean(result.data.sap_placeholder);
+            }
+            setSapDocumentMessage('Đã lưu số SAP cho QT82.', 'success');
+        }).catch(error => {
+            setSapDocumentMessage(error && error.message ? error.message : 'Không lưu được số SAP.', 'danger');
+        }).finally(() => {
+            saveSapButton.disabled = false;
+        });
     });
 }
 </script>

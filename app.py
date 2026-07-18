@@ -337,7 +337,8 @@ def init_db():
             qr_url          TEXT,
             noi_dung        TEXT,
             nguoi_ki        TEXT DEFAULT 'tvv',
-            da_trinh        INTEGER DEFAULT 0
+            da_trinh        INTEGER DEFAULT 0,
+            sap_document_override TEXT DEFAULT ''
         )
     """)
     # Add columns if missing (for existing DBs)
@@ -345,6 +346,7 @@ def init_db():
         ("nguoi_ki", "TEXT", "'tvv'"),
         ("da_trinh", "INTEGER", "0"),
         ("user_id", "INTEGER", "1"),
+        ("sap_document_override", "TEXT", "''"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -865,14 +867,17 @@ def find_eoffice_bank_code(ngan_hang):
 def build_qt82_payload(phieu, settings):
     """Chuẩn bị bản nháp QT82; không lưu, gửi hay chứa thông tin đăng nhập eOffice."""
     chung_tu = phieu.get("chung_tu") or []
+    override_sap_document = re.sub(
+        r"\s*,\s*", ", ", remove_all_whitespace(phieu.get("sap_document_override", "")).replace(",", ",")
+    ).strip(" ,")
     doc_nums = []
     for item in chung_tu:
         doc_num = remove_all_whitespace(item.get("doc_num", ""))
         if doc_num and doc_num not in doc_nums:
             doc_nums.append(doc_num)
 
-    sap_placeholder = not doc_nums
-    sap_document = ", ".join(doc_nums) if doc_nums else "1234"
+    sap_placeholder = not override_sap_document and not doc_nums
+    sap_document = override_sap_document or (", ".join(doc_nums) if doc_nums else "1234")
     account_name = str(phieu.get("ten_tk", "") or "").strip()
     account_number = normalize_account_number(phieu.get("so_tk", ""))
     bank_query = find_eoffice_bank_code(phieu.get("ngan_hang", ""))
@@ -1448,10 +1453,14 @@ def _record_printed_customer_values(data, phieu_id, user_id, ma_kh, ten_kh, sdt,
     store = get_customer_lookup_store()
     if store is None:
         return
+    values = {"name": ten_kh, "phone": sdt, "cccd": cccd}
+    verified_cccd = _verified_identity_value(ma_kh, "cccd")
+    if verified_cccd and remove_all_whitespace(cccd) == verified_cccd:
+        values["cccd"] = ""
     try:
         store.record_tvv_values(
             customer_code=ma_kh,
-            values={"name": ten_kh, "phone": sdt, "cccd": cccd},
+            values=values,
             user_id=user_id,
             phieu_id=phieu_id,
             tvv_code=remove_all_whitespace(data.get("tvv_code", "")),
@@ -2053,6 +2062,26 @@ def _customer_update_user_label(user_id):
     return user.get("full_name") or user.get("username") or f"Tài khoản #{user_id}"
 
 
+def _verified_identity_value(customer_code, field):
+    """Return verified legacy-BK value for customer updates when available."""
+    if field not in ("name", "cccd") or normalize_customer_code is None:
+        return ""
+    canonical = normalize_customer_code(customer_code)
+    if canonical is None:
+        return ""
+    identity_store = get_customer_identity_store(create=False)
+    if identity_store is None:
+        return ""
+    record = identity_store.get_record(canonical)
+    if not record:
+        return ""
+    if field == "cccd":
+        raw_identity = str(record.get("identity_value") or "").strip()
+        return raw_identity if re.fullmatch(r"[0-9]{12}", raw_identity) else ""
+    value = str(record.get("verified_name") or "").strip()
+    return value or str(record.get("source_name") or "").strip()
+
+
 @app.route("/api/customer-updates", methods=["GET"])
 def api_customer_updates():
     denied = _customer_lookup_admin_required()
@@ -2080,6 +2109,10 @@ def api_customer_updates():
         item["first_user_label"] = user_labels.get(item.get("first_user_id"), "")
         item["last_user_label"] = user_labels.get(item.get("last_user_id"), "")
         item["reviewed_by_label"] = user_labels.get(item.get("reviewed_by"), "")
+        if item.get("field") in ("name", "cccd") and not item.get("original_value"):
+            verified_value = _verified_identity_value(item.get("customer_code"), item.get("field"))
+            if verified_value:
+                item["original_value"] = verified_value
     return _customer_lookup_json({"ok": True, "data": report})
 
 
@@ -2458,6 +2491,37 @@ def api_da_trinh(phieu_id):
                (1 if data.get("da_trinh") else 0, phieu_id))
     db.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/api/phieu/<int:phieu_id>/sap-document", methods=["POST"])
+def api_update_sap_document(phieu_id):
+    """Allow admins to override the SAP document used for QT82 without changing source documents."""
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Bạn không có quyền sửa số chứng từ SAP."}), 403
+    if request.content_length is not None and request.content_length > 2048:
+        return jsonify({"ok": False, "error": "Yêu cầu quá lớn."}), 413
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return jsonify({"ok": False, "error": "Yêu cầu không hợp lệ."}), 400
+
+    raw_value = str((request.get_json(silent=True) or {}).get("sap_document", "") or "")
+    value = re.sub(r"\s+", "", raw_value).strip(" ,")
+    if len(value) > 200 or (value and not re.fullmatch(r"[0-9A-Za-z,._/-]+", value)):
+        return jsonify({"ok": False, "error": "Số chứng từ SAP chỉ được gồm chữ/số và dấu , . _ / -."}), 400
+
+    db = get_db()
+    row = get_accessible_phieu(db, phieu_id)
+    if not row:
+        return jsonify({"ok": False, "error": "Không tìm thấy phiếu."}), 404
+    db.execute("UPDATE phieu SET sap_document_override = ? WHERE id = ?", (value, phieu_id))
+    db.commit()
+
+    refreshed = row_to_dict(db.execute("SELECT * FROM phieu WHERE id = ?", (phieu_id,)).fetchone())
+    try:
+        refreshed["chung_tu"] = json.loads(refreshed["chung_tu_json"]) if refreshed["chung_tu_json"] else []
+    except (json.JSONDecodeError, TypeError):
+        refreshed["chung_tu"] = []
+    payload = build_qt82_payload(refreshed, get_settings())
+    return jsonify({"ok": True, "sap_document": payload["sapDocument"], "sap_placeholder": payload["sapPlaceholder"]})
 
 
 @app.route("/api/save", methods=["POST"])
