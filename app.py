@@ -1897,6 +1897,10 @@ def eoffice_index():
     """Trang chuẩn bị QT82 chỉ dành cho ADMIN."""
     if not is_admin():
         return "Bạn không có quyền truy cập trang này.", 403
+    db = get_db()
+    row = db.execute("SELECT id FROM phieu ORDER BY id DESC LIMIT 1").fetchone()
+    if row:
+        return redirect(url_for("eoffice_page", phieu_id=row["id"]))
     response = app.make_response(render_template("eoffice.html", phieu=None, qt82_payload=None))
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"

@@ -119,7 +119,7 @@ class EofficeQt82Tests(unittest.TestCase):
         filler = (extension_dir / "eoffice-fill.js").read_text(encoding="utf-8")
         manifest = json.loads((extension_dir / "manifest.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(manifest["version"], "0.1.15")
+        self.assertEqual(manifest["version"], "0.1.16")
         self.assertIn("/workflow/sitepages/createworkflow.aspx?rcid=8&rscid=0&wid=0", background)
         self.assertIn('message.draft.openMode === "deeplink" ? message.draft.formUrl : CREATE_WORKFLOW_URL', background)
         self.assertIn('message.type === "DISABLE_HELPER"', background)
@@ -127,11 +127,27 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("sessionStorage.setItem(HUB_CLICK_NONCE_KEY, nonce)", filler)
         self.assertIn("function isQt82FormPage()", filler)
         self.assertIn("function redirectForDraft(draft)", filler)
+        self.assertIn("function directHrefFromTarget(target)", filler)
+        self.assertIn("function dispatchDoubleClick(target)", filler)
         self.assertIn('disable.textContent = "Tắt helper"', filler)
         self.assertIn("handleDraftOnCurrentPage(activeDraft, false)", filler)
         html = self.client.get(f"/eoffice/{self.create_phieu()}").get_data(as_text=True)
         self.assertIn("preparingQt82 = false;", html)
         self.assertIn("if (prepareButton && qt82Draft && qt82Draft.ready) prepareButton.disabled = false;", html)
+
+    def test_eoffice_index_redirects_to_latest_existing_phieu(self):
+        self.login(role="admin")
+        older_id = self.create_phieu(doc_num="2500000001")
+        latest_id = self.create_phieu(doc_num="2500000002")
+
+        response = self.client.get("/eoffice", follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith(f"/eoffice/{latest_id}"))
+
+        self.client.delete(f"/api/delete/{latest_id}")
+        response = self.client.get("/eoffice", follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith(f"/eoffice/{older_id}"))
 
     def test_missing_sap_document_uses_1234_without_falling_back_to_bk(self):
         self.login(role="admin")

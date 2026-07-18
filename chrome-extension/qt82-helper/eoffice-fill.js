@@ -155,19 +155,33 @@
   }
 
   function findQt82WorkflowTile() {
-    const candidates = Array.from(document.querySelectorAll(
+    const labels = Array.from(document.querySelectorAll(
       "a, button, [role='button'], [onclick], div, span, p, h1, h2, h3, h4, h5",
     )).filter(isVisible).filter((element) => {
       const text = elementText(element);
       return text.length <= 120 && qt82WorkflowTextMatches(text);
     }).sort((a, b) => elementText(a).length - elementText(b).length);
-    if (!candidates.length) return null;
+    if (!labels.length) return null;
 
-    const label = candidates[0];
+    const label = labels[0];
+    const rankedTargets = [];
     let node = label;
     for (let depth = 0; node && depth < 7; depth += 1, node = node.parentElement) {
       const tag = String(node.tagName || "").toLowerCase();
       const style = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      const className = safeClassName(node).toLowerCase();
+      const looksLikeCard = rect.width >= 180 && rect.height >= 90
+        && rect.width <= 520 && rect.height <= 360
+        && normalizeText(elementText(node)).includes("qt82")
+        && (
+          className.includes("card")
+          || className.includes("item")
+          || className.includes("workflow")
+          || className.includes("process")
+          || style.cursor === "pointer"
+        );
+      if (looksLikeCard) rankedTargets.push({element: node, score: 1000 - depth});
       if (
         tag === "a"
         || tag === "button"
@@ -175,25 +189,67 @@
         || node.hasAttribute("onclick")
         || node.tabIndex >= 0
         || style.cursor === "pointer"
-      ) return node;
+      ) rankedTargets.push({element: node, score: 800 - depth});
     }
-    // Click vào nhãn vẫn làm sự kiện nổi bọt đến thẻ cha nếu eOffice gắn handler bằng JavaScript.
-    return label;
+    rankedTargets.push({element: label, score: 1});
+    rankedTargets.sort((a, b) => b.score - a.score);
+    return rankedTargets[0].element;
+  }
+
+  function directHrefFromTarget(target) {
+    let node = target;
+    for (let depth = 0; node && depth < 5; depth += 1, node = node.parentElement) {
+      if (node.href && /^https:\/\/eoffice\.pnj\.com\.vn\/workflow\//i.test(node.href)) return node.href;
+      const link = node.querySelector && node.querySelector("a[href*='/workflow/']");
+      if (link && link.href && /^https:\/\/eoffice\.pnj\.com\.vn\/workflow\//i.test(link.href)) return link.href;
+    }
+    return "";
   }
 
   function dispatchSingleClick(target) {
     if (!target) return false;
     target.scrollIntoView({behavior: "auto", block: "center", inline: "center"});
     const view = (target.ownerDocument && target.ownerDocument.defaultView) || window;
-    ["pointerdown", "mousedown", "pointerup", "mouseup"].forEach((name) => {
-      target.dispatchEvent(new view.MouseEvent(name, {
+    const rect = target.getBoundingClientRect();
+    const clientX = Math.round(rect.left + rect.width / 2);
+    const clientY = Math.round(rect.top + rect.height / 2);
+    const centerTarget = document.elementFromPoint(clientX, clientY) || target;
+    const targets = [centerTarget, target].filter((item, index, items) => item && items.indexOf(item) === index);
+    targets.forEach((clickTarget) => {
+      ["pointerdown", "mousedown", "pointerup", "mouseup", "click"].forEach((name) => {
+        clickTarget.dispatchEvent(new view.MouseEvent(name, {
+          bubbles: true,
+          cancelable: true,
+          view,
+          button: 0,
+          buttons: name.endsWith("down") ? 1 : 0,
+          clientX,
+          clientY,
+        }));
+      });
+    });
+    if (typeof target.click === "function") target.click();
+    const href = directHrefFromTarget(target);
+    if (href) {
+      setTimeout(() => {
+        if (window.location.href === CREATE_WORKFLOW_URL) window.location.assign(href);
+      }, 1200);
+    }
+    return true;
+  }
+
+  function dispatchDoubleClick(target) {
+    if (!target) return false;
+    const view = (target.ownerDocument && target.ownerDocument.defaultView) || window;
+    const rect = target.getBoundingClientRect();
+    target.dispatchEvent(new view.MouseEvent("dblclick", {
         bubbles: true,
         cancelable: true,
         view,
         button: 0,
+        clientX: Math.round(rect.left + rect.width / 2),
+        clientY: Math.round(rect.top + rect.height / 2),
       }));
-    });
-    target.click();
     return true;
   }
 
@@ -232,6 +288,15 @@
     renderStatus("Đã tìm thấy QT82. Đang mở form tạo yêu cầu...", [], true);
     const pageUrlBeforeClick = window.location.href;
     dispatchSingleClick(tile);
+    setTimeout(() => {
+      if (
+        window.location.href === pageUrlBeforeClick
+        && activeDraft
+        && String(activeDraft.nonce || "") === nonce
+      ) {
+        dispatchDoubleClick(tile);
+      }
+    }, 1800);
     setTimeout(() => {
       if (
         window.location.href === pageUrlBeforeClick
