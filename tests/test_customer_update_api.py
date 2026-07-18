@@ -179,7 +179,8 @@ class CustomerUpdateApiTests(unittest.TestCase):
         settings_page = self.client.get("/settings")
         self.assertIn(b"btnManageCentralPlants", settings_page.data)
         self.assertIn(b"centralPlantsModal", settings_page.data)
-        self.assertIn(b"btnCopyCentralPlants", self.client.get("/").data)
+        self.assertIn(b"btnCopyCentralPlants", settings_page.data)
+        self.assertNotIn(b"btnCopyCentralPlants", self.client.get("/").data)
         with self.client.session_transaction() as session:
             csrf = session["customer_import_csrf"]
         content = self.identity_xlsx()
