@@ -48,11 +48,14 @@
 
 .sap-table th {
     background: #f0f0f0;
-    font-size: 0.8rem;
+    font-size: 0.76rem;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .sap-table td {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
+    vertical-align: middle;
 }
 
 textarea#sap_data {
@@ -252,6 +255,20 @@ textarea#sap_data {
 .sap-table .col-gio  { width: 15%; }
 .sap-table .col-del  { width: 9%; }
 .sap-table td input { width: 100%; box-sizing: border-box; }
+.sap-table td {
+    padding: 0.25rem;
+}
+.sap-table .form-control-sm {
+    min-height: 30px;
+    padding: 0.16rem 0.32rem;
+    font-size: 0.82rem;
+    line-height: 1.15;
+}
+.sap-table input[type="time"] {
+    padding-left: 0.18rem;
+    padding-right: 0.18rem;
+    font-size: 0.74rem;
+}
 .sap-table tbody tr.sap-row-bk   > td { background-color: #fff7ed; }
 .sap-table tbody tr.sap-row-hd   > td { background-color: #ecfdf5; }
 .sap-table tbody tr.sap-row-coc  > td { background-color: #fff1f2; }
@@ -269,10 +286,10 @@ textarea#sap_data {
     width: 100%;
     min-width: 2.75rem;
     max-width: 4.6rem;
-    min-height: 32px;
+    min-height: 30px;
     padding: 0.18rem 0.32rem;
     border-radius: 999px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 800;
     line-height: 1;
     text-align: center;
@@ -322,6 +339,12 @@ textarea#sap_data {
 .sap-table td:first-child .dropdown {
     display: flex;
     justify-content: center;
+}
+
+.sap-add-row-wrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
 }
 
 .sap-doc-type-bk   { color: #9a3412; background-color: #fed7aa; border-color: #fb923c; }
@@ -488,11 +511,8 @@ textarea#sap_data {
 
             <!-- 3. Thông tin giao dịch -->
             <div class="card mb-3">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <div class="card-header py-2">
                     <span><i class="bi bi-receipt"></i> 3. Thông tin giao dịch</span>
-                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" id="btnAddRow" title="Thêm dòng">
-                        <i class="bi bi-plus-circle"></i> Thêm dòng
-                    </button>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-sm sap-table mb-0">
@@ -500,13 +520,18 @@ textarea#sap_data {
                             <tr>
                                 <th class="col-loai">Loại</th>
                                 <th class="col-soct">Số CT</th>
-                                <th class="text-end col-gt">Giá trị</th>
+                                <th class="col-gt">Giá trị</th>
                                 <th class="col-gio">Giờ</th>
                                 <th class="col-del"></th>
                             </tr>
                         </thead>
                         <tbody id="sapTableBody"></tbody>
                     </table>
+                    <div class="sap-add-row-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-success py-1 px-3" id="btnAddRow" title="Thêm dòng">
+                            <i class="bi bi-plus-circle"></i> Thêm dòng
+                        </button>
+                    </div>
 
                     <div class="summary-box mt-2" id="summaryBox" style="display:none;">
                         <div id="summaryContent"></div>
