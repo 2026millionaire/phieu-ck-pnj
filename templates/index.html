@@ -64,7 +64,7 @@ textarea#sap_data {
 }
 
 #phieuForm {
-    font-size: 75%;
+    font-size: 0.75rem;
 }
 
 #phieuForm .card-header,
@@ -83,12 +83,24 @@ textarea#sap_data {
 }
 
 #phieuForm .card-header {
-    font-size: 1rem;
+    font-size: inherit;
 }
 
 #phieuForm .form-control,
 #phieuForm .btn {
     line-height: 1.2;
+}
+
+#phieuForm [style*="font-size"],
+#phieuForm .sap-table .form-control-sm,
+#phieuForm .sap-table input[type="time"],
+#phieuForm .sap-doc-type-btn,
+#phieuForm .sap-doc-type-option,
+#phieuForm .sap-doc-type-mini,
+#phieuForm .summary-label,
+#phieuForm .summary-value,
+#phieuForm .tvv-quick-tag {
+    font-size: inherit !important;
 }
 
 .sap-toggle .when-expanded { display: none; }
