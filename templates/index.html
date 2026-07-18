@@ -409,11 +409,7 @@ textarea#sap_data {
     .sap-table {
         table-layout: auto;
         border-collapse: separate;
-        border-spacing: 0 0.35rem;
-    }
-
-    .sap-table thead {
-        display: none;
+        border-spacing: 0 0.25rem;
     }
 
     .sap-table tbody,
@@ -423,15 +419,46 @@ textarea#sap_data {
         border: 0 !important;
     }
 
-    .sap-table tbody tr {
-        display: flex;
-        flex-wrap: wrap;
+    .sap-table thead,
+    .sap-table thead tr {
+        display: block;
+    }
+
+    .sap-table thead tr {
+        display: grid;
+        grid-template-columns: 4.15rem repeat(4, minmax(0, 1fr));
+        grid-template-areas: "type doc doc amount time";
+        column-gap: 0.35rem;
         align-items: center;
-        justify-content: flex-start;
-        gap: 0.42rem 0.5rem;
-        padding: 0.5rem;
+    }
+
+    .sap-table thead th {
+        display: block;
+        border: 0 !important;
+        background: #f8fafc;
+        padding: 0.35rem 0.2rem;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .sap-table thead th:nth-child(1) { grid-area: type; }
+    .sap-table thead th:nth-child(2) { grid-area: doc; }
+    .sap-table thead th:nth-child(3) { grid-area: amount; }
+    .sap-table thead th:nth-child(4) { grid-area: time; }
+    .sap-table thead th:nth-child(5) { display: none; }
+
+    .sap-table tbody tr {
+        display: grid;
+        grid-template-columns: 4.15rem repeat(4, minmax(0, 1fr));
+        grid-template-areas:
+            "type doc doc doc doc"
+            ". amount amount time del";
+        align-items: center;
+        column-gap: 0.35rem;
+        row-gap: 0.3rem;
+        padding: 0.42rem 0.35rem;
         border: 1px solid #dbeafe;
-        border-radius: 1rem;
+        border-radius: 0.65rem;
         box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
     }
 
@@ -439,33 +466,28 @@ textarea#sap_data {
         padding: 0;
         background: transparent !important;
         min-width: 0;
-        flex: 0 1 auto;
     }
 
     .sap-table tbody tr > td:nth-child(1) {
-        order: 1;
+        grid-area: type;
     }
 
     .sap-table tbody tr > td:nth-child(2) {
-        order: 2;
-        flex: 1 1 10.5rem;
+        grid-area: doc;
     }
 
     .sap-table tbody tr > td:nth-child(3) {
-        order: 3;
-        flex: 1 1 9.8rem;
-        margin-left: auto;
+        grid-area: amount;
     }
 
     .sap-table tbody tr > td:nth-child(4) {
-        order: 4;
+        grid-area: time;
         display: flex;
         justify-content: flex-end;
-        margin-left: auto;
     }
 
     .sap-table tbody tr > td:nth-child(5) {
-        order: 5;
+        grid-area: del;
         display: flex;
         justify-content: flex-end;
         align-items: center;
@@ -492,10 +514,10 @@ textarea#sap_data {
     .sap-table .sap-doc-number-input,
     .sap-table .sap-amount-input {
         width: 100%;
-        min-height: 2.05rem;
-        padding: 0.22rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.9rem !important;
+        min-height: 1.95rem;
+        padding: 0.2rem 0.45rem;
+        border-radius: 0.45rem;
+        font-size: 0.82rem !important;
         letter-spacing: 0;
     }
 
