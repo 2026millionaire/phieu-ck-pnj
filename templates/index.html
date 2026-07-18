@@ -290,8 +290,8 @@ textarea#sap_data {
 /* Table: fixed layout to enforce column widths */
 .sap-table { table-layout: fixed; }
 .sap-table .col-loai { width: 12%; }
-.sap-table .col-soct { width: 35%; }
-.sap-table .col-gt   { width: 29%; }
+.sap-table .col-soct { width: 32%; }
+.sap-table .col-gt   { width: 32%; }
 .sap-table .col-gio  { width: 15%; }
 .sap-table .col-del  { width: 9%; }
 .sap-table td input { width: 100%; box-sizing: border-box; }
@@ -299,15 +299,25 @@ textarea#sap_data {
     padding: 0.25rem;
 }
 .sap-table .form-control-sm {
-    min-height: 30px;
-    padding: 0.16rem 0.32rem;
-    font-size: 0.82rem;
+    min-height: 28px;
+    padding: 0.14rem 0.18rem;
+    font-size: 0.64rem !important;
     line-height: 1.15;
 }
 .sap-table input[type="time"] {
-    padding-left: 0.18rem;
-    padding-right: 0.18rem;
-    font-size: 0.74rem;
+    padding-left: 0.12rem;
+    padding-right: 0.12rem;
+    font-size: 0.62rem !important;
+}
+.sap-table .sap-doc-number-input,
+.sap-table .sap-amount-input {
+    font-size: 0.64rem !important;
+}
+.sap-table .sap-doc-number-input {
+    letter-spacing: -0.02em;
+}
+.sap-table .sap-amount-input {
+    letter-spacing: -0.035em;
 }
 .sap-table tbody tr.sap-row-bk   > td { background-color: #fff7ed; }
 .sap-table tbody tr.sap-row-hd   > td { background-color: #ecfdf5; }
@@ -1601,9 +1611,9 @@ document.addEventListener('DOMContentLoaded', function() {
             tr.className = 'sap-row-' + getLoaiMeta(item.loai).tone;
             tr.innerHTML =
                 '<td>' + renderLoaiButton(item, idx) + '</td>' +
-                '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" style="font-size:0.8rem;"></td>' +
-                '<td><input type="text" class="form-control form-control-sm text-end sap-edit" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" style="font-size:0.8rem;"></td>' +
-                '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" style="font-size:0.75rem;padding:2px 4px;"></td>' +
+                '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '"></td>' +
+                '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
+                '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
                 '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
             tbody.appendChild(tr);
         });
@@ -1615,11 +1625,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 const field = this.dataset.field;
                 if (field === 'gia_tri') {
                     sapItems[idx].gia_tri = parseFloat(this.value.replace(/[.,\s]/g, '')) || 0;
+                    this.value = sapItems[idx].gia_tri ? formatNum(sapItems[idx].gia_tri) : '';
                 } else if (field === 'gio') {
                     sapItems[idx].gio = todayStr + ' ' + this.value;
                 } else {
                     sapItems[idx][field] = this.value;
                 }
+                updateSummary();
+            });
+        });
+
+        tbody.querySelectorAll('.sap-amount-input').forEach(function(el) {
+            el.addEventListener('blur', function() {
+                const idx = parseInt(this.dataset.idx);
+                sapItems[idx].gia_tri = parseFloat(this.value.replace(/[.,\s]/g, '')) || 0;
+                this.value = sapItems[idx].gia_tri ? formatNum(sapItems[idx].gia_tri) : '';
                 updateSummary();
             });
         });
