@@ -140,6 +140,14 @@
     window.location.replace(CREATE_WORKFLOW_URL);
   }
 
+  function redirectForDraft(draft) {
+    if (window.top !== window) return;
+    const targetUrl = draft && draft.openMode === "deeplink" && draft.formUrl
+      ? draft.formUrl
+      : CREATE_WORKFLOW_URL;
+    window.location.replace(targetUrl);
+  }
+
   function qt82WorkflowTextMatches(value) {
     const text = normalizeText(value);
     return text === "qt82 quy trinh thanh toan"
@@ -810,7 +818,16 @@
       activeDraft = null;
       panel.remove();
     });
-    [diagnostic, retry, clear].forEach((button) => {
+    const disable = document.createElement("button");
+    disable.type = "button";
+    disable.textContent = "Tắt helper";
+    disable.addEventListener("click", () => {
+      chrome.runtime.sendMessage({type: "DISABLE_HELPER"});
+      if (activeDraft && activeDraft.templateFile) activeDraft.templateFile.base64 = "";
+      activeDraft = null;
+      panel.remove();
+    });
+    [diagnostic, retry, clear, disable].forEach((button) => {
       button.style.cssText = "border:1px solid #b8c2d1;background:#fff;border-radius:5px;padding:5px 9px;cursor:pointer";
       buttons.appendChild(button);
     });
@@ -905,8 +922,9 @@
       return;
     }
     if (isKnownNonFormWorkflowPage() || !(await waitForQt82FormPage(20000))) {
-      renderStatus("Trang hiện tại chưa phải QT82. Đang chuyển đến Tạo yêu cầu...", [], true);
-      redirectToWorkflowHub();
+      const targetText = draft.openMode === "deeplink" ? "form QT82" : "Tạo yêu cầu";
+      renderStatus(`Trang hiện tại chưa phải QT82. Đang chuyển đến ${targetText}...`, [], true);
+      redirectForDraft(draft);
       return;
     }
     await fillDraft(draft);
@@ -932,6 +950,7 @@
         setTimeout(() => requestDraft(attempt + 1), 750);
         return;
       }
+      if (response && response.disabled) return;
       if (window.top === window) {
         renderStatus(
           response && response.expired

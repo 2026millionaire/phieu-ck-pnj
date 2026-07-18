@@ -1,4 +1,5 @@
 const DRAFT_KEY = "pnjQt82Draft";
+const DISABLED_KEY = "pnjQt82Disabled";
 const DRAFT_TTL_MS = 5 * 60 * 1000;
 const DRAFT_EXPIRY_ALARM = "pnjQt82DraftExpiry";
 const MAX_TEMPLATE_BYTES = 1024 * 1024;
@@ -52,6 +53,7 @@ function validDraft(draft) {
     && typeof draft.nonce === "string"
     && draft.nonce.length >= 8
     && validEofficeFormUrl(draft.formUrl)
+    && (draft.openMode === undefined || draft.openMode === "workflow" || draft.openMode === "deeplink")
     && validTemplateFile(draft.templateFile)
     && Array.isArray(draft.detailDocuments)
     && draft.detailDocuments.length <= 50
@@ -98,11 +100,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       draft: message.draft,
       expiresAt: Date.now() + DRAFT_TTL_MS,
     };
+    const openUrl = message.draft.openMode === "deeplink" ? message.draft.formUrl : CREATE_WORKFLOW_URL;
     chrome.storage.session.set({[DRAFT_KEY]: envelope})
+      .then(() => chrome.storage.session.remove(DISABLED_KEY))
       .then(() => chrome.alarms.create(DRAFT_EXPIRY_ALARM, {when: envelope.expiresAt}))
-      // Luôn đi qua danh mục quy trình để eOffice tự cấp link tạo QT82 hiện hành.
-      // Link sâu NewWorkflow vẫn nằm trong draft để dùng làm phương án thủ công.
-      .then(() => chrome.tabs.create({url: CREATE_WORKFLOW_URL}))
+      .then(() => chrome.tabs.create({url: openUrl}))
       .then(() => sendResponse({ok: true}))
       .catch(() => sendResponse({ok: false, error: "Không thể mở QT82."}));
     return true;
@@ -113,7 +115,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ok: false});
       return false;
     }
-    chrome.storage.session.get(DRAFT_KEY).then((stored) => {
+    chrome.storage.session.get([DRAFT_KEY, DISABLED_KEY]).then((stored) => {
+      if (stored[DISABLED_KEY]) {
+        sendResponse({ok: false, disabled: true});
+        return;
+      }
       const envelope = stored[DRAFT_KEY];
       if (!envelope || envelope.expiresAt <= Date.now() || !validDraft(envelope.draft)) {
         clearStoredDraft();
@@ -131,6 +137,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
     clearStoredDraft()
+      .then(() => sendResponse({ok: true}))
+      .catch(() => sendResponse({ok: false}));
+    return true;
+  }
+
+  if (message.type === "DISABLE_HELPER") {
+    if (!isAllowedEofficeSender(sender)) {
+      sendResponse({ok: false});
+      return false;
+    }
+    clearStoredDraft()
+      .then(() => chrome.storage.session.set({[DISABLED_KEY]: true}))
       .then(() => sendResponse({ok: true}))
       .catch(() => sendResponse({ok: false}));
     return true;

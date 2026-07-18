@@ -76,6 +76,10 @@
                         <span class="badge bg-secondary" id="qt82ExtensionStatus">Đang kiểm tra...</span>
                     </div>
                     <div class="small text-muted mb-2">Tiện ích mở trang Tạo yêu cầu, chọn QT82 rồi mới điền. Dữ liệu chỉ được giữ tạm trong bộ nhớ Chrome tối đa 5 phút.</div>
+                    <div class="form-check form-switch small mb-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="qt82UseWorkflowHub" checked>
+                        <label class="form-check-label" for="qt82UseWorkflowHub">Đi từ Tạo yêu cầu rồi chọn QT82</label>
+                    </div>
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-primary" id="btnPrepareQt82" {% if not qt82_payload.ready %}disabled{% endif %}>
                             <i class="bi bi-box-arrow-up-right"></i> Mở Tạo yêu cầu và điền QT82
@@ -252,6 +256,8 @@ if (prepareButton && qt82Draft) {
         if (preparingQt82) return;
         preparingQt82 = true;
         prepareButton.disabled = true;
+        const useWorkflowHub = document.getElementById('qt82UseWorkflowHub');
+        const openMode = !useWorkflowHub || useWorkflowHub.checked ? 'workflow' : 'deeplink';
         setBridgeMessage('Đang tạo và kiểm tra Template TT trong bộ nhớ...', 'muted');
         try {
             const templateFile = await loadTemplateIntoMemory();
@@ -259,6 +265,7 @@ if (prepareButton && qt82Draft) {
                 desiredDate: browserToday(),
                 issuedAt: Date.now(),
                 nonce: window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+                openMode: openMode,
                 templateFile: templateFile
             });
             setBridgeMessage('Đang chuyển bản nháp và Template TT sang tiện ích Chrome...', 'muted');
