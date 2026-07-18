@@ -405,126 +405,6 @@ textarea#sap_data {
 .sap-doc-type-thu  { color: #0f766e; background-color: #99f6e4; border-color: #2dd4bf; }
 .sap-doc-type-chi  { color: #6d28d9; background-color: #ddd6fe; border-color: #a78bfa; }
 
-@media (max-width: 575.98px) {
-    .sap-table {
-        table-layout: auto;
-        border-collapse: separate;
-        border-spacing: 0 0.45rem;
-    }
-
-    .sap-table thead {
-        display: none;
-    }
-
-    .sap-table tbody,
-    .sap-table tr,
-    .sap-table td {
-        display: block;
-        border: 0 !important;
-    }
-
-    .sap-table tbody tr {
-        display: grid;
-        grid-template-columns: 4.2rem minmax(0, 1fr);
-        grid-template-areas:
-            "type doc"
-            "type amount"
-            "type footer";
-        column-gap: 0.55rem;
-        row-gap: 0.35rem;
-        padding: 0.55rem;
-        border: 1px solid #dbeafe;
-        border-radius: 1rem;
-        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
-    }
-
-    .sap-table tbody tr > td {
-        padding: 0;
-        background: transparent !important;
-        min-width: 0;
-    }
-
-    .sap-table tbody tr > td:nth-child(1) {
-        grid-area: type;
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        padding-top: 0.1rem;
-    }
-
-    .sap-table tbody tr > td:nth-child(2) {
-        grid-area: doc;
-    }
-
-    .sap-table tbody tr > td:nth-child(3) {
-        grid-area: amount;
-    }
-
-    .sap-table tbody tr > td:nth-child(4) {
-        grid-area: footer;
-        display: flex;
-        justify-content: flex-end;
-    }
-
-    .sap-table tbody tr > td:nth-child(5) {
-        grid-area: footer;
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        padding-left: 4.5rem;
-        pointer-events: none;
-    }
-
-    .sap-table tbody tr > td:nth-child(4) input {
-        width: 5.2rem;
-        margin-right: 2.55rem;
-    }
-
-    .sap-table tbody tr > td:nth-child(5) .sap-del {
-        pointer-events: auto;
-        min-width: 2.05rem;
-        min-height: 2.05rem;
-        margin-top: -2.05rem;
-    }
-
-    .sap-doc-type-dropdown,
-    .sap-doc-type-btn {
-        width: 4.15rem;
-        max-width: 4.15rem;
-        min-width: 4.15rem;
-    }
-
-    .sap-doc-type-btn {
-        min-height: 2.25rem;
-        font-size: 0.8rem !important;
-    }
-
-    .sap-table .sap-doc-number-input,
-    .sap-table .sap-amount-input {
-        width: 100%;
-        min-height: 2.05rem;
-        padding: 0.22rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.9rem !important;
-        letter-spacing: 0;
-    }
-
-    .sap-table .sap-doc-number-input {
-        text-align: left;
-    }
-
-    .sap-table .sap-amount-input {
-        text-align: right !important;
-    }
-
-    .sap-table input[type="time"] {
-        min-height: 2.05rem;
-        border-radius: 999px;
-        font-size: 0.82rem !important;
-        text-align: center;
-    }
-}
-
 /* Mobile: hide preview */
 @media (max-width: 991px) {
     .preview-col { display: none !important; }
@@ -1779,14 +1659,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Delete handlers
         tbody.querySelectorAll('.sap-del').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                const idx = parseInt(this.dataset.idx);
-                const item = sapItems[idx] || {};
-                const message = 'Xóa dòng chứng từ này?\n\n'
-                    + (item.loai || 'Chứng từ')
-                    + (item.so_ct ? ' - ' + item.so_ct : '')
-                    + (item.gia_tri ? ' - ' + formatNum(item.gia_tri) : '');
-                if (!confirm(message)) return;
-                sapItems.splice(idx, 1);
+                sapItems.splice(parseInt(this.dataset.idx), 1);
                 renderSapTable(sapItems);
             });
         });
