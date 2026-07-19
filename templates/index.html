@@ -496,7 +496,7 @@ textarea#sap_data {
     .sap-table {
         table-layout: auto;
         border-collapse: separate;
-        border-spacing: 0 0.35rem;
+        border-spacing: 0 0.25rem;
     }
 
     .sap-table thead {
@@ -512,11 +512,19 @@ textarea#sap_data {
     }
 
     .sap-table tbody tr {
-        padding: 0.45rem;
-        border: 1px solid #dbeafe;
+        padding: 0.3rem 0.35rem;
+        border: 1px solid #dbeafe !important;
         border-radius: 0.65rem;
         box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
     }
+
+    .sap-table tbody tr.sap-row-bk { background-color: #fff7ed; border-color: #fed7aa !important; }
+    .sap-table tbody tr.sap-row-hd { background-color: #ecfdf5; border-color: #bbf7d0 !important; }
+    .sap-table tbody tr.sap-row-coc { background-color: #fff1f2; border-color: #fecdd3 !important; }
+    .sap-table tbody tr.sap-row-hbtl { background-color: #fdf2f8; border-color: #fbcfe8 !important; }
+    .sap-table tbody tr.sap-row-tncn { background-color: #eff6ff; border-color: #bfdbfe !important; }
+    .sap-table tbody tr.sap-row-thu { background-color: #f0fdfa; border-color: #99f6e4 !important; }
+    .sap-table tbody tr.sap-row-chi { background-color: #f5f3ff; border-color: #ddd6fe !important; }
 
     .sap-table tbody tr > td {
         padding: 0;
@@ -524,7 +532,7 @@ textarea#sap_data {
     }
 
     .sap-mobile-row {
-        gap: 0.35rem;
+        gap: 0.2rem;
     }
 
     .sap-mobile-top-row,
@@ -545,12 +553,12 @@ textarea#sap_data {
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: 0.35rem;
+        gap: 0.25rem;
     }
 
     .sap-mobile-field-labels {
         color: #94a3b8;
-        font-size: 0.72rem;
+        font-size: 0.68rem;
         font-weight: 600;
         text-align: center;
     }
@@ -562,16 +570,20 @@ textarea#sap_data {
     .sap-mobile-inputs input {
         width: 100%;
         min-width: 0;
-        min-height: 32px !important;
-        padding: 0.2rem 0.45rem;
+        min-height: 28px !important;
+        padding: 0.14rem 0.4rem;
         border-radius: 0.45rem;
         font-size: 0.82rem !important;
         letter-spacing: 0;
     }
 
+    .sap-mobile-inputs .sap-doc-number-input {
+        text-align: center;
+    }
+
     .sap-mobile-time-input {
         width: 5.2rem;
-        min-height: 32px;
+        min-height: 28px;
         border-radius: 999px;
         font-size: 0.82rem !important;
         text-align: center;
@@ -579,7 +591,12 @@ textarea#sap_data {
 
     .sap-mobile-remove {
         min-width: 2rem;
-        min-height: 32px;
+        min-height: 28px;
+        padding: 0.12rem 0.42rem;
+    }
+
+    .sap-doc-type-btn {
+        min-height: 28px;
     }
 }
 
