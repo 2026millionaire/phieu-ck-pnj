@@ -391,9 +391,9 @@ textarea#sap_data {
 }
 
 .sap-mobile-fields {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
-    flex-wrap: wrap;
     width: 100%;
 }
 
@@ -401,7 +401,6 @@ textarea#sap_data {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    flex: 1 1 48%;
     min-width: 0;
 }
 
