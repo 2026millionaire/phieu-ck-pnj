@@ -311,7 +311,7 @@ textarea#sap_data {
 }
 .sap-table .sap-doc-number-input,
 .sap-table .sap-amount-input {
-    font-size: 0.512rem !important;
+    font-size: 0.64rem !important;
 }
 .sap-table .sap-doc-number-input {
     letter-spacing: -0.02em;
@@ -326,6 +326,70 @@ textarea#sap_data {
 .sap-table tbody tr.sap-row-tncn > td { background-color: #eff6ff; }
 .sap-table tbody tr.sap-row-thu  > td { background-color: #f0fdfa; }
 .sap-table tbody tr.sap-row-chi  > td { background-color: #f5f3ff; }
+
+.sap-mobile-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.sap-mobile-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.sap-mobile-top-row .sap-doc-type-dropdown {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.sap-mobile-top-row .sap-mobile-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    font-size: 0.82rem;
+    color: #475569;
+}
+
+.sap-mobile-top-row .sap-mobile-time input {
+    width: 5.2rem;
+    min-height: 38px;
+    padding: 0.4rem 0.45rem;
+    font-size: 0.82rem !important;
+}
+
+.sap-mobile-top-row .sap-mobile-remove {
+    flex-shrink: 0;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #b91c1c;
+    font-weight: 700;
+}
+
+.sap-mobile-fields {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sap-mobile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.sap-mobile-field-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+}
 
 .sap-doc-type-dropdown {
     width: 100%;
@@ -404,6 +468,139 @@ textarea#sap_data {
 .sap-doc-type-tncn { color: #1d4ed8; background-color: #bfdbfe; border-color: #60a5fa; }
 .sap-doc-type-thu  { color: #0f766e; background-color: #99f6e4; border-color: #2dd4bf; }
 .sap-doc-type-chi  { color: #6d28d9; background-color: #ddd6fe; border-color: #a78bfa; }
+
+@media (max-width: 360px) {
+    .sap-table {
+        table-layout: auto;
+        border-collapse: separate;
+        border-spacing: 0 0.25rem;
+    }
+
+    .sap-table tbody,
+    .sap-table tr,
+    .sap-table td {
+        display: block;
+        border: 0 !important;
+    }
+
+    .sap-table thead,
+    .sap-table thead tr {
+        display: block;
+    }
+
+    .sap-table thead tr {
+        display: grid;
+        grid-template-columns: 4.15rem repeat(4, minmax(0, 1fr));
+        grid-template-areas: "type doc doc amount time";
+        column-gap: 0.35rem;
+        align-items: center;
+    }
+
+    .sap-table thead th {
+        display: block;
+        border: 0 !important;
+        background: #f8fafc;
+        padding: 0.35rem 0.2rem;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .sap-table thead th:nth-child(1) { grid-area: type; }
+    .sap-table thead th:nth-child(2) { grid-area: doc; }
+    .sap-table thead th:nth-child(3) { grid-area: amount; }
+    .sap-table thead th:nth-child(4) { grid-area: time; }
+    .sap-table thead th:nth-child(5) { display: none; }
+
+    .sap-table tbody tr {
+        display: grid;
+        grid-template-columns: 4.15rem repeat(4, minmax(0, 1fr));
+        grid-template-areas:
+            "type doc doc doc doc"
+            ". amount amount time del";
+        align-items: center;
+        column-gap: 0.35rem;
+        row-gap: 0.3rem;
+        padding: 0.42rem 0.35rem;
+        border: 1px solid #dbeafe;
+        border-radius: 0.65rem;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+    }
+
+    .sap-table tbody tr > td {
+        padding: 0;
+        background: transparent !important;
+        min-width: 0;
+    }
+
+    .sap-table tbody tr > td:nth-child(1) {
+        grid-area: type;
+    }
+
+    .sap-table tbody tr > td:nth-child(2) {
+        grid-area: doc;
+    }
+
+    .sap-table tbody tr > td:nth-child(3) {
+        grid-area: amount;
+    }
+
+    .sap-table tbody tr > td:nth-child(4) {
+        grid-area: time;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .sap-table tbody tr > td:nth-child(5) {
+        grid-area: del;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        pointer-events: auto;
+    }
+
+    .sap-table tbody tr > td:nth-child(5) .sap-del {
+        min-width: 2.05rem;
+        min-height: 2.05rem;
+    }
+
+    .sap-doc-type-dropdown,
+    .sap-doc-type-btn {
+        width: 4.15rem;
+        max-width: 4.15rem;
+        min-width: 4.15rem;
+    }
+
+    .sap-doc-type-btn {
+        min-height: 2.25rem;
+        font-size: 0.8rem !important;
+    }
+
+    .sap-table .sap-doc-number-input,
+    .sap-table .sap-amount-input {
+        width: 100%;
+        min-height: 1.95rem;
+        padding: 0.2rem 0.45rem;
+        border-radius: 0.45rem;
+        font-size: 0.82rem !important;
+        letter-spacing: 0;
+    }
+
+    .sap-table .sap-doc-number-input {
+        text-align: left;
+    }
+
+    .sap-table .sap-amount-input {
+        text-align: right !important;
+    }
+
+    .sap-table input[type="time"] {
+        width: 5.2rem;
+        min-height: 2.05rem;
+        border-radius: 999px;
+        font-size: 0.82rem !important;
+        text-align: center;
+    }
+}
 
 /* Mobile: hide preview */
 @media (max-width: 991px) {
@@ -1609,12 +1806,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const tr = document.createElement('tr');
             tr.className = 'sap-row-' + getLoaiMeta(item.loai).tone;
-            tr.innerHTML =
-                '<td>' + renderLoaiButton(item, idx) + '</td>' +
-                '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '"></td>' +
-                '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
-                '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
-                '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
+            const isMobile = window.matchMedia('(max-width: 360px)').matches;
+            if (isMobile) {
+                tr.innerHTML =
+                    '<td colspan="5">' +
+                    '<div class="sap-mobile-row">' +
+                    '<div class="sap-mobile-top-row">' +
+                    '<div>' + renderLoaiButton(item, idx) + '</div>' +
+                    '<div class="sap-mobile-time">' +
+                    '<label class="visually-hidden" for="sapTime' + idx + '">Giờ</label>' +
+                    '<input type="time" class="form-control form-control-sm sap-edit" id="sapTime' + idx + '" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '">' +
+                    '<button type="button" class="sap-mobile-remove sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="sap-mobile-fields">' +
+                    '<div class="sap-mobile-field">' +
+                    '<span class="sap-mobile-field-label">Số CT</span>' +
+                    '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
+                    '</div>' +
+                    '<div class="sap-mobile-field">' +
+                    '<span class="sap-mobile-field-label">Số tiền</span>' +
+                    '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
+                    '</div>' +
+                    '</div>' +
+                    '</div>' +
+                    '</td>';
+            } else {
+                tr.innerHTML =
+                    '<td>' + renderLoaiButton(item, idx) + '</td>' +
+                    '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '"></td>' +
+                    '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
+                    '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
+                    '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-secondary sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button></td>';
+            }
             tbody.appendChild(tr);
         });
 
@@ -1659,7 +1883,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Delete handlers
         tbody.querySelectorAll('.sap-del').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                sapItems.splice(parseInt(this.dataset.idx), 1);
+                const idx = parseInt(this.dataset.idx);
+                const item = sapItems[idx] || {};
+                const message = 'Xóa dòng chứng từ này?\n\n'
+                    + (item.loai || 'Chứng từ')
+                    + (item.so_ct ? ' - ' + item.so_ct : '')
+                    + (item.gia_tri ? ' - ' + formatNum(item.gia_tri) : '');
+                if (!confirm(message)) return;
+                sapItems.splice(idx, 1);
                 renderSapTable(sapItems);
             });
         });
