@@ -407,8 +407,8 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertIn('id="bankDropdown" class="dropdown-menu search-dropup-menu w-100"', user_html)
         self.assertIn('id="tvvDropdown" class="dropdown-menu search-dropup-menu w-100"', user_html)
         self.assertIn('placeholder="Nhập thông tin TVV"', user_html)
-        self.assertNotIn('sapDataCollapse', user_html)
-        self.assertNotIn('id="sap_data"', user_html)
+        self.assertIn('aria-expanded="false" aria-controls="sapDataCollapse"', user_html)
+        self.assertIn('<div class="collapse" id="sapDataCollapse">', user_html)
 
         settings_page = self.client.get("/settings")
         settings_get = self.client.get("/api/settings")
