@@ -98,6 +98,13 @@
                                 Hiển thị dòng "Thời gian thanh toán" trên phiếu in
                             </label>
                         </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="s_tvv_button_color_mode"
+                                   {% if settings.get('tvv_button_color_mode', '0') == '1' %}checked{% endif %}>
+                            <label class="form-check-label" for="s_tvv_button_color_mode">
+                                Bật màu pastel cho nút TVV (không tích = màu đen trắng mặc định)
+                            </label>
+                        </div>
                         <small class="text-muted">Bỏ tick để ẩn dòng thời gian thanh toán theo biểu mẫu mới.</small>
                     </div>
                 </div>
@@ -351,6 +358,7 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         kt2_short_name: document.getElementById('s_kt2_short_name').value.trim(),
         thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
         show_payment_time: document.getElementById('s_show_payment_time').checked ? '1' : '0',
+        tvv_button_color_mode: document.getElementById('s_tvv_button_color_mode').checked ? '1' : '0',
         plant: document.getElementById('s_plant').value.trim(),
     };
     // Admin-only fields

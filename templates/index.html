@@ -1010,6 +1010,11 @@ textarea#sap_data {
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
 {% endif %}
 <script>
+    // Initialize app settings from server
+    window.__appSettings = {
+        tvv_button_color_mode: '{{ settings.get("tvv_button_color_mode", "0") }}'
+    };
+
 document.addEventListener('DOMContentLoaded', function() {
     const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
     const appUrl = (path) => appBasePath + path;
@@ -1520,6 +1525,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderTvvQuickTags() {
         tvvQuickTags.replaceChildren();
+        const usePastel = window.__appSettings?.tvv_button_color_mode === '1';
         allTvv.forEach(function(tvv) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -1527,7 +1533,9 @@ document.addEventListener('DOMContentLoaded', function() {
             button.textContent = tvv.ma;
             button.dataset.ma = tvv.ma;
             button.dataset.ten = tvv.ten;
-            button.style.setProperty('--tvv-hue', pastelHueForTvv(tvv.ma));
+            if (usePastel) {
+                button.style.setProperty('--tvv-hue', pastelHueForTvv(tvv.ma));
+            }
             button.title = `E01${tvv.ma} - ${tvv.ten}`;
             button.setAttribute('aria-label', `Chọn TVV ${tvv.ma} - ${tvv.ten}`);
             tvvQuickTags.appendChild(button);

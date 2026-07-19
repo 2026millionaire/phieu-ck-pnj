@@ -438,6 +438,7 @@ def init_db():
         "mb_password": "",
         "mb_account": "",
         "bk_prefix": "4403",
+        "tvv_button_color_mode": "0",
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
