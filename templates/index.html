@@ -496,54 +496,23 @@ textarea#sap_data {
     .sap-table {
         table-layout: auto;
         border-collapse: separate;
-        border-spacing: 0 0.25rem;
+        border-spacing: 0 0.35rem;
+    }
+
+    .sap-table thead {
+        display: none;
     }
 
     .sap-table tbody,
     .sap-table tr,
     .sap-table td {
         display: block;
+        width: 100%;
         border: 0 !important;
     }
-
-    .sap-table thead,
-    .sap-table thead tr {
-        display: block;
-    }
-
-    .sap-table thead tr {
-        display: grid;
-        grid-template-columns: 4.15rem repeat(4, minmax(0, 1fr));
-        grid-template-areas: "type doc doc amount time";
-        column-gap: 0.35rem;
-        align-items: center;
-    }
-
-    .sap-table thead th {
-        display: block;
-        border: 0 !important;
-        background: #f8fafc;
-        padding: 0.35rem 0.2rem;
-        text-align: center;
-        white-space: nowrap;
-    }
-
-    .sap-table thead th:nth-child(1) { grid-area: type; }
-    .sap-table thead th:nth-child(2) { grid-area: doc; }
-    .sap-table thead th:nth-child(3) { grid-area: amount; }
-    .sap-table thead th:nth-child(4) { grid-area: time; }
-    .sap-table thead th:nth-child(5) { display: none; }
 
     .sap-table tbody tr {
-        display: grid;
-        grid-template-columns: 4.15rem repeat(4, minmax(0, 1fr));
-        grid-template-areas:
-            "type doc doc doc doc"
-            ". amount amount time del";
-        align-items: center;
-        column-gap: 0.35rem;
-        row-gap: 0.3rem;
-        padding: 0.42rem 0.35rem;
+        padding: 0.45rem;
         border: 1px solid #dbeafe;
         border-radius: 0.65rem;
         box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
@@ -552,76 +521,65 @@ textarea#sap_data {
     .sap-table tbody tr > td {
         padding: 0;
         background: transparent !important;
-        min-width: 0;
     }
 
-    .sap-table tbody tr > td:nth-child(1) {
-        grid-area: type;
+    .sap-mobile-row {
+        gap: 0.35rem;
     }
 
-    .sap-table tbody tr > td:nth-child(2) {
-        grid-area: doc;
-    }
-
-    .sap-table tbody tr > td:nth-child(3) {
-        grid-area: amount;
-    }
-
-    .sap-table tbody tr > td:nth-child(4) {
-        grid-area: time;
-        display: flex;
-        justify-content: flex-end;
-    }
-
-    .sap-table tbody tr > td:nth-child(5) {
-        grid-area: del;
-        display: flex;
-        justify-content: flex-end;
+    .sap-mobile-top-row,
+    .sap-mobile-field-labels,
+    .sap-mobile-inputs {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        column-gap: 0.5rem;
         align-items: center;
-        pointer-events: auto;
     }
 
-    .sap-table tbody tr > td:nth-child(5) .sap-del {
-        min-width: 2.05rem;
-        min-height: 2.05rem;
-    }
-
-    .sap-doc-type-dropdown,
-    .sap-doc-type-btn {
-        width: 4.15rem;
-        max-width: 4.15rem;
-        min-width: 4.15rem;
-    }
-
-    .sap-doc-type-btn {
-        min-height: 2.25rem;
-        font-size: 0.8rem !important;
-    }
-
-    .sap-table .sap-doc-number-input,
-    .sap-table .sap-amount-input {
+    .sap-mobile-top-row > :first-child {
+        justify-self: center;
         width: 100%;
-        min-height: 1.95rem;
+    }
+
+    .sap-mobile-actions {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .sap-mobile-field-labels {
+        color: #94a3b8;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .sap-mobile-field-labels span:last-child {
+        text-align: center;
+    }
+
+    .sap-mobile-inputs input {
+        width: 100%;
+        min-width: 0;
+        min-height: 32px !important;
         padding: 0.2rem 0.45rem;
         border-radius: 0.45rem;
         font-size: 0.82rem !important;
         letter-spacing: 0;
     }
 
-    .sap-table .sap-doc-number-input {
-        text-align: left;
-    }
-
-    .sap-table .sap-amount-input {
-        text-align: right !important;
-    }
-
-    .sap-table input[type="time"] {
+    .sap-mobile-time-input {
         width: 5.2rem;
-        min-height: 2.05rem;
+        min-height: 32px;
         border-radius: 999px;
         font-size: 0.82rem !important;
         text-align: center;
+    }
+
+    .sap-mobile-remove {
+        min-width: 2rem;
+        min-height: 32px;
     }
 }
 
@@ -1844,21 +1802,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<div class="sap-mobile-row">' +
                     '<div class="sap-mobile-top-row">' +
                     '<div>' + renderLoaiButton(item, idx) + '</div>' +
-                    '<div class="sap-mobile-time">' +
+                    '<div class="sap-mobile-actions">' +
                     '<label class="visually-hidden" for="sapTime' + idx + '">Giờ</label>' +
-                    '<input type="time" class="form-control form-control-sm sap-edit" id="sapTime' + idx + '" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '">' +
+                    '<input type="text" class="form-control form-control-sm sap-edit sap-mobile-time-input" id="sapTime' + idx + '" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" inputmode="numeric" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" maxlength="5" placeholder="HH:MM" autocomplete="off">' +
                     '<button type="button" class="sap-mobile-remove sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button>' +
                     '</div>' +
                     '</div>' +
-                    '<div class="sap-mobile-fields">' +
-                    '<div class="sap-mobile-field">' +
-                    '<span class="sap-mobile-field-label">Số CT</span>' +
+                    '<div class="sap-mobile-field-labels"><span>Số CT</span><span>Số tiền</span></div>' +
+                    '<div class="sap-mobile-inputs">' +
                     '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
-                    '</div>' +
-                    '<div class="sap-mobile-field">' +
-                    '<span class="sap-mobile-field-label">Số tiền</span>' +
                     '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
-                    '</div>' +
                     '</div>' +
                     '</div>' +
                     '</td>';
@@ -1868,7 +1821,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<td><input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '"></td>' +
                     '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
                     '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
-                    '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-secondary sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button></td>';
+                    '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
             }
             tbody.appendChild(tr);
         });
@@ -1882,7 +1835,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     sapItems[idx].gia_tri = parseFloat(this.value.replace(/[.,\s]/g, '')) || 0;
                     this.value = sapItems[idx].gia_tri ? formatNum(sapItems[idx].gia_tri) : '';
                 } else if (field === 'gio') {
-                    sapItems[idx].gio = todayStr + ' ' + this.value;
+                    const timeValue = this.value.trim();
+                    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeValue)) {
+                        this.value = timeVal;
+                        return;
+                    }
+                    sapItems[idx].gio = todayStr + ' ' + timeValue;
                 } else {
                     sapItems[idx][field] = this.value;
                 }
