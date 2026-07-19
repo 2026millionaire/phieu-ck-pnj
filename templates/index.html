@@ -496,7 +496,7 @@ textarea#sap_data {
     .sap-table {
         table-layout: auto;
         border-collapse: separate;
-        border-spacing: 0 0.25rem;
+        border-spacing: 0 0.4rem;
     }
 
     .sap-table thead {
@@ -539,7 +539,7 @@ textarea#sap_data {
     .sap-mobile-field-labels,
     .sap-mobile-inputs {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
         column-gap: 0.5rem;
         align-items: center;
     }
@@ -686,7 +686,7 @@ textarea#sap_data {
                             <div class="search-dropup-field">
                                 <div class="input-group input-group-sm">
                                     <input type="text" class="form-control" id="bank_search"
-                                           autocomplete="off" placeholder="Gõ tên/mã NH (VD: VCB, Vietcom...)">
+                                         autocomplete="off" placeholder="Tên ngắn (VCB, Vietcom,...)">
                                     <button class="btn btn-outline-secondary d-none" type="button" id="btnClearBank" title="Xóa ngân hàng">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
@@ -1774,7 +1774,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderLoaiButton(item, idx) {
         const meta = getLoaiMeta(item.loai);
         const buttonId = 'sapDocType' + idx;
-        let html = '<div class="dropdown sap-doc-type-dropdown">'
+        const isMobile = window.matchMedia('(max-width: 360px)').matches;
+        const pickerLoaiOrder = ['Bảng kê', 'Hóa đơn', 'Biên nhận cọc', 'HBTL', 'Thuế TNCN'];
+        // A dropup renders from top to bottom, so reverse the normal picker order.
+        const options = (isMobile ? pickerLoaiOrder.slice().reverse() : pickerLoaiOrder)
+            .map(function(loai) { return getLoaiMeta(loai); });
+        let html = '<div class="dropdown' + (isMobile ? ' dropup' : '') + ' sap-doc-type-dropdown">'
             + '<button type="button" id="' + buttonId + '" '
             + 'class="btn btn-sm sap-doc-type-btn sap-doc-type-' + meta.tone + '" '
             + 'data-bs-toggle="dropdown" aria-expanded="false" '
@@ -1782,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', function() {
             + escapeHtml(meta.short)
             + '</button>'
             + '<div class="dropdown-menu sap-doc-type-menu" aria-labelledby="' + buttonId + '">';
-        loaiMap.forEach(function(opt) {
+        options.forEach(function(opt) {
             html += '<button type="button" class="dropdown-item sap-doc-type-option" '
                 + 'data-idx="' + idx + '" data-loai="' + escapeHtml(opt.value) + '">'
                 + '<span class="sap-doc-type-mini sap-doc-type-' + opt.tone + '">' + escapeHtml(opt.short) + '</span>'
@@ -1821,7 +1826,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<div>' + renderLoaiButton(item, idx) + '</div>' +
                     '<div class="sap-mobile-actions">' +
                     '<label class="visually-hidden" for="sapTime' + idx + '">Giờ</label>' +
-                    '<input type="text" class="form-control form-control-sm sap-edit sap-mobile-time-input" id="sapTime' + idx + '" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '" inputmode="numeric" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" maxlength="5" placeholder="HH:MM" autocomplete="off">' +
+                    '<input type="time" class="form-control form-control-sm sap-edit sap-mobile-time-input" id="sapTime' + idx + '" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '">' +
                     '<button type="button" class="sap-mobile-remove sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button>' +
                     '</div>' +
                     '</div>' +
@@ -2067,6 +2072,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnAddRow').addEventListener('click', function() {
         sapItems.push({ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' });
         renderSapTable(sapItems);
+        if (window.matchMedia('(max-width: 360px)').matches) {
+            requestAnimationFrame(function() {
+                const newTypeButton = document.getElementById('sapDocType' + (sapItems.length - 1));
+                bootstrap.Dropdown.getOrCreateInstance(newTypeButton).show();
+            });
+        }
     });
 
     // ===== Pre-fill ngày hôm nay =====
@@ -2142,6 +2153,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.ok) {
                 const lookupName = splitLookupAccountName(data.accountName);
+                lookupAccountName = data.accountName;
                 nameEl.value = data.accountName;
                 nameEl.style.color = '#0369a1';
                 // Uncheck "Dùng tên KH" vì đã tra được
@@ -2166,10 +2178,26 @@ document.addEventListener('DOMContentLoaded', function() {
         .finally(() => { this.disabled = false; this.innerHTML = '<i class="bi bi-search"></i> Kiểm tra TK'; });
     });
 
-    // Checkbox "Dùng tên KH" → chỉ ảnh hưởng bản in (ten_tk), không thay đổi ô tra cứu
+    // Checkbox "Dùng tên KH" → đổi tạm thời tên hiển thị, không tra cứu lại tài khoản.
+    let lookupAccountName = '';
+    const useCustomerNameCheckbox = document.getElementById('cbUseTenKH');
+    const accountNameInput = document.getElementById('ten_chu_tk');
+
+    useCustomerNameCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            lookupAccountName = accountNameInput.value;
+            accountNameInput.value = document.getElementById('ten_kh').value.trim().toUpperCase();
+        } else {
+            accountNameInput.value = lookupAccountName;
+        }
+        checkNameMatch();
+    });
 
     // Khi thay đổi tên KH → recheck match nếu đã tra cứu
     document.getElementById('ten_kh').addEventListener('input', function() {
+        if (useCustomerNameCheckbox.checked) {
+            accountNameInput.value = this.value.trim().toUpperCase();
+        }
         checkNameMatch();
     });
 
