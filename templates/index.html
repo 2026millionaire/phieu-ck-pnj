@@ -123,23 +123,42 @@ textarea#sap_data {
     border-radius: 999px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: hsl(var(--tvv-hue, 210), 48%, 24%);
-    background-color: hsl(var(--tvv-hue, 210), 72%, 88%);
-    border-color: hsl(var(--tvv-hue, 210), 48%, 67%);
+    color: #000;
+    background-color: #fff;
+    border: 1px solid #d1d5db;
+}
+
+.tvv-quick-tag[style*="--tvv-hue"] {
+    color: hsl(var(--tvv-hue), 48%, 24%);
+    background-color: hsl(var(--tvv-hue), 72%, 88%);
+    border-color: hsl(var(--tvv-hue), 48%, 67%);
 }
 
 .tvv-quick-tag:hover,
 .tvv-quick-tag:focus-visible {
-    color: hsl(var(--tvv-hue, 210), 52%, 20%);
-    background-color: hsl(var(--tvv-hue, 210), 72%, 82%);
-    border-color: hsl(var(--tvv-hue, 210), 52%, 56%);
+    color: #000;
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.tvv-quick-tag[style*="--tvv-hue"]:hover,
+.tvv-quick-tag[style*="--tvv-hue"]:focus-visible {
+    color: hsl(var(--tvv-hue), 52%, 20%);
+    background-color: hsl(var(--tvv-hue), 72%, 82%);
+    border-color: hsl(var(--tvv-hue), 52%, 56%);
 }
 
 .tvv-quick-tag.is-selected {
-    color: hsl(var(--tvv-hue, 210), 58%, 18%);
-    background-color: hsl(var(--tvv-hue, 210), 74%, 76%);
-    border-color: hsl(var(--tvv-hue, 210), 58%, 48%);
-    box-shadow: 0 0 0 2px hsl(var(--tvv-hue, 210), 70%, 90%);
+    color: #000;
+    background-color: #e5e7eb;
+    border-color: #6b7280;
+}
+
+.tvv-quick-tag[style*="--tvv-hue"].is-selected {
+    color: hsl(var(--tvv-hue), 58%, 18%);
+    background-color: hsl(var(--tvv-hue), 74%, 76%);
+    border-color: hsl(var(--tvv-hue), 58%, 48%);
+    box-shadow: 0 0 0 2px hsl(var(--tvv-hue), 70%, 90%);
 }
 
 .tvv-field {
@@ -375,14 +394,19 @@ textarea#sap_data {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 .sap-mobile-field {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    flex: 1 1 0;
+    flex: 1 1 48%;
     min-width: 0;
+}
+
+.sap-mobile-field input {
+    min-height: 38px !important;
 }
 
 .sap-mobile-field-label {
