@@ -104,6 +104,22 @@ class CustomerLookupTests(unittest.TestCase):
         with self.assertRaises(CustomerLookupError):
             self.store.validate_import_files([source])
 
+    def test_accepts_vendor_header_as_customer_code(self):
+        source = self.root / "105570325.txt"
+        source.write_text(
+            "\tSearchTerm\tCty\tPostalCode\tCity\tName 1\tVendor\tDelF\n"
+            "\t0104075985\tVN\t\tTHÀNH PHỐ ĐÀ NẴNG\tSHIN JIYU\t105573549\t\n",
+            encoding="utf-8-sig",
+        )
+        records = list(iter_sap_records(source))
+        self.assertEqual(records[0]["customer"], "105573549")
+        self.assertEqual(records[0]["search_term"], "0104075985")
+        self.assertEqual(records[0]["name_1"], "SHIN JIYU")
+
+        validation = self.store.validate_import_files([source])
+        self.assertEqual(validation["source_rows"], 1)
+        self.assertEqual(validation["max_customer"], 105573549)
+
     def test_sixth_unique_code_requires_captcha(self):
         self.store.initialize()
         session_id = "test-session"

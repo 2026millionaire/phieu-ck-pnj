@@ -196,6 +196,22 @@ def _normalize_header(value: str) -> str:
     return re.sub(r"\s+", "", value).lower()
 
 
+SAP_HEADER_ALIASES = {
+    "searchterm": ("searchterm",),
+    "cty": ("cty",),
+    "name1": ("name1",),
+    "customer": ("customer", "vendor"),
+    "delf": ("delf",),
+}
+
+
+def _header_index(normalized: list[str], logical_name: str) -> int | None:
+    for alias in SAP_HEADER_ALIASES[logical_name]:
+        if alias in normalized:
+            return normalized.index(alias)
+    return None
+
+
 def _source_customer_range(path: Path) -> tuple[int, int] | None:
     match = re.fullmatch(r"([0-9]{9})-([0-9]{9})\.txt", path.name)
     if not match:
@@ -257,8 +273,9 @@ def iter_sap_records(path: Path) -> Iterable[dict[str, str]]:
             if indexes is None:
                 normalized = [_normalize_header(cell) for cell in row]
                 required = ("searchterm", "cty", "name1", "customer", "delf")
-                if all(name in normalized for name in required):
-                    indexes = {name: normalized.index(name) for name in required}
+                found = {name: _header_index(normalized, name) for name in required}
+                if all(index is not None for index in found.values()):
+                    indexes = {name: int(index) for name, index in found.items()}
                 continue
 
             if not row or not any(cell for cell in row):
