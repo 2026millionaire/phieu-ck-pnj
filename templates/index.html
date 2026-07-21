@@ -1118,7 +1118,8 @@ textarea#sap_data {
 <script>
     // Initialize app settings from server
     window.__appSettings = {
-        tvv_button_color_mode: '{{ settings.get("tvv_button_color_mode", "0") }}'
+        tvv_button_color_mode: '{{ settings.get("tvv_button_color_mode", "0") }}',
+        billing_invoice_days: '{{ settings.get("billing_invoice_days", "2") }}'
     };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1961,7 +1962,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function billingSuggestionCacheKey(customerCode) {
-        return customerCode.replace(/^0+/, '') + '|' + todayIsoDate() + '|2d';
+        return customerCode.replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingInvoiceDays() + 'd';
+    }
+
+    function billingInvoiceDays() {
+        const raw = window.__appSettings && window.__appSettings.billing_invoice_days;
+        const parsed = parseInt(raw, 10);
+        if (!Number.isFinite(parsed)) return 2;
+        return Math.max(1, Math.min(parsed, 31));
+    }
+
+    function billingLookbackDays() {
+        return Math.max(0, billingInvoiceDays() - 1);
     }
 
     function todayIsoDate() {
@@ -2061,7 +2073,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     customer_code: customerCode,
                     billing_date: todayIsoDate(),
-                    lookback_days: 1,
+                    lookback_days: billingLookbackDays(),
                     limit: 10
                 })
             });
@@ -2089,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     customer_code: customerCode,
                     billing_date: todayIsoDate(),
-                    lookback_days: 1,
+                    lookback_days: billingLookbackDays(),
                     limit: 10
                 })
             });

@@ -30,6 +30,12 @@ class BillingSuggestionTests(unittest.TestCase):
         path.write_text(json.dumps({"records": records}, ensure_ascii=False), encoding="utf-8")
         os.environ["PNJ_BILLING_FIXTURE_PATH"] = str(path)
 
+    def login_admin(self):
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_name"] = "ADMIN TEST"
+            session["role"] = "admin"
+
     def test_filters_customer_901_and_prioritizes_same_day(self):
         self.write_fixture(
             [
@@ -132,9 +138,24 @@ class BillingSuggestionTests(unittest.TestCase):
         self.assertIn("formatBillingDateShort(item.billing_date)", html)
         self.assertIn("formatNum(item.amount || 0)", html)
         self.assertIn("đ</span>", html)
+        self.assertIn("billing_invoice_days", html)
+        self.assertIn("billingLookbackDays()", html)
+        self.assertNotIn("lookback_days: 1", html)
         self.assertNotIn("sap-invoice-suggestion-meta", html)
         self.assertNotIn("Gần đây", html)
         self.assertNotIn("Cùng ngày", html)
+
+    def test_settings_exposes_billing_invoice_days_and_new_layout(self):
+        self.login_admin()
+
+        response = self.client.get("/settings")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("settings-shell", html)
+        self.assertIn("settings-nav", html)
+        self.assertIn("s_billing_invoice_days", html)
+        self.assertIn("settings-prefixes", html)
 
 
 if __name__ == "__main__":

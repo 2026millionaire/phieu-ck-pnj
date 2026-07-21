@@ -5,21 +5,164 @@
 {% block page_title %}Cài đặt hệ thống{% endblock %}
 
 {% block extra_css %}
-.admin-section .card { border-left: 3px solid #0ea5e9; }
-.list-table { font-size: 0.88rem; }
+.settings-shell {
+    display: grid;
+    grid-template-columns: minmax(190px, 230px) minmax(0, 920px);
+    gap: 1.25rem;
+    align-items: start;
+}
+.settings-nav {
+    position: sticky;
+    top: 1rem;
+    padding: 0.55rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+}
+.settings-nav-label {
+    padding: 0.4rem 0.65rem 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+}
+.settings-nav a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.48rem 0.65rem;
+    border-radius: 8px;
+    color: #334155;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+.settings-nav a:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+.settings-content {
+    min-width: 0;
+}
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.35rem 0 0.9rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+.settings-title {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.settings-subtitle {
+    margin: 0.2rem 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+.settings-save-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex: 0 0 auto;
+}
+.settings-content .card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: none;
+    overflow: hidden;
+    scroll-margin-top: 1rem;
+}
+.settings-content .card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+    font-weight: 700;
+    color: #0f172a;
+}
+.settings-content .card-body {
+    padding: 1rem;
+}
+.settings-content .form-label {
+    margin-bottom: 0.25rem;
+    font-size: 0.78rem;
+    color: #475569;
+}
+.settings-content .form-control,
+.settings-content .form-select {
+    border-radius: 8px;
+}
+.settings-row-note {
+    display: block;
+    margin-top: 0.28rem;
+    color: #64748b;
+    font-size: 0.76rem;
+}
+.settings-admin-title {
+    margin: 1.25rem 0 0.75rem;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.admin-section .card { border-left: 0; }
+.list-table { font-size: 0.86rem; }
 .list-table th { background: #f8fafc; font-weight: 600; }
 .list-table .btn-sm { padding: 2px 8px; font-size: 0.78rem; }
 .add-row { display: flex; gap: 8px; margin-top: 8px; }
 .add-row .form-control { font-size: 0.88rem; }
-.customer-import-stat { padding: .65rem; border: 1px solid #dbeafe; border-radius: .45rem; background: #f8fbff; }
+.customer-import-stat { padding: .7rem; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; }
 .customer-import-stat small { display: block; color: #64748b; }
 .customer-import-stat strong { font-size: 1.05rem; color: #0f172a; }
+@media (max-width: 992px) {
+    .settings-shell { grid-template-columns: 1fr; }
+    .settings-nav { position: static; display: flex; overflow-x: auto; }
+    .settings-nav-label { display: none; }
+    .settings-nav a { flex: 0 0 auto; white-space: nowrap; }
+    .settings-header { align-items: flex-start; flex-direction: column; }
+}
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-7">
-        <div class="card mb-3">
+<div class="settings-shell">
+    <aside class="settings-nav" aria-label="Điều hướng cài đặt">
+        <div class="settings-nav-label">Chung</div>
+        <a href="#settings-people"><i class="bi bi-people"></i> Nhân sự</a>
+        <a href="#settings-payment"><i class="bi bi-clock"></i> Thanh toán</a>
+        {% if admin %}
+        <a href="#settings-bank"><i class="bi bi-bank2"></i> MBBank</a>
+        <div class="settings-nav-label">Dữ liệu</div>
+        <a href="#settings-customer-import"><i class="bi bi-database-up"></i> Dữ liệu KH</a>
+        <a href="#settings-identity"><i class="bi bi-person-vcard"></i> CCCD</a>
+        <a href="#settings-plants"><i class="bi bi-geo-alt"></i> Plant</a>
+        <div class="settings-nav-label">Danh mục</div>
+        <a href="#settings-prefixes"><i class="bi bi-hash"></i> Tiền tố chứng từ</a>
+        <a href="#settings-tvv"><i class="bi bi-person-lines-fill"></i> TVV</a>
+        <a href="#settings-cancel"><i class="bi bi-list-ul"></i> Lý do hủy</a>
+        {% endif %}
+    </aside>
+    <div class="settings-content">
+        <div class="settings-header">
+            <div>
+                <h1 class="settings-title">Cài đặt</h1>
+                <p class="settings-subtitle">Điều chỉnh tham số vận hành cho ĐNCK bảng kê mua lại và biểu mẫu liên quan.</p>
+            </div>
+            <div class="settings-save-bar">
+                <button class="btn btn-primary" id="btnSaveSettings">
+                    <i class="bi bi-check-lg"></i> Lưu cài đặt
+                </button>
+                <span id="saveMsg" class="text-success d-none">Đã lưu!</span>
+            </div>
+        </div>
+
+        <div class="card mb-3" id="settings-people">
             <div class="card-header py-2">
                 <i class="bi bi-people"></i> Nhân sự cửa hàng
             </div>
@@ -73,7 +216,7 @@
             </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card mb-3" id="settings-payment">
             <div class="card-header py-2">
                 <i class="bi bi-clock"></i> Thời gian thanh toán
             </div>
@@ -89,6 +232,12 @@
                         <label class="form-label">Mã cửa hàng (Plant)</label>
                         <input type="text" class="form-control form-control-sm" id="s_plant"
                                value="{{ settings.get('plant', '1305') }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="s_billing_invoice_days">Số ngày đọc hoá đơn</label>
+                        <input type="number" class="form-control form-control-sm" id="s_billing_invoice_days"
+                               value="{{ settings.get('billing_invoice_days', '2') }}" min="1" max="31">
+                        <span class="settings-row-note">2 = hôm nay và hôm qua. Khi vận hành ổn định có thể đổi về 1.</span>
                     </div>
                     <div class="col-12 mt-2">
                         <div class="form-check">
@@ -112,7 +261,7 @@
         </div>
 
         {% if admin %}
-        <div class="card mb-3">
+        <div class="card mb-3" id="settings-bank">
             <div class="card-header py-2">
                 <i class="bi bi-bank2"></i> MBBank (tra cứu tài khoản liên ngân hàng)
             </div>
@@ -139,17 +288,12 @@
         </div>
         {% endif %}
 
-        <button class="btn btn-primary" id="btnSaveSettings">
-            <i class="bi bi-check-lg"></i> Lưu cài đặt
-        </button>
-        <span id="saveMsg" class="ms-2 text-success d-none">Đã lưu!</span>
-
         {% if admin %}
         <!-- ═══════ ADMIN ONLY ═══════ -->
         <hr class="my-4">
-        <h6 class="text-muted mb-3"><i class="bi bi-shield-lock"></i> Quản trị (chỉ Admin)</h6>
+        <div class="settings-admin-title"><i class="bi bi-shield-lock"></i> Quản trị</div>
 
-        <div class="card mb-3 border-primary">
+        <div class="card mb-3 border-primary" id="settings-customer-import">
             <div class="card-header py-2">
                 <i class="bi bi-database-up"></i> Cập nhật dữ liệu KH mới
             </div>
@@ -211,7 +355,7 @@
             </div>
         </div>
 
-        <div class="card mb-3 border-success">
+        <div class="card mb-3 border-success" id="settings-identity">
             <div class="card-header py-2">
                 <i class="bi bi-person-vcard"></i> Cập nhật CCCD — dữ liệu KH cũ
             </div>
@@ -244,7 +388,7 @@
             </div>
         </div>
 
-        <div class="card mb-3 border-info">
+        <div class="card mb-3 border-info" id="settings-plants">
             <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                 <span><i class="bi bi-geo-alt"></i> Plant miền Trung</span>
                 <div class="d-flex gap-2 flex-wrap justify-content-end">
@@ -272,7 +416,7 @@
 
         <div class="admin-section">
             <!-- Document Prefixes -->
-            <div class="card mb-3">
+            <div class="card mb-3" id="settings-prefixes">
                 <div class="card-header py-2">
                     <i class="bi bi-hash"></i> Tiền tố chứng từ
                 </div>
@@ -310,7 +454,7 @@
             </div>
 
             <!-- TVV List -->
-            <div class="card mb-3">
+            <div class="card mb-3" id="settings-tvv">
                 <div class="card-header py-2">
                     <i class="bi bi-person-lines-fill"></i> Danh sách Tư vấn viên
                 </div>
@@ -336,7 +480,7 @@
             </div>
 
             <!-- Lý do hủy -->
-            <div class="card mb-3">
+            <div class="card mb-3" id="settings-cancel">
                 <div class="card-header py-2">
                     <i class="bi bi-list-ul"></i> Danh sách lý do hủy BK
                 </div>
@@ -378,6 +522,7 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         kt2_name: document.getElementById('s_kt2_name').value.trim().toUpperCase(),
         kt2_short_name: document.getElementById('s_kt2_short_name').value.trim(),
         thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
+        billing_invoice_days: document.getElementById('s_billing_invoice_days').value,
         show_payment_time: document.getElementById('s_show_payment_time').checked ? '1' : '0',
         tvv_button_color_mode: document.getElementById('s_tvv_button_color_mode').checked ? '1' : '0',
         plant: document.getElementById('s_plant').value.trim(),

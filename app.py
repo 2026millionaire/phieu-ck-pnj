@@ -545,6 +545,7 @@ def init_db():
         "deposit_prefix": "16",
         "hbtl_prefix": "990",
         "tvv_button_color_mode": "0",
+        "billing_invoice_days": "2",
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
@@ -2974,6 +2975,12 @@ def api_save_settings():
                 400,
             )
         data["qt82_form_url"] = qt82_form_url
+    if "billing_invoice_days" in data:
+        try:
+            billing_invoice_days = int(data.get("billing_invoice_days"))
+        except (TypeError, ValueError):
+            return _customer_lookup_json({"ok": False, "error": "Sá»‘ ngÃ y Ä‘á»c hoÃ¡ Ä‘Æ¡n khÃ´ng há»£p lá»‡."}, 400)
+        data["billing_invoice_days"] = str(max(1, min(billing_invoice_days, 31)))
     db = get_db()
     for k, v in data.items():
         db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, str(v)))
