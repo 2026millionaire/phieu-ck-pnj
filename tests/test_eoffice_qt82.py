@@ -322,6 +322,11 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertNotIn("Thanh toán trong ngày (T)", html)
         self.assertNotIn("Thanh toán vào ngày kế tiếp (T+1)", html)
 
+    def test_payment_schedule_last_stage_absorbs_rounding_delta(self):
+        schedule = app_module.build_payment_schedule(101)
+        self.assertEqual([item["amount"] for item in schedule], [10, 20, 25, 25, 21])
+        self.assertEqual(sum(item["amount"] for item in schedule), 101)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2035,9 +2035,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updatePaymentSchedulePreview(totalCK) {
-        document.querySelectorAll('.pv-payment-schedule-amount').forEach(function(el) {
+        const total = Math.max(0, Math.round(totalCK || 0));
+        let allocated = 0;
+        const items = Array.from(document.querySelectorAll('.pv-payment-schedule-amount'));
+        items.forEach(function(el, index) {
             const percent = parseFloat(el.dataset.pct || '0') || 0;
-            el.textContent = formatNum(Math.max(0, totalCK) * percent / 100);
+            const amount = index === items.length - 1
+                ? total - allocated
+                : Math.round(total * percent / 100);
+            allocated += amount;
+            el.textContent = formatNum(amount);
         });
     }
 

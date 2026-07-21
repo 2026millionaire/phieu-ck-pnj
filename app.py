@@ -576,16 +576,20 @@ PAYMENT_SCHEDULE_RATES = (
 
 
 def build_payment_schedule(total_amount):
-    """Tạo lịch thanh toán 5 đợt, làm tròn từng dòng theo mẫu biểu mới."""
+    """Tạo lịch thanh toán 5 đợt; đợt cuối bù phần lệch làm tròn."""
     total = max(0, int(round(float(total_amount or 0))))
-    return [
-        {
+    schedule = []
+    allocated = 0
+    last_index = len(PAYMENT_SCHEDULE_RATES) - 1
+    for index, (label, percent) in enumerate(PAYMENT_SCHEDULE_RATES):
+        amount = total - allocated if index == last_index else int((total * percent / 100) + 0.5)
+        allocated += amount
+        schedule.append({
             "label": label,
             "percent": percent,
-            "amount": int((total * percent / 100) + 0.5),
-        }
-        for label, percent in PAYMENT_SCHEDULE_RATES
-    ]
+            "amount": amount,
+        })
+    return schedule
 
 
 # ---------------------------------------------------------------------------
