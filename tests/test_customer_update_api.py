@@ -466,37 +466,16 @@ class CustomerUpdateApiTests(unittest.TestCase):
         )
         self.assertEqual(saved.status_code, 200)
 
-    def test_thudoi_link_hidden_for_revoked_users(self):
-        def fake_get_user(user_id):
-            usernames = {
-                2: "SP1305",
-                3: "CODEX",
-                4: "USEROK",
-            }
-            username = usernames[user_id]
-            return {
-                "id": user_id,
-                "username": username,
-                "full_name": username,
-                "role": "user",
-                "active": 1,
-            }
+    def test_thudoi_link_is_admin_only(self):
+        self.login(role="user", user_id=2)
+        user_html = self.client.get("/").get_data(as_text=True)
+        self.assertNotIn("Chế độ thu đổi", user_html)
+        self.assertNotIn('href="/thudoi/"', user_html)
 
-        with patch.object(app_module.shared_auth, "get_user", side_effect=fake_get_user):
-            self.login(role="user", user_id=2)
-            sp_html = self.client.get("/").get_data(as_text=True)
-            self.assertNotIn("Chế độ thu đổi", sp_html)
-            self.assertNotIn('href="/thudoi/"', sp_html)
-
-            self.login(role="user", user_id=3)
-            codex_html = self.client.get("/").get_data(as_text=True)
-            self.assertNotIn("Chế độ thu đổi", codex_html)
-            self.assertNotIn('href="/thudoi/"', codex_html)
-
-            self.login(role="user", user_id=4)
-            normal_html = self.client.get("/").get_data(as_text=True)
-            self.assertIn("Chế độ thu đổi", normal_html)
-            self.assertIn('href="/thudoi/"', normal_html)
+        self.login(role="admin", user_id=1)
+        admin_html = self.client.get("/").get_data(as_text=True)
+        self.assertIn("Chế độ thu đổi", admin_html)
+        self.assertIn('href="/thudoi/"', admin_html)
 
     def test_bank_api_sends_eoffice_code_to_admin_only(self):
         self.login(role="user", user_id=2)

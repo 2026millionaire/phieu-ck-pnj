@@ -1787,20 +1787,6 @@ def is_admin():
     return False
 
 
-def can_access_thudoi():
-    """Return whether the current user can see the exchange-mode app link."""
-    username = str(session.get("user_name") or "").strip().upper()
-    uid = session.get("user_id")
-    if uid:
-        try:
-            user = shared_auth.get_user(uid)
-        except Exception:
-            user = None
-        if user:
-            username = str(user.get("username") or username).strip().upper()
-    return username not in {"SP1305", "CODEX"}
-
-
 @app.context_processor
 def inject_template_permissions():
     """Expose server-verified permissions to shared navigation templates."""
@@ -1816,7 +1802,6 @@ def inject_template_permissions():
                 pass
     return {
         "admin": admin,
-        "can_access_thudoi": can_access_thudoi(),
         "pending_customer_update_count": pending_customer_update_count,
     }
 
