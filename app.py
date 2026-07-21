@@ -131,6 +131,28 @@ CENTRAL_PLANTS_SEED = (
     ("Quảng Ngãi", "1466"), ("Quảng Ngãi", "1515"), ("Quảng Ngãi", "1612"),
 )
 
+DNCK_EMPLOYEE_DEMO_SEED = (
+    ("E01F7743", "HỒ THỊ HÀ MY", "106873221304", "Vietinbank", "046184002275"),
+    ("E0124764", "CHÂU ĐĂNG KHOA", "109876756206", "Vietinbank", "046093004708"),
+    ("E0116169", "TÔN NỮ MINH THANH", "0772400486", "Vietinbank", "046196009728"),
+    ("E0112425", "LÊ THỊ KIM TUYẾN", "105871228613", "Vietinbank", "046195009339"),
+    ("E01F4212", "ĐOÀN THỊ THU HẰNG", "0398800224", "Vietinbank", "046188010576"),
+    ("E0124136", "LÊ THỊ CÚC", "107878423202", "Vietinbank", "046198003167"),
+    ("E0130126", "TRẦN QUANG TRINH", "106885680781", "Vietinbank", "046094015432"),
+    ("E0111358", "BÙI KHẮC KIM LIÊN", "103871216615", "Vietinbank", "046194021724"),
+    ("E0121620", "THẨM THỊ NGỌC DUNG", "104868399506", "Vietinbank", "046197003617"),
+    ("E0126423", "NGUYỄN THỊ MỸ UYÊN", "105881616099", "Vietinbank", "046302009946"),
+    ("E0116165", "LÊ THỊ THÙY NHƯ", "0364921308", "Vietinbank", "046195012263"),
+    ("E0123813", "HỒ VĂN TRUNG", "107878018535", "Vietinbank", "046082007734"),
+    ("E0123806", "HÀ VĂN RIN", "0359050023", "Vietinbank", "046093000857"),
+    ("E01F9014", "HUỲNH THỊ THU HƯƠNG", "0935052054", "Vietinbank", ""),
+    ("E0111919", "LÊ THỊ MỸ TUYỀN", "100872810158", "Vietinbank", "046190005028"),
+    ("E0117010", "NGUYỄN ĐỨC NHẬT QUANG", "105873763741", "Vietinbank", "046097011168"),
+    ("E0125140", "NGUYỄN THỊ MAI YẾN", "105880005837", "Vietinbank", "046500005467"),
+    ("E01M6688", "TRẦN XUÂN HẢI", "100873771126", "Vietinbank", "046081013617"),
+    ("E01F6890", "TRƯƠNG THANH THANH", "0932599103", "Vietinbank", "046190013521"),
+)
+
 
 def normalize_qt82_form_url(value):
     """Chỉ cho phép URL HTTPS thuộc workflow eOffice PNJ, không nhận credential/fragment."""
@@ -237,6 +259,9 @@ STAFF = {
     "cua_hang_truong": "HỒ THỊ HÀ MY",
     "tvv": "NGUYỄN THỊ MỸ UYÊN",
 }
+PAYMENT_PLANNING_STORE_NAME = "CỬA HÀNG PNJ NEXT 27 HÀ NỘI - HUẾ"
+PAYMENT_PLANNING_TAX_CODE = "0300521758-023"
+PAYMENT_PLANNING_PNJ_ADDRESS = "170E Phan Đăng Lưu, Phường Đức Nhuận, Thành phố Hồ Chí Minh"
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -409,6 +434,83 @@ def init_db():
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS dnck (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at       TEXT DEFAULT CURRENT_TIMESTAMP,
+            object_type      TEXT DEFAULT 'customer',
+            object_code      TEXT,
+            object_name      TEXT,
+            identity_value   TEXT,
+            phone            TEXT,
+            account_number   TEXT,
+            account_name     TEXT,
+            bank             TEXT,
+            purpose          TEXT,
+            approval_level   TEXT,
+            expense_type     TEXT,
+            cost_group       TEXT,
+            request_content  TEXT,
+            sap_document     TEXT,
+            amount           REAL DEFAULT 0,
+            payment_tag      TEXT DEFAULT 'Bảng Kê',
+            approver_option  TEXT DEFAULT 'none',
+            detail_json      TEXT,
+            hashtags_json    TEXT,
+            reference_note   TEXT,
+            reference_links_json TEXT,
+            cost_limit_ref   TEXT,
+            da_trinh         INTEGER DEFAULT 0,
+            user_id          INTEGER DEFAULT 1
+        )
+    """)
+    try:
+        conn.execute("ALTER TABLE dnck ADD COLUMN identity_value TEXT DEFAULT ''")
+    except Exception:
+        pass
+    for statement in (
+        "ALTER TABLE dnck ADD COLUMN hashtags_json TEXT DEFAULT '[]'",
+        "ALTER TABLE dnck ADD COLUMN reference_note TEXT DEFAULT ''",
+        "ALTER TABLE dnck ADD COLUMN reference_links_json TEXT DEFAULT '[]'",
+        "ALTER TABLE dnck ADD COLUMN cost_limit_ref TEXT DEFAULT ''",
+        "ALTER TABLE dnck ADD COLUMN approval_level TEXT DEFAULT ''",
+        "ALTER TABLE dnck ADD COLUMN expense_type TEXT DEFAULT ''",
+    ):
+        try:
+            conn.execute(statement)
+        except Exception:
+            pass
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS dnck_object_lookup (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            object_code        TEXT NOT NULL,
+            object_name        TEXT NOT NULL,
+            account_number     TEXT NOT NULL,
+            bank               TEXT NOT NULL,
+            identity_value     TEXT DEFAULT '',
+            bank_eoffice_code  TEXT DEFAULT '',
+            is_primary         INTEGER DEFAULT 1,
+            source             TEXT DEFAULT 'demo'
+        )
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dnck_object_lookup_account
+        ON dnck_object_lookup (object_code, account_number)
+    """)
+    for code, name, account, bank, identity in DNCK_EMPLOYEE_DEMO_SEED:
+        conn.execute("""
+            INSERT OR REPLACE INTO dnck_object_lookup
+                (object_code, object_name, account_number, bank, identity_value,
+                 bank_eoffice_code, is_primary, source)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 'demo')
+        """, (
+            remove_all_whitespace(code).upper(),
+            name,
+            normalize_account_number(account),
+            bank,
+            remove_all_whitespace(identity),
+            find_eoffice_bank_code(bank),
+        ))
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS central_plants (
             id       INTEGER PRIMARY KEY AUTOINCREMENT,
             province TEXT NOT NULL,
@@ -564,6 +666,73 @@ def so_thanh_chu(n):
     # Capitalize first letter
     result = result[0].upper() + result[1:]
     return result + " \u0111\u1ed3ng"
+
+
+PAYMENT_SCHEDULE_RATES = (
+    ("T+0/1", 10),
+    ("T+30", 20),
+    ("T+60", 25),
+    ("T+90", 25),
+    ("T+120", 20),
+)
+
+
+def build_payment_schedule(total_amount):
+    """Tạo lịch thanh toán 5 đợt; đợt cuối bù phần lệch làm tròn."""
+    total = max(0, int(round(float(total_amount or 0))))
+    schedule = []
+    allocated = 0
+    last_index = len(PAYMENT_SCHEDULE_RATES) - 1
+    for index, (label, percent) in enumerate(PAYMENT_SCHEDULE_RATES):
+        amount = total - allocated if index == last_index else int((total * percent / 100) + 0.5)
+        allocated += amount
+        schedule.append({
+            "label": label,
+            "percent": percent,
+            "amount": amount,
+        })
+    return schedule
+
+
+def payment_planning_amounts(chung_tu_list, cash_amount):
+    """Tính 3 giá trị chính của phụ lục Payment Planning từ chứng từ XNCK."""
+    total_trade = 0
+    for item in chung_tu_list or []:
+        if item.get("loai") == "Bảng kê":
+            total_trade += abs(float(item.get("gia_tri") or 0))
+    cash = int(round(float(cash_amount or 0)))
+    product_conversion = int(round(total_trade - cash))
+    return {
+        "total_trade": int(round(total_trade)),
+        "product_conversion": product_conversion,
+        "cash_amount": cash,
+    }
+
+
+def prepare_payment_planning_for_output(row, settings=None):
+    """Return display data for Payment Planning HTML/PDF/XLSX."""
+    p = prepare_phieu_for_output(row, settings)
+    amounts = payment_planning_amounts(p.get("chung_tu", []), p.get("tong_ck", 0))
+    signer_title_map = {
+        "tvv": "Tư Vấn Viên",
+        "cht": "Cửa Hàng Trưởng",
+        "kt1": "Kế Toán Cửa Hàng",
+        "kt2": "Kế Toán Cửa Hàng",
+    }
+    p.update(amounts)
+    p["total_trade_words"] = so_thanh_chu(amounts["total_trade"])
+    p["product_conversion_words"] = so_thanh_chu(amounts["product_conversion"])
+    p["cash_amount_words"] = so_thanh_chu(amounts["cash_amount"])
+    p["seller_signature_name"] = str(p.get("ten_kh") or "").upper()
+    p["buyer_signature_name"] = str(p.get("nguoi_ki_name") or "").upper()
+    p["buyer_signature_title"] = signer_title_map.get(p.get("nguoi_ki"), "Tư Vấn Viên")
+    p["planning_store_name"] = PAYMENT_PLANNING_STORE_NAME
+    p["planning_tax_code"] = PAYMENT_PLANNING_TAX_CODE
+    p["planning_pnj_address"] = PAYMENT_PLANNING_PNJ_ADDRESS
+    p["payment_method_label"] = "☐ Chuyển khoản    ☐ Khác"
+    p["planning_file_title"] = f"Payment Planning {ascii_filename_part(p.get('ten_kh'), 30)} {p.get('id')}"
+    return p
+
 
 # ---------------------------------------------------------------------------
 # Business logic helpers
@@ -935,6 +1104,203 @@ def build_qt82_payload(phieu, settings):
     }
 
 
+DNCK_OBJECT_TYPES = {
+    "employee": "Nhân viên",
+    "vendor": "Nhà cung cấp",
+    "customer": "Khách hàng",
+}
+
+DNCK_APPROVER_OPTIONS = {
+    "hoang": {"query": "hoang.vp", "name": "hoang.vp@pnj.com.vn"},
+    "lanh": {"query": "lanh.nt01", "name": "lanh.nt01@pnj.com.vn"},
+    "none": None,
+}
+
+
+def infer_dnck_object_type(object_code, requested_type=None):
+    """Suy luận loại đối tượng DNCK từ mã, nhưng vẫn cho giao diện ghi đè."""
+    requested = str(requested_type or "").strip().lower()
+    if requested in DNCK_OBJECT_TYPES:
+        return requested
+    code = remove_all_whitespace(object_code).upper()
+    if re.fullmatch(r"E01[A-Z0-9]*", code):
+        return "employee"
+    requested_purpose = str(requested_type or "").strip().lower()
+    if "nhà cung cấp" in requested_purpose or "nha cung cap" in requested_purpose:
+        return "vendor"
+    if "nhân viên" in requested_purpose or "nhan vien" in requested_purpose:
+        return "employee"
+    return "customer"
+
+
+def default_dnck_purpose(object_type):
+    if object_type == "employee":
+        return "Thanh toán cho nhân viên"
+    if object_type == "vendor":
+        return "Thanh toán cho nhà cung cấp"
+    return "Thanh toán cho khách hàng"
+
+
+def sanitize_dnck_detail(detail_list, fallback_label, fallback_amount, sap_document):
+    """Chuẩn hóa chi tiết thanh toán DNCK để dùng chung Template TT."""
+    cleaned = []
+    for item in detail_list or []:
+        if not isinstance(item, dict):
+            continue
+        amount = int(float(item.get("amount") or item.get("gia_tri") or 0))
+        label = str(item.get("label") or item.get("loai") or fallback_label or "").strip()
+        document = remove_all_whitespace(item.get("document") or item.get("so_ct") or "")
+        identity = remove_all_whitespace(item.get("identity") or item.get("tax_id") or "")
+        note = str(item.get("note") or item.get("ghi_chu") or "").strip()
+        if amount == 0 and not label and not document and not identity and not note:
+            continue
+        cleaned.append({
+            "label": label or fallback_label or "Thanh Toán Khác",
+            "amount": amount,
+            "document": document or remove_all_whitespace(sap_document) or "DNCK",
+            "identity": identity,
+            "note": note,
+        })
+    if not cleaned and fallback_amount > 0:
+        cleaned.append({
+            "label": fallback_label or "Thanh toán khác",
+            "amount": int(fallback_amount),
+            "document": remove_all_whitespace(sap_document) or "DNCK",
+            "identity": "",
+            "note": "",
+        })
+    return cleaned
+
+
+def normalize_dnck_hashtags(value):
+    """Chuẩn hóa hashtag DNCK: chữ thường, không dấu # lưu DB, giữ thứ tự nhập."""
+    if isinstance(value, list):
+        raw_items = value
+    else:
+        raw_text = str(value or "")
+        raw_items = re.split(r"[\s,;]+", raw_text)
+    tags = []
+    seen = set()
+    for item in raw_items:
+        tag = str(item or "").strip().lower()
+        tag = tag.lstrip("#")
+        tag = re.sub(r"[^0-9a-zA-Z_À-ỹ-]+", "", tag)
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        tags.append(tag)
+    return tags[:20]
+
+
+def dnck_row_to_dict(row):
+    d = row_to_dict(row)
+    d["source"] = "dnck"
+    if not d:
+        return None
+    try:
+        d["detail"] = json.loads(d.get("detail_json") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        d["detail"] = []
+    try:
+        d["hashtags"] = normalize_dnck_hashtags(json.loads(d.get("hashtags_json") or "[]"))
+    except (json.JSONDecodeError, TypeError):
+        d["hashtags"] = normalize_dnck_hashtags(d.get("hashtags_json") or "")
+    try:
+        d["reference_links"] = json.loads(d.get("reference_links_json") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        d["reference_links"] = []
+    return d
+
+
+def build_dnck_qt82_payload(dnck, settings):
+    """Chuẩn bị draft QT82 cho đề nghị CK khác, tách khỏi phiếu BK mua lại."""
+    object_type = infer_dnck_object_type(dnck.get("object_code"), dnck.get("object_type") or dnck.get("purpose"))
+    amount = int(round(float(dnck.get("amount", 0) or 0)))
+    account_number = normalize_account_number(dnck.get("account_number", ""))
+    bank_query = find_eoffice_bank_code(dnck.get("bank", ""))
+    sap_document = remove_all_whitespace(dnck.get("sap_document", "")) or "1234"
+    detail = sanitize_dnck_detail(
+        dnck.get("detail") or [],
+        dnck.get("payment_tag") or "Thanh Toán Khác",
+        amount,
+        sap_document,
+    )
+    approvers = []
+    option = DNCK_APPROVER_OPTIONS.get(str(dnck.get("approver_option") or "none").strip(), None)
+    if option:
+        approvers.append(option)
+    approvers.append({"query": "my.hth", "name": "my.hth@pnj.com.vn"})
+    approval_people = []
+    if object_type not in ("employee", "vendor"):
+        store_manager_name = settings.get("cht_name", "").strip()
+        approval_people.append({
+            "role": "Cửa hàng trưởng",
+            "query": settings.get("qt82_store_manager_query", "my.hth").strip() or "my.hth",
+            "name": store_manager_name,
+        })
+    for approver in approvers:
+        approval_people.append({
+            "role": "Người phê duyệt",
+            "query": approver.get("query", ""),
+            "name": approver.get("name", approver.get("query", "")),
+        })
+    approval_emails = [
+        person.get("name") or person.get("query", "")
+        for person in approval_people
+        if person.get("name") or person.get("query")
+    ]
+    checks = [
+        {"key": "object", "label": "Có mã và tên đối tượng", "ok": bool(dnck.get("object_code") and dnck.get("object_name"))},
+        {"key": "account_name", "label": "Có tên tài khoản", "ok": bool(dnck.get("account_name"))},
+        {"key": "account_number", "label": "Số tài khoản hợp lệ", "ok": bool(re.fullmatch(r"[A-Za-z0-9]+", account_number))},
+        {"key": "bank", "label": "Có mã ngân hàng eOffice", "ok": bool(bank_query)},
+        {"key": "amount", "label": "Số tiền lớn hơn 0", "ok": amount > 0},
+        {"key": "content", "label": "Có nội dung đề nghị thanh toán", "ok": bool(str(dnck.get("request_content") or "").strip())},
+        {"key": "details", "label": "Có chi tiết thanh toán", "ok": bool(detail)},
+    ]
+    return {
+        "version": 1,
+        "source": "dnck",
+        "qt82Mode": "thanh_toan_khac",
+        "phieuId": int(dnck.get("id") or 0),
+        "formUrl": normalize_qt82_form_url(settings.get("qt82_form_url")) or DEFAULT_QT82_FORM_URL,
+        "purpose": dnck.get("purpose") or default_dnck_purpose(object_type),
+        "approvalLevel": dnck.get("approval_level") or "Cấp cửa hàng",
+        "approvalPeople": approval_people,
+        "approvalEmails": approval_emails,
+        "approvalEmailsText": ", ".join(approval_emails),
+        "expenseType": dnck.get("expense_type") or dnck.get("cost_group") or "Khác",
+        "currency": "VND",
+        "managerApproval": "Có",
+        "skipStoreManager": object_type in ("employee", "vendor"),
+        "storeManagerQuery": settings.get("qt82_store_manager_query", "my.hth").strip() or "my.hth",
+        "storeManagerName": settings.get("cht_name", "").strip(),
+        "approvers": approvers,
+        "paymentObjectName": str(dnck.get("object_name") or "").strip(),
+        "paymentObjectCode": remove_all_whitespace(dnck.get("object_code", "")),
+        "costGroup": dnck.get("cost_group") or "Khác",
+        "hashtags": dnck.get("hashtags") or [],
+        "costLimitRef": dnck.get("cost_limit_ref") or "",
+        "referenceLinks": dnck.get("reference_links") or [],
+        "referenceNote": dnck.get("reference_note") or "",
+        "requestContent": str(dnck.get("request_content") or "").strip(),
+        "paymentMethod": "Bank transfer – Chuyển khoản",
+        "paymentAmount": amount,
+        "sapDocument": sap_document,
+        "sapPlaceholder": sap_document == "1234",
+        "companyCode": "1000",
+        "desiredDateMode": "browser_today",
+        "accountName": str(dnck.get("account_name") or "").strip(),
+        "accountNumber": account_number,
+        "bankQuery": bank_query,
+        "customerId": str(dnck.get("identity_value") or "").strip(),
+        "detailCount": len(detail),
+        "detailDocuments": [item["document"] for item in detail],
+        "ready": all(item["ok"] for item in checks),
+        "checks": checks,
+    }
+
+
 def build_created_at_from_form(data, chung_tu_list):
     """
     Use the user-selected form date as the source of truth.
@@ -1122,6 +1488,7 @@ def prepare_phieu_for_output(row, settings=None):
     }
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
     d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
+    d["payment_schedule"] = build_payment_schedule(d.get("tong_ck", 0))
     d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
 
@@ -1295,8 +1662,14 @@ def make_phieu_pdf(p):
     story.append(ct_table)
     story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.", normal))
     if p.get("show_payment_time"):
-        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('ngay_tt_fmt') or p.get('ngay_tt') or ''}", normal))
-    story.append(Paragraph("<b>Lưu ý:</b><br/>1. Các giao dịch phát sinh từ T2-T6 trước 16h30: Thanh toán trong ngày (T)<br/>2. Các giao dịch phát sinh từ T2-T6 sau 16h30, T7; CN, Lễ, Tết: Thanh toán vào ngày kế tiếp (T+1)<br/>* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
+        schedule_html = ["<b>Thời gian thanh toán:</b>"]
+        for index, item in enumerate(p.get("payment_schedule") or build_payment_schedule(p.get("tong_ck", 0)), start=1):
+            schedule_html.append(
+                f"{index}. {item['label']}: {item['percent']}% - tương ứng số tiền "
+                f"<b>{int(item['amount']):,} đồng</b>"
+            )
+        story.append(Paragraph("<br/>".join(schedule_html), normal))
+    story.append(Paragraph("* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
     story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
     story.append(Spacer(1, 4 * mm))
     story.append(Table([
@@ -1925,10 +2298,22 @@ def eoffice_index():
     if not is_admin():
         return "Bạn không có quyền truy cập trang này.", 403
     db = get_db()
-    row = db.execute("SELECT id FROM phieu ORDER BY id DESC LIMIT 1").fetchone()
-    if row:
-        return redirect(url_for("eoffice_page", phieu_id=row["id"]))
-    response = app.make_response(render_template("eoffice.html", phieu=None, qt82_payload=None))
+    mode = str(request.args.get("mode") or "phieu").strip().lower()
+    if mode in ("dnck", "khac", "other"):
+        row = db.execute("SELECT id FROM dnck ORDER BY datetime(created_at) DESC, id DESC LIMIT 1").fetchone()
+        if row:
+            return redirect(url_for("eoffice_dnck_page", dnck_id=row["id"]))
+    else:
+        row = db.execute("SELECT id FROM phieu ORDER BY datetime(created_at) DESC, id DESC LIMIT 1").fetchone()
+        if row:
+            return redirect(url_for("eoffice_page", phieu_id=row["id"]))
+    eoffice_mode = "dnck" if mode in ("dnck", "khac", "other") else "phieu"
+    response = app.make_response(render_template(
+        "eoffice.html",
+        phieu=None,
+        qt82_payload=None,
+        eoffice_mode=eoffice_mode,
+    ))
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
     return response
@@ -1976,6 +2361,7 @@ def eoffice_page(phieu_id):
         return "Không tìm thấy phiếu.", 404
 
     d = row_to_dict(row)
+    d["source"] = "phieu"
     try:
         d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
     except (json.JSONDecodeError, TypeError):
@@ -2011,8 +2397,84 @@ def eoffice_page(phieu_id):
     d["eo_so_ct_sap"] = qt82_payload["sapDocument"]
 
     response = app.make_response(
-        render_template("eoffice.html", phieu=d, qt82_payload=qt82_payload)
+        render_template("eoffice.html", phieu=d, qt82_payload=qt82_payload, eoffice_mode="phieu")
     )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@app.route("/eoffice/dnck/<int:dnck_id>")
+def eoffice_dnck_page(dnck_id):
+    """Trang chuẩn bị bản nháp QT82 của DNCK, chỉ dành cho ADMIN."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
+    row = get_db().execute("SELECT * FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return "Không tìm thấy đề nghị CK.", 404
+
+    d = dnck_row_to_dict(row)
+    d["source"] = "dnck"
+    d["eo_mode_label"] = "ĐNCK thanh toán khác"
+    d["eo_mode_note"] = "Dữ liệu từ chức năng tạo đề nghị CK khác, không in phiếu XNCK."
+    d["ten_kh"] = d.get("object_name", "")
+    d["ma_kh"] = d.get("object_code", "")
+    d["tong_ck"] = d.get("amount", 0)
+    d["eo_ma_kh"] = d.get("object_code", "")
+    d["eo_noi_dung"] = d.get("request_content", "")
+    d["eo_ten_tk"] = d.get("account_name", "")
+    d["eo_so_tk"] = normalize_account_number(d.get("account_number", ""))
+    d["eo_ma_nh"] = find_eoffice_bank_code(d.get("bank", ""))
+    d["eo_cccd"] = d.get("identity_value", "")
+    d["eo_so_ct_sap"] = remove_all_whitespace(d.get("sap_document", "")) or "1234"
+    qt82_payload = build_dnck_qt82_payload(d, get_settings())
+
+    response = app.make_response(
+        render_template("eoffice.html", phieu=d, qt82_payload=qt82_payload, eoffice_mode="dnck")
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@app.route("/dnck")
+def dnck_page():
+    """Trang tạo đề nghị CK khác, chỉ dành cho ADMIN."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
+    settings = get_settings()
+    response = app.make_response(render_template(
+        "dnck.html",
+        settings=settings,
+        bank_list=sorted(BANK_BINS.keys()),
+        dnck=None,
+        qt82_payload=None,
+    ))
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@app.route("/dnck/<int:dnck_id>")
+def dnck_detail_page(dnck_id):
+    """Xem lại một DNCK đã lưu và chuẩn bị mở QT82."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
+    row = get_db().execute("SELECT * FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return "Không tìm thấy đề nghị CK.", 404
+    dnck = dnck_row_to_dict(row)
+    settings = get_settings()
+    qt82_payload = build_dnck_qt82_payload(dnck, settings)
+    response = app.make_response(render_template(
+        "dnck.html",
+        settings=settings,
+        bank_list=sorted(BANK_BINS.keys()),
+        dnck=dnck,
+        qt82_payload=qt82_payload,
+    ))
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -2584,6 +3046,79 @@ def api_save():
     db = get_db()
     user_id = current_user_id()
     requested_status = data.get("status") if data.get("status") in ("draft", "printed") else "draft"
+    target_phieu_id = None
+    if not data.get("force_create"):
+        try:
+            target_phieu_id = int(data.get("phieu_id") or data.get("id") or 0) or None
+        except (TypeError, ValueError):
+            target_phieu_id = None
+    if target_phieu_id:
+        existing = get_accessible_phieu(db, target_phieu_id)
+        if not existing:
+            return jsonify({"ok": False, "error": "Không tìm thấy phiếu cũ hoặc bạn không có quyền cập nhật."}), 404
+        owner_user_id = int(existing["user_id"] or user_id)
+        db.execute("""
+            UPDATE phieu
+            SET created_at = ?,
+                ma_kh = ?,
+                ten_kh = ?,
+                sdt = ?,
+                cccd = ?,
+                so_tk = ?,
+                ten_tk = ?,
+                ngan_hang = ?,
+                so_bk = ?,
+                tvv_code = ?,
+                tvv_name = ?,
+                cht_name = ?,
+                plant = ?,
+                chung_tu_json = ?,
+                tong_ck = ?,
+                ngay_tt = ?,
+                status = ?,
+                qr_url = ?,
+                noi_dung = ?,
+                nguoi_ki = ?
+            WHERE id = ?
+        """, (
+            created_at,
+            ma_kh,
+            ten_kh,
+            sdt,
+            cccd,
+            so_tk,
+            str(data.get("ten_tk", "")).strip(),
+            ngan_hang,
+            so_bk,
+            remove_all_whitespace(data.get("tvv_code", "")),
+            str(data.get("tvv_name_real", "") or data.get("tvv_name", "")).strip(),
+            str(data.get("cht_name", STAFF["cua_hang_truong"])).strip(),
+            plant,
+            chung_tu_json,
+            tong_ck,
+            ngay_tt,
+            requested_status,
+            qr_url,
+            noi_dung,
+            nguoi_ki,
+            target_phieu_id,
+        ))
+        db.commit()
+        if requested_status == "printed":
+            _record_printed_customer_values(
+                data, target_phieu_id, owner_user_id, ma_kh, ten_kh, sdt, cccd
+            )
+        return jsonify({
+            "ok": True,
+            "id": target_phieu_id,
+            "updated": True,
+            "pdf_token": create_pdf_token(target_phieu_id, owner_user_id),
+            "tong_ck": tong_ck,
+            "tong_ck_chu": so_thanh_chu(tong_ck),
+            "ngay_tt": ngay_tt,
+            "qr_url": qr_url,
+            "noi_dung": noi_dung,
+        })
     duplicate = None if requested_status == "draft" else find_recent_duplicate_phieu(db, user_id, data, ten_kh, so_bk, tong_ck)
     if duplicate:
         if requested_status == "printed":
@@ -2652,6 +3187,508 @@ def api_save():
         "qr_url": qr_url,
         "noi_dung": noi_dung,
     })
+
+
+@app.route("/api/dnck", methods=["POST"])
+def api_dnck_save():
+    """Lưu đề nghị CK khác để chuẩn bị QT82; chỉ ADMIN."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if request.content_length is not None and request.content_length > 262144:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    data = request.get_json(silent=True) or {}
+
+    prepared = prepare_dnck_record(data)
+    if prepared["errors"]:
+        return _customer_lookup_json({"ok": False, "error": " ".join(prepared["errors"])}, 400)
+
+    db = get_db()
+    cursor = db.execute("""
+        INSERT INTO dnck
+            (created_at, object_type, object_code, object_name, identity_value, phone,
+             account_number, account_name, bank, purpose, approval_level, expense_type,
+             cost_group, request_content, sap_document, amount, payment_tag, approver_option,
+             detail_json, hashtags_json, reference_note, reference_links_json,
+             cost_limit_ref, da_trinh, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    """, (
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        prepared["object_type"],
+        prepared["object_code"],
+        prepared["object_name"],
+        prepared["identity_value"],
+        prepared["phone"],
+        prepared["account_number"],
+        prepared["account_name"],
+        prepared["bank"],
+        prepared["purpose"],
+        prepared["approval_level"],
+        prepared["expense_type"],
+        prepared["cost_group"],
+        prepared["request_content"],
+        prepared["sap_document"],
+        prepared["amount"],
+        prepared["payment_tag"],
+        prepared["approver_option"],
+        json.dumps(prepared["detail"], ensure_ascii=False),
+        json.dumps(prepared["hashtags"], ensure_ascii=False),
+        prepared["reference_note"],
+        json.dumps(prepared["reference_links"], ensure_ascii=False),
+        prepared["cost_limit_ref"],
+        current_user_id(),
+    ))
+    db.commit()
+    dnck_id = cursor.lastrowid
+    row = db.execute("SELECT * FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    payload = build_dnck_qt82_payload(dnck_row_to_dict(row), get_settings())
+    return _customer_lookup_json({"ok": True, "id": dnck_id, "qt82": payload})
+
+
+def prepare_dnck_record(data):
+    """Chuẩn hóa dữ liệu DNCK từ request để dùng chung cho tạo mới/cập nhật."""
+    object_code = remove_all_whitespace(data.get("object_code", "")).upper()
+    purpose = str(data.get("purpose") or "").strip()
+    object_type = infer_dnck_object_type(object_code, purpose or data.get("object_type"))
+    object_name = str(data.get("object_name") or "").strip()
+    identity_value = remove_all_whitespace(data.get("identity_value", ""))
+    phone = ""
+    account_number = normalize_account_number(data.get("account_number", ""))
+    account_name = str(data.get("account_name") or "").strip()
+    bank = str(data.get("bank") or "").strip()
+    amount = int(float(data.get("amount") or 0))
+    sap_document = remove_all_whitespace(data.get("sap_document", ""))
+    payment_tag = "Thanh Toán Khác"
+    approval_level = str(data.get("approval_level") or "Cấp cửa hàng").strip()
+    expense_type = str(data.get("expense_type") or data.get("cost_group") or "Khác").strip()
+    cost_group = str(data.get("cost_group") or "Khác").strip()
+    if cost_group not in ("Tiếp khách", "Công tác", "Khác", "Hàng hóa(ML)"):
+        cost_group = "Khác"
+    purpose = purpose or default_dnck_purpose(object_type)
+    approver_option = str(data.get("approver_option") or "none").strip()
+    if approver_option not in DNCK_APPROVER_OPTIONS:
+        approver_option = "none"
+    request_content = str(data.get("request_content") or "").strip()
+    hashtags = normalize_dnck_hashtags(data.get("hashtags") or data.get("hashtags_text") or "")
+    reference_note = str(data.get("reference_note") or "").strip()
+    cost_limit_ref = str(data.get("cost_limit_ref") or "").strip()
+    reference_links_raw = data.get("reference_links")
+    if isinstance(reference_links_raw, list):
+        reference_links = [
+            str(item or "").strip()
+            for item in reference_links_raw
+            if str(item or "").strip()
+        ][:20]
+    else:
+        reference_links = [
+            line.strip()
+            for line in str(reference_links_raw or "").splitlines()
+            if line.strip()
+        ][:20]
+    detail = sanitize_dnck_detail(
+        data.get("detail") if isinstance(data.get("detail"), list) else [],
+        payment_tag,
+        amount,
+        sap_document,
+    )
+    if detail:
+        amount = sum(int(item.get("amount") or 0) for item in detail)
+
+    errors = []
+    if not object_code:
+        errors.append("Thiếu mã đối tượng.")
+    if not object_name:
+        errors.append("Thiếu tên đối tượng.")
+    if not account_number:
+        errors.append("Thiếu số tài khoản.")
+    if not account_name:
+        errors.append("Thiếu tên tài khoản.")
+    if not bank:
+        errors.append("Thiếu ngân hàng.")
+    if amount == 0:
+        errors.append("Số tiền phải khác 0.")
+    if not request_content:
+        errors.append("Thiếu nội dung đề nghị thanh toán.")
+    if errors:
+        return {"errors": errors}
+    return {
+        "errors": [],
+        "object_code": object_code,
+        "purpose": purpose,
+        "object_type": object_type,
+        "object_name": object_name,
+        "identity_value": identity_value,
+        "phone": phone,
+        "account_number": account_number,
+        "account_name": account_name,
+        "bank": bank,
+        "amount": amount,
+        "sap_document": sap_document,
+        "payment_tag": payment_tag,
+        "approval_level": approval_level,
+        "expense_type": expense_type,
+        "cost_group": cost_group,
+        "approver_option": approver_option,
+        "request_content": request_content,
+        "hashtags": hashtags,
+        "reference_note": reference_note,
+        "reference_links": reference_links,
+        "cost_limit_ref": cost_limit_ref,
+        "detail": detail,
+    }
+
+
+@app.route("/api/dnck/<int:dnck_id>", methods=["PUT"])
+def api_dnck_update(dnck_id):
+    """Cập nhật DNCK đã lưu, chỉ ADMIN."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if request.content_length is not None and request.content_length > 262144:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    db = get_db()
+    row = db.execute("SELECT id FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy đề nghị CK."}, 404)
+    prepared = prepare_dnck_record(request.get_json(silent=True) or {})
+    if prepared["errors"]:
+        return _customer_lookup_json({"ok": False, "error": " ".join(prepared["errors"])}, 400)
+    db.execute("""
+        UPDATE dnck
+        SET object_type = ?, object_code = ?, object_name = ?, identity_value = ?, phone = ?,
+            account_number = ?, account_name = ?, bank = ?, purpose = ?, approval_level = ?,
+            expense_type = ?, cost_group = ?, request_content = ?, sap_document = ?,
+            amount = ?, payment_tag = ?, approver_option = ?, detail_json = ?,
+            hashtags_json = ?, reference_note = ?, reference_links_json = ?,
+            cost_limit_ref = ?
+        WHERE id = ?
+    """, (
+        prepared["object_type"],
+        prepared["object_code"],
+        prepared["object_name"],
+        prepared["identity_value"],
+        prepared["phone"],
+        prepared["account_number"],
+        prepared["account_name"],
+        prepared["bank"],
+        prepared["purpose"],
+        prepared["approval_level"],
+        prepared["expense_type"],
+        prepared["cost_group"],
+        prepared["request_content"],
+        prepared["sap_document"],
+        prepared["amount"],
+        prepared["payment_tag"],
+        prepared["approver_option"],
+        json.dumps(prepared["detail"], ensure_ascii=False),
+        json.dumps(prepared["hashtags"], ensure_ascii=False),
+        prepared["reference_note"],
+        json.dumps(prepared["reference_links"], ensure_ascii=False),
+        prepared["cost_limit_ref"],
+        dnck_id,
+    ))
+    db.commit()
+    row = db.execute("SELECT * FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    payload = build_dnck_qt82_payload(dnck_row_to_dict(row), get_settings())
+    return _customer_lookup_json({"ok": True, "id": dnck_id, "qt82": payload})
+
+
+@app.route("/api/dnck/<int:dnck_id>/copy", methods=["POST"])
+def api_dnck_copy(dnck_id):
+    """Sao chép DNCK thành bản mới để chỉnh tiếp."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    db = get_db()
+    row = db.execute("SELECT * FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy đề nghị CK."}, 404)
+    d = dnck_row_to_dict(row)
+    cursor = db.execute("""
+        INSERT INTO dnck
+            (created_at, object_type, object_code, object_name, identity_value, phone,
+             account_number, account_name, bank, purpose, approval_level, expense_type,
+             cost_group, request_content, sap_document, amount, payment_tag, approver_option,
+             detail_json, hashtags_json, reference_note, reference_links_json,
+             cost_limit_ref, da_trinh, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    """, (
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        d.get("object_type") or "customer",
+        d.get("object_code", ""),
+        d.get("object_name", ""),
+        d.get("identity_value", ""),
+        d.get("phone", ""),
+        d.get("account_number", ""),
+        d.get("account_name", ""),
+        d.get("bank", ""),
+        d.get("purpose", ""),
+        d.get("approval_level", ""),
+        d.get("expense_type", ""),
+        d.get("cost_group", ""),
+        d.get("request_content", ""),
+        d.get("sap_document", ""),
+        d.get("amount", 0),
+        d.get("payment_tag", "Thanh Toán Khác"),
+        d.get("approver_option", "none"),
+        json.dumps(d.get("detail") or [], ensure_ascii=False),
+        json.dumps(d.get("hashtags") or [], ensure_ascii=False),
+        d.get("reference_note", ""),
+        json.dumps(d.get("reference_links") or [], ensure_ascii=False),
+        d.get("cost_limit_ref", ""),
+        current_user_id(),
+    ))
+    db.commit()
+    return _customer_lookup_json({"ok": True, "id": cursor.lastrowid})
+
+
+@app.route("/api/dnck/<int:dnck_id>", methods=["DELETE"])
+def api_dnck_delete(dnck_id):
+    """Xóa DNCK, chỉ ADMIN."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    db = get_db()
+    row = db.execute("SELECT id FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy đề nghị CK."}, 404)
+    db.execute("DELETE FROM dnck WHERE id = ?", (dnck_id,))
+    db.commit()
+    return _customer_lookup_json({"ok": True})
+
+
+@app.route("/api/dnck/history")
+def api_dnck_history():
+    """Lịch sử DNCK riêng cho ADMIN."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    rows = get_db().execute("SELECT * FROM dnck ORDER BY id DESC LIMIT 200").fetchall()
+    data = []
+    for row in rows:
+        d = dnck_row_to_dict(row)
+        d.pop("detail_json", None)
+        data.append(d)
+    return _customer_lookup_json({"ok": True, "data": data, "admin": True})
+
+
+@app.route("/api/dnck/object-lookup")
+def api_dnck_object_lookup():
+    """Tra thông tin đối tượng DNCK theo mã NV/KH/NCC; hiện seed demo cho mã NV."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    code = remove_all_whitespace(request.args.get("code", "")).upper()
+    if not code:
+        return _customer_lookup_json({"ok": False, "error": "Thiếu mã đối tượng."}, 400)
+    rows = get_db().execute("""
+        SELECT *
+        FROM dnck_object_lookup
+        WHERE UPPER(object_code) = ?
+        ORDER BY is_primary DESC, id ASC
+    """, (code,)).fetchall()
+    if not rows:
+        return _customer_lookup_json({"ok": True, "found": False, "data": None})
+    accounts = []
+    for row in rows:
+        d = row_to_dict(row)
+        accounts.append({
+            "account_number": normalize_account_number(d.get("account_number", "")),
+            "bank": d.get("bank", ""),
+            "bank_eoffice_code": d.get("bank_eoffice_code", ""),
+            "is_primary": bool(d.get("is_primary")),
+            "source": d.get("source", ""),
+        })
+    primary = accounts[0]
+    first = row_to_dict(rows[0])
+    return _customer_lookup_json({
+        "ok": True,
+        "found": True,
+        "data": {
+            "object_code": first.get("object_code", ""),
+            "object_name": first.get("object_name", ""),
+            "identity_value": first.get("identity_value", ""),
+            "account_number": primary["account_number"],
+            "bank": primary["bank"],
+            "bank_eoffice_code": primary["bank_eoffice_code"],
+            "account_name": first.get("object_name", ""),
+            "accounts": accounts,
+        },
+    })
+
+
+def dnck_object_row_to_dict(row):
+    d = row_to_dict(row)
+    return {
+        "id": d.get("id"),
+        "object_code": d.get("object_code", ""),
+        "object_name": d.get("object_name", ""),
+        "account_number": normalize_account_number(d.get("account_number", "")),
+        "bank": d.get("bank", ""),
+        "identity_value": d.get("identity_value", ""),
+        "bank_eoffice_code": d.get("bank_eoffice_code", ""),
+        "is_primary": bool(d.get("is_primary")),
+        "source": d.get("source", ""),
+    }
+
+
+@app.route("/api/dnck/objects")
+def api_dnck_objects_list():
+    """Danh sách dữ liệu đối tượng DNCK, chỉ ADMIN."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    q = str(request.args.get("q") or "").strip()
+    db = get_db()
+    if q:
+        like = f"%{q.upper()}%"
+        rows = db.execute("""
+            SELECT *
+            FROM dnck_object_lookup
+            WHERE UPPER(object_code) LIKE ?
+               OR UPPER(object_name) LIKE ?
+               OR account_number LIKE ?
+               OR identity_value LIKE ?
+            ORDER BY object_code, is_primary DESC, id
+            LIMIT 300
+        """, (like, like, f"%{q}%", f"%{q}%")).fetchall()
+    else:
+        rows = db.execute("""
+            SELECT *
+            FROM dnck_object_lookup
+            ORDER BY object_code, is_primary DESC, id
+            LIMIT 300
+        """).fetchall()
+    return _customer_lookup_json({"ok": True, "data": [dnck_object_row_to_dict(row) for row in rows]})
+
+
+@app.route("/api/dnck/objects", methods=["POST"])
+def api_dnck_objects_save():
+    """Thêm dữ liệu đối tượng DNCK."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    data = request.get_json(silent=True) or {}
+    object_code = remove_all_whitespace(data.get("object_code", "")).upper()
+    object_name = str(data.get("object_name") or "").strip().upper()
+    account_number = normalize_account_number(data.get("account_number", ""))
+    bank = str(data.get("bank") or "").strip()
+    identity_value = remove_all_whitespace(data.get("identity_value", ""))
+    bank_eoffice_code = remove_all_whitespace(data.get("bank_eoffice_code", "")) or find_eoffice_bank_code(bank)
+    is_primary = 1 if data.get("is_primary", True) else 0
+    errors = []
+    if not object_code:
+        errors.append("Thiếu mã đối tượng.")
+    if not object_name:
+        errors.append("Thiếu tên đối tượng.")
+    if not account_number:
+        errors.append("Thiếu số tài khoản.")
+    if not bank:
+        errors.append("Thiếu ngân hàng.")
+    if errors:
+        return _customer_lookup_json({"ok": False, "error": " ".join(errors)}, 400)
+    db = get_db()
+    if is_primary:
+        db.execute("UPDATE dnck_object_lookup SET is_primary = 0 WHERE object_code = ?", (object_code,))
+    cursor = db.execute("""
+        INSERT INTO dnck_object_lookup
+            (object_code, object_name, account_number, bank, identity_value,
+             bank_eoffice_code, is_primary, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'manual')
+        ON CONFLICT(object_code, account_number) DO UPDATE SET
+            object_name = excluded.object_name,
+            bank = excluded.bank,
+            identity_value = excluded.identity_value,
+            bank_eoffice_code = excluded.bank_eoffice_code,
+            is_primary = excluded.is_primary,
+            source = 'manual'
+    """, (object_code, object_name, account_number, bank, identity_value, bank_eoffice_code, is_primary))
+    db.commit()
+    row = db.execute(
+        "SELECT * FROM dnck_object_lookup WHERE object_code = ? AND account_number = ?",
+        (object_code, account_number),
+    ).fetchone()
+    return _customer_lookup_json({"ok": True, "data": dnck_object_row_to_dict(row), "id": row["id"] if row else cursor.lastrowid})
+
+
+@app.route("/api/dnck/objects/<int:object_id>", methods=["PUT"])
+def api_dnck_objects_update(object_id):
+    """Sửa một dòng dữ liệu đối tượng DNCK."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    row = db.execute("SELECT * FROM dnck_object_lookup WHERE id = ?", (object_id,)).fetchone()
+    if not row:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy dữ liệu đối tượng."}, 404)
+    object_code = remove_all_whitespace(data.get("object_code", row["object_code"])).upper()
+    object_name = str(data.get("object_name", row["object_name"]) or "").strip().upper()
+    account_number = normalize_account_number(data.get("account_number", row["account_number"]))
+    bank = str(data.get("bank", row["bank"]) or "").strip()
+    identity_value = remove_all_whitespace(data.get("identity_value", row["identity_value"]))
+    bank_eoffice_code = remove_all_whitespace(data.get("bank_eoffice_code", row["bank_eoffice_code"])) or find_eoffice_bank_code(bank)
+    is_primary = 1 if data.get("is_primary", bool(row["is_primary"])) else 0
+    if not object_code or not object_name or not account_number or not bank:
+        return _customer_lookup_json({"ok": False, "error": "Thiếu mã, tên, STK hoặc ngân hàng."}, 400)
+    if is_primary:
+        db.execute("UPDATE dnck_object_lookup SET is_primary = 0 WHERE object_code = ? AND id <> ?", (object_code, object_id))
+    db.execute("""
+        UPDATE dnck_object_lookup
+        SET object_code = ?, object_name = ?, account_number = ?, bank = ?,
+            identity_value = ?, bank_eoffice_code = ?, is_primary = ?, source = 'manual'
+        WHERE id = ?
+    """, (object_code, object_name, account_number, bank, identity_value, bank_eoffice_code, is_primary, object_id))
+    db.commit()
+    row = db.execute("SELECT * FROM dnck_object_lookup WHERE id = ?", (object_id,)).fetchone()
+    return _customer_lookup_json({"ok": True, "data": dnck_object_row_to_dict(row)})
+
+
+@app.route("/api/dnck/objects/<int:object_id>", methods=["DELETE"])
+def api_dnck_objects_delete(object_id):
+    """Xóa một dòng dữ liệu đối tượng DNCK."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    db = get_db()
+    row = db.execute("SELECT id FROM dnck_object_lookup WHERE id = ?", (object_id,)).fetchone()
+    if not row:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy dữ liệu đối tượng."}, 404)
+    db.execute("DELETE FROM dnck_object_lookup WHERE id = ?", (object_id,))
+    db.commit()
+    return _customer_lookup_json({"ok": True})
+
+
+@app.route("/api/dnck/da-trinh/<int:dnck_id>", methods=["POST"])
+def api_dnck_da_trinh(dnck_id):
+    """Cập nhật trạng thái đã trình cho DNCK."""
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+    value = 1 if (request.get_json(silent=True) or {}).get("da_trinh") else 0
+    db = get_db()
+    row = db.execute("SELECT id FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return _customer_lookup_json({"ok": False, "error": "Không tìm thấy đề nghị CK."}, 404)
+    db.execute("UPDATE dnck SET da_trinh = ? WHERE id = ?", (value, dnck_id))
+    db.commit()
+    return _customer_lookup_json({"ok": True})
 
 
 @app.route("/api/phieu/<int:phieu_id>")
@@ -2740,6 +3777,243 @@ def api_pdf(phieu_id):
     return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 
+def get_payment_planning_row(phieu_id):
+    db = get_db()
+    token_payload = verify_pdf_token(phieu_id)
+    if token_payload:
+        return db.execute(
+            "SELECT * FROM phieu WHERE id = ? AND user_id = ?",
+            (phieu_id, int(token_payload["user_id"])),
+        ).fetchone()
+    return get_accessible_phieu(db, phieu_id)
+
+
+@app.route("/api/payment-planning/<int:phieu_id>")
+def api_payment_planning_print(phieu_id):
+    """Return printable Payment Planning HTML for a specific phieu."""
+    row = get_payment_planning_row(phieu_id)
+    if not row:
+        return "Không tìm thấy phiếu", 404
+    p = prepare_payment_planning_for_output(row, get_settings())
+    p["pdf_token"] = request.args.get("token", "")
+    return render_template("payment_planning_print.html", p=p, staff=STAFF)
+
+
+@app.route("/api/payment-planning-pdf/<int:phieu_id>")
+def api_payment_planning_pdf(phieu_id):
+    """Download Payment Planning PDF rendered from the printable HTML template."""
+    row = get_payment_planning_row(phieu_id)
+    if not row:
+        return "Không tìm thấy phiếu", 404
+    p = prepare_payment_planning_for_output(row, get_settings())
+    p["pdf_token"] = request.args.get("token", "")
+    try:
+        html = render_template("payment_planning_print.html", p=p, staff=STAFF)
+        pdf = make_pdf_from_print_html(html)
+    except RuntimeError:
+        return "Server chưa cài thư viện xuất PDF. Vui lòng báo admin kiểm tra renderer.", 500
+    filename = f"{p.get('planning_file_title')}.pdf"
+    return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
+
+
+def make_payment_planning_xlsx(p):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Payment Planning"
+    ws.sheet_view.showGridLines = False
+
+    widths = {"A": 18, "B": 48, "C": 22, "D": 38}
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+    thin = Side(style="thin", color="000000")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    title_fill = PatternFill("solid", fgColor="D9EAF7")
+    section_fill = PatternFill("solid", fgColor="FFF2CC")
+    input_fill = PatternFill("solid", fgColor="FCE4D6")
+    header_fill = PatternFill("solid", fgColor="E2F0D9")
+    bold = Font(name="Times New Roman", size=11, bold=True)
+    normal = Font(name="Times New Roman", size=11)
+    title_font = Font(name="Times New Roman", size=13, bold=True)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    right = Alignment(horizontal="right", vertical="center", wrap_text=True)
+
+    def merge(row, start_col, end_col, value, fill=None, font=None, align=None):
+        ws.merge_cells(start_row=row, start_column=start_col, end_row=row, end_column=end_col)
+        cell = ws.cell(row=row, column=start_col, value=value)
+        cell.fill = fill or PatternFill(fill_type=None)
+        cell.font = font or normal
+        cell.alignment = align or left
+        for col in range(start_col, end_col + 1):
+            ws.cell(row=row, column=col).border = border
+
+    def set_row(row, values, fills=None):
+        fills = fills or {}
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.font = normal
+            cell.alignment = left
+            cell.border = border
+            if fills.get(col):
+                cell.fill = fills[col]
+
+    merge(1, 1, 4, "PHỤ LỤC SỐ 01: KẾ HOẠCH THANH TOÁN GIÁ TRỊ THU ĐỔI", title_fill, title_font, center)
+    merge(2, 1, 4, f"Kèm theo Bảng kê mua lại tài sản số: {p.get('so_bk') or '__________'} ngày ____/____/________", None, normal, center)
+
+    section_rows = {
+        3: "I. THÔNG TIN CÁC BÊN",
+        10: "Thông tin tài khoản nhận tiền",
+        13: "II. GIÁ TRỊ THU ĐỔI VÀ PHƯƠNG ÁN NHẬN GIÁ TRỊ",
+        20: "III. ĐỊNH NGHĨA VÀ CÁCH XÁC ĐỊNH THỜI HẠN",
+        25: "IV. KẾ HOẠCH THANH TOÁN",
+        33: "V. HÌNH THỨC VÀ THÔNG TIN THANH TOÁN",
+        36: "VI. NGUYÊN TẮC THANH TOÁN",
+        43: "VII. XÁC NHẬN VÀ CAM KẾT CỦA BÊN BÁN",
+        48: "VIII. CAM KẾT CỦA PNJ",
+        52: "IX. HIỆU LỰC, THỨ TỰ ƯU TIÊN VÀ GIẢI QUYẾT PHÁT SINH",
+        58: "X. XÁC NHẬN CỦA CÁC BÊN",
+    }
+    for row, text in section_rows.items():
+        merge(row, 1, 4, text, section_fill, bold, left)
+
+    rows = {
+        4: ["BÊN MUA", "CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (PNJ)", "BÊN BÁN", ""],
+        5: ["Địa chỉ", PAYMENT_PLANNING_PNJ_ADDRESS, "Họ và tên", p.get("ten_kh", "")],
+        6: ["Mã số doanh nghiệp", PAYMENT_PLANNING_TAX_CODE, "Số CCCD/Hộ chiếu", p.get("cccd", "")],
+        7: ["Đại diện/Người tiếp nhận", p.get("nguoi_ki_name", ""), "Ngày cấp/Nơi cấp", ""],
+        8: ["Cửa hàng/Đơn vị", PAYMENT_PLANNING_STORE_NAME, "Địa chỉ liên hệ", ""],
+        9: ["Điện thoại/Email PNJ", "", "", ""],
+        11: ["Chủ tài khoản", p.get("ten_tk") or p.get("ten_kh", ""), "Số tài khoản", p.get("so_tk", "")],
+        12: ["Ngân hàng", p.get("ngan_hang", ""), "Chi nhánh (nếu có)", ""],
+        14: ["Tổng giá trị thu đổi(VNĐ)", p.get("total_trade", 0), "", ""],
+        15: ["Bằng chữ", p.get("total_trade_words", ""), "", ""],
+        16: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3", "", ""],
+        17: ["Giá trị quy đổi sang sản phẩm PNJ (VNĐ)", p.get("product_conversion", 0), "", ""],
+        18: ["Giá trị nhận bằng tiền (VNĐ)", "=B14-B17", "", ""],
+        19: ["Nguyên tắc cấn trừ", "Giá trị quy đổi sang sản phẩm PNJ được cấn trừ trực tiếp vào giá mua sản phẩm PNJ thể hiện trên hóa đơn bán hàng tương ứng.\nPhần chênh lệch còn lại (nếu có) do Bên Bán thanh toán thêm hoặc được PNJ thanh toán theo thỏa thuận và chứng từ giao dịch.", "", ""],
+        21: ["Ngày T", "Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Phụ lục này; trường hợp các thời điểm trên khác nhau, Ngày T là ngày hoàn tất ký xác nhận sau cùng.\nVD: BKML ký ngày 1/7. Kế hoạch thanh toán ký ngày 2/7. Như vậy T là ngày 2/7", "", ""],
+        22: ["Ngày làm việc", "Là ngày từ thứ Hai đến thứ Sáu, không bao gồm ngày nghỉ hằng tuần, ngày nghỉ lễ, tết và ngày PNJ/ngân hàng phục vụ thanh toán không làm việc theo quy định hoặc thông báo hợp lệ.", "", ""],
+        23: ["Cách tính T+n", "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.", "", ""],
+        24: ["Hoàn tất thanh toán", "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là thực hiện khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản do Bên Bán xác nhận; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.", "", ""],
+        26: ["Đợt", "Thời điểm dự kiến", "Tỷ lệ", "Số tiền (VNĐ)"],
+        27: [1, "T+0/1", 0.1, "=ROUND($B$18*C27,0)"],
+        28: [2, "T+30", 0.2, "=ROUND($B$18*C28,0)"],
+        29: [3, "T+60", 0.25, "=ROUND($B$18*C29,0)"],
+        30: [4, "T+90", 0.25, "=ROUND($B$18*C30,0)"],
+        31: [5, "T+120", 0.2, "=$B$18-SUM(D27:D30)"],
+        32: ["Tổng", "", 1, "=SUM(D27:D31)"],
+        34: ["Hình thức", "☐ Chuyển khoản    ☐ Khác", "", ""],
+        35: ["Nội dung chuyển khoản", "", "", ""],
+        37: [1, "Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.", "", ""],
+        38: [2, "PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp chậm thanh toán do lỗi của PNJ, quyền và nghĩa vụ của các bên được xử lý theo thỏa thuận và quy định pháp luật áp dụng.", "", ""],
+        39: [3, "Bên Bán chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Bên Bán điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ. PNJ không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Bên Bán cung cấp, trừ phần lỗi thuộc PNJ.", "", ""],
+        40: [4, "Mọi sửa đổi, bổ sung kế hoạch thanh toán phải được lập thành văn bản hoặc thông điệp dữ liệu có thể truy cập, lưu trữ và xác định được sự chấp thuận của cả hai bên; nội dung sửa đổi là bộ phận của Phụ lục này.", "", ""],
+        41: [5, "Khi phát sinh sự kiện bất khả kháng hoặc trở ngại khách quan ảnh hưởng trực tiếp đến việc thanh toán, bên bị ảnh hưởng phải thông báo cho bên còn lại trong thời gian hợp lý, cung cấp thông tin cần thiết và phối hợp thống nhất phương án xử lý phù hợp pháp luật.", "", ""],
+        42: [6, "Các khoản phí do ngân hàng của Bên Bán thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.", "", ""],
+        44: [1, "Bên Bán xác nhận đã được PNJ giải thích đầy đủ về giá trị thu đổi, phương án nhận giá trị, nguyên tắc cấn trừ, lịch thanh toán, phương thức thanh toán và các thông tin cần thiết trước khi lựa chọn.", "", ""],
+        45: [2, "Bên Bán tự nguyện lựa chọn phương án nêu tại Phụ lục này; đã đọc, hiểu, có cơ hội đặt câu hỏi và nhận một bản Phụ lục sau khi ký.", "", ""],
+        46: [3, "Bên Bán cam kết thông tin nhận diện, liên hệ và tài khoản thanh toán cung cấp cho PNJ là chính xác, hợp pháp; thông báo kịp thời khi phát hiện sai sót hoặc thay đổi.", "", ""],
+        47: [4, "Bên Bán có trách nhiệm bảo mật thông tin giao dịch và dữ liệu cá nhân của bên khác mà mình tiếp cận; quy định này không hạn chế quyền cung cấp thông tin cho cơ quan nhà nước có thẩm quyền, luật sư, cố vấn, ngân hàng hoặc chủ thể khác theo yêu cầu pháp luật hoặc để bảo vệ quyền, lợi ích hợp pháp.", "", ""],
+        49: [1, "PNJ cam kết thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán theo quy trình áp dụng.", "", ""],
+        50: [2, "PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Bên Bán đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.", "", ""],
+        51: [3, "PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin và phản ánh liên quan đến việc thực hiện kế hoạch thanh toán.", "", ""],
+        53: [1, "Phụ lục này là bộ phận không tách rời của Bảng kê mua lại tài sản nêu tại phần đầu Phụ lục và có hiệu lực kể từ thời điểm đại diện hợp lệ của hai bên ký/xác nhận.", "", ""],
+        54: [2, "PNJ thực hiện nghĩa vụ thanh toán trên cơ sở hồ sơ giao dịch gồm Bảng kê mua lại tài sản, Phụ lục này và thông tin thanh toán hợp lệ. Việc thiếu bản giấy do Bên Bán lưu giữ không làm mất quyền yêu cầu thanh toán nếu PNJ có thể đối chiếu giao dịch trên hệ thống hoặc bằng chứng hợp pháp khác.", "", ""],
+        55: [3, "Nếu có khác biệt giữa Phụ lục này và Bảng kê mua lại tài sản về lịch, phương thức thanh toán thì nội dung cụ thể tại Phụ lục này được ưu tiên áp dụng; các nội dung khác thực hiện theo Bảng kê mua lại tài sản và pháp luật.", "", ""],
+        56: [4, "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.", "", ""],
+        57: [5, "Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản", "", ""],
+        59: [f"BÊN BÁN\n(Ký, ghi rõ họ tên)\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN BÊN MUA/NGƯỜI ĐƯỢC ỦY QUYỀN\n(Ký, ghi rõ họ tên, chức danh)\n\n{p.get('buyer_signature_title', '')}\n{p.get('buyer_signature_name', '')}", ""],
+        60: ["Ngày ký: ____/____/________", "", "Ngày ký: ____/____/________", ""],
+    }
+
+    merge_rows = {19, 21, 22, 23, 24, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56, 57}
+    for row in range(4, 61):
+        if row in section_rows:
+            continue
+        values = rows.get(row, ["", "", "", ""])
+        set_row(row, values, {2: input_fill if row in {7, 8, 12, 16, 35} else None, 4: input_fill if row in {7, 8, 12} else None})
+        if row in merge_rows:
+            ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=4)
+            for col in range(2, 5):
+                ws.cell(row=row, column=col).border = border
+
+    for row in (26, 32):
+        for col in range(1, 5):
+            ws.cell(row=row, column=col).fill = header_fill
+            ws.cell(row=row, column=col).font = bold
+            ws.cell(row=row, column=col).alignment = center
+
+    for row in range(27, 32):
+        ws.cell(row=row, column=1).alignment = center
+        ws.cell(row=row, column=2).alignment = center
+        ws.cell(row=row, column=3).alignment = center
+        ws.cell(row=row, column=4).alignment = right
+
+    for row in list(range(37, 43)) + list(range(44, 48)) + list(range(49, 52)) + list(range(53, 58)):
+        ws.cell(row=row, column=1).alignment = center
+
+    for row in (14, 17, 18, 27, 28, 29, 30, 31, 32):
+        ws.cell(row=row, column=4 if row >= 27 else 2).number_format = '#,##0'
+    for row in (27, 28, 29, 30, 31, 32):
+        ws.cell(row=row, column=3).number_format = '0%'
+    for row in (59, 60):
+        ws.cell(row=row, column=1).alignment = center
+        ws.cell(row=row, column=3).alignment = center
+        ws.cell(row=row, column=1).font = bold
+        ws.cell(row=row, column=3).font = bold
+    ws.merge_cells("A59:B59")
+    ws.merge_cells("C59:D59")
+    ws.merge_cells("A60:B60")
+    ws.merge_cells("C60:D60")
+
+    for row in range(1, 61):
+        ws.row_dimensions[row].height = 18
+    for row in (19, 21, 22, 23, 24, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56):
+        ws.row_dimensions[row].height = 42
+    ws.row_dimensions[59].height = 78
+
+    ws.print_area = "A1:D60"
+    ws.page_setup.orientation = "portrait"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_margins.left = 0.35
+    ws.page_margins.right = 0.35
+    ws.page_margins.top = 0.35
+    ws.page_margins.bottom = 0.35
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+@app.route("/api/payment-planning-xlsx/<int:phieu_id>")
+def api_payment_planning_xlsx(phieu_id):
+    """Download editable Payment Planning Excel workbook."""
+    row = get_payment_planning_row(phieu_id)
+    if not row:
+        return "Không tìm thấy phiếu", 404
+    p = prepare_payment_planning_for_output(row, get_settings())
+    output = make_payment_planning_xlsx(p)
+    filename = f"{p.get('planning_file_title')}.xlsx"
+    response = send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        max_age=0,
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @app.route("/api/history")
 def api_history():
     """JSON list of phieu, newest first. Admin can see all users."""
@@ -2747,6 +4021,7 @@ def api_history():
     admin = is_admin()
     if admin:
         rows = db.execute("SELECT * FROM phieu ORDER BY id DESC").fetchall()
+        dnck_rows = db.execute("SELECT * FROM dnck ORDER BY id DESC").fetchall()
         try:
             users = {u["id"]: (u.get("full_name") or u.get("username") or f"User {u['id']}") for u in shared_auth.list_users()}
         except Exception:
@@ -2754,10 +4029,12 @@ def api_history():
     else:
         rows = db.execute("SELECT * FROM phieu WHERE user_id = ? ORDER BY id DESC",
                           (current_user_id(),)).fetchall()
+        dnck_rows = []
         users = {}
     result = []
     for row in rows:
         d = row_to_dict(row)
+        d["source"] = "phieu"
         d["tong_ck_chu"] = so_thanh_chu(d["tong_ck"])
         try:
             d["chung_tu"] = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
@@ -2769,6 +4046,32 @@ def api_history():
         if admin:
             d["owner_name"] = users.get(d.get("user_id"), f"User {d.get('user_id')}")
         result.append(d)
+    if admin:
+        for row in dnck_rows:
+            d = dnck_row_to_dict(row)
+            mapped = {
+                **d,
+                "source": "dnck",
+                "ma_kh": d.get("object_code", ""),
+                "ten_kh": d.get("object_name", ""),
+                "sdt": "",
+                "cccd": d.get("identity_value", ""),
+                "so_tk": d.get("account_number", ""),
+                "ten_tk": d.get("account_name", ""),
+                "ngan_hang": d.get("bank", ""),
+                "so_bk": "DNCK",
+                "tvv_code": "",
+                "tvv_name": d.get("purpose", ""),
+                "tong_ck": d.get("amount", 0),
+                "tong_ck_chu": so_thanh_chu(d.get("amount", 0)),
+                "status": "printed",
+                "can_manage": True,
+                "can_update_da_trinh": True,
+                "owner_name": users.get(d.get("user_id"), f"User {d.get('user_id')}"),
+                "pdf_token": "",
+            }
+            result.append(mapped)
+    result.sort(key=lambda item: (str(item.get("created_at") or ""), int(item.get("id") or 0)), reverse=True)
     return jsonify({"ok": True, "data": result, "admin": admin})
 
 
@@ -3039,50 +4342,34 @@ def api_ocr_bk():
     })
 
 
-@app.route("/api/template-tt/<int:phieu_id>")
-def api_template_tt(phieu_id):
-    """Generate filled eOffice QT82 template Excel for a phieu."""
-    if not is_admin():
-        return "Bạn không có quyền tải dữ liệu QT82.", 403
+def make_template_tt_response(detail_rows, identity_value, filename_key):
+    """Generate filled eOffice QT82 template Excel from normalized detail rows."""
     from openpyxl import load_workbook
-    db = get_db()
-    row = get_accessible_phieu(db, phieu_id)
-    if not row:
-        return "Không tìm thấy phiếu", 404
-
-    d = row_to_dict(row)
-    try:
-        chung_tu = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
-    except (json.JSONDecodeError, TypeError):
-        chung_tu = []
 
     template_path = os.path.join(app.static_folder, "template_tt.xlsx")
     wb = load_workbook(template_path)
     ws = wb["Sheet1"]
+    identity = str(identity_value or "")
 
-    cccd = re.sub(r"\D", "", d.get("cccd", ""))
-
-    for i, ct in enumerate(chung_tu):
+    for i, ct in enumerate(detail_rows):
         r = 5 + i  # Row 5 onwards
         ws.cell(row=r, column=1, value=i + 1)
-
-        loai = ct.get("loai", "")
+        loai = ct.get("loai") or ct.get("label") or ""
         ws.cell(row=r, column=2, value=loai)
-
-        gia_tri = ct.get("gia_tri", 0)
-        if loai == "Hóa đơn":
+        gia_tri = ct.get("gia_tri", ct.get("amount", 0))
+        if float(gia_tri or 0) < 0:
+            ws.cell(row=r, column=3, value=int(gia_tri))
+        elif loai in ("Hóa đơn", "Phải thu khác", "Thuế TNCN"):
             ws.cell(row=r, column=3, value=-abs(int(gia_tri)))
         else:
             ws.cell(row=r, column=3, value=abs(int(gia_tri)))
-
-        # Số CT dạng text (giữ số 0 đầu)
-        ws.cell(row=r, column=4, value=str(ct.get("so_ct", "")))
-        # CCCD dạng text (giữ số 0 đầu)
-        ws.cell(row=r, column=5, value=str(cccd))
+        ws.cell(row=r, column=4, value=str(ct.get("so_ct") or ct.get("document") or ""))
+        ws.cell(row=r, column=5, value=str(ct.get("identity") or identity))
+        ws.cell(row=r, column=6, value=str(ct.get("note") or ""))
         ws.cell(row=r, column=7, value=True)
 
     # Fill remaining STT rows
-    for i in range(len(chung_tu), 30):
+    for i in range(len(detail_rows), 30):
         r = 5 + i
         ws.cell(row=r, column=1, value=i + 1)
         ws.cell(row=r, column=7, value=True)
@@ -3091,8 +4378,8 @@ def api_template_tt(phieu_id):
     wb.save(output)
     output.seek(0)
 
-    so_bk = re.sub(r"[^0-9A-Za-z._-]", "_", str(d.get("so_bk") or "phieu"))[:80]
-    filename = f"Template - TT {so_bk}.xlsx"
+    safe_key = re.sub(r"[^0-9A-Za-z._-]", "_", str(filename_key or "phieu"))[:80]
+    filename = f"Template - TT {safe_key}.xlsx"
     response = send_file(
         output,
         as_attachment=True,
@@ -3106,14 +4393,61 @@ def api_template_tt(phieu_id):
     return response
 
 
+@app.route("/api/template-tt/<int:phieu_id>")
+def api_template_tt(phieu_id):
+    """Generate filled eOffice QT82 template Excel for a phieu."""
+    if not is_admin():
+        return "Bạn không có quyền tải dữ liệu QT82.", 403
+    db = get_db()
+    row = get_accessible_phieu(db, phieu_id)
+    if not row:
+        return "Không tìm thấy phiếu", 404
+
+    d = row_to_dict(row)
+    d["source"] = "phieu"
+    try:
+        chung_tu = json.loads(d["chung_tu_json"]) if d["chung_tu_json"] else []
+    except (json.JSONDecodeError, TypeError):
+        chung_tu = []
+    cccd = re.sub(r"\D", "", d.get("cccd", ""))
+    return make_template_tt_response(chung_tu, cccd, d.get("so_bk") or "phieu")
+
+
+@app.route("/api/dnck/template-tt/<int:dnck_id>")
+def api_dnck_template_tt(dnck_id):
+    """Generate filled eOffice QT82 template Excel for DNCK."""
+    if not is_admin():
+        return "Bạn không có quyền tải dữ liệu QT82.", 403
+    row = get_db().execute("SELECT * FROM dnck WHERE id = ?", (dnck_id,)).fetchone()
+    if not row:
+        return "Không tìm thấy đề nghị CK", 404
+    d = dnck_row_to_dict(row)
+    detail = [
+        {
+            "loai": item["label"],
+            "gia_tri": item["amount"],
+            "so_ct": item["document"],
+            "identity": item.get("identity") or d.get("identity_value", ""),
+            "note": item.get("note", ""),
+        }
+        for item in sanitize_dnck_detail(
+            d.get("detail") or [],
+            d.get("payment_tag") or "Thanh Toán Khác",
+            int(round(float(d.get("amount", 0) or 0))),
+            d.get("sap_document") or "DNCK",
+        )
+    ]
+    return make_template_tt_response(detail, d.get("identity_value", ""), f"DNCK_{d.get('id')}")
+
+
 @app.route("/api/banks")
 def api_banks():
     """Return full bank list for dropdown search."""
-    # Mã eOffice chỉ dùng tại trang eOffice; không gửi xuống trang tạo phiếu.
-    data = [
-        {key: value for key, value in bank.items() if key != "eoffice"}
-        for bank in BANK_LIST
-    ]
+    data = []
+    admin = is_admin()
+    for bank in BANK_LIST:
+        item = {key: value for key, value in bank.items() if admin or key != "eoffice"}
+        data.append(item)
     return jsonify({"ok": True, "data": data})
 
 

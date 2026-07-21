@@ -568,6 +568,23 @@
     return {label, ok: true};
   }
 
+  async function fillApprovers(draft) {
+    const approvers = Array.isArray(draft.approvers) ? draft.approvers : [];
+    if (!approvers.length) return {label: "Người phê duyệt", ok: true};
+    const results = [];
+    for (const approver of approvers) {
+      const query = approver && approver.query;
+      const expected = approver && (approver.name || approver.query);
+      if (!query) continue;
+      results.push(await chooseSuggestion("Người phê duyệt", query, expected));
+      await delay(900);
+    }
+    return {
+      label: "Người phê duyệt",
+      ok: results.length > 0 && results.every((item) => item.ok),
+    };
+  }
+
   function fieldValueMatches(label, expected) {
     const control = findControl(label);
     if (!control) return false;
@@ -931,7 +948,12 @@
     }
     results.push(currencyResult);
     results.push(await chooseValue("TP phê duyệt", draft.managerApproval));
-    results.push(await chooseSuggestion("Cửa hàng trưởng", draft.storeManagerQuery, draft.storeManagerName));
+    if (!draft.skipStoreManager) {
+      results.push(await chooseSuggestion("Cửa hàng trưởng", draft.storeManagerQuery, draft.storeManagerName));
+    }
+    if (Array.isArray(draft.approvers) && draft.approvers.length) {
+      results.push(await fillApprovers(draft));
+    }
     results.push(await fillInput("Đối tượng thanh toán", draft.paymentObjectName));
     results.push(await fillInput("Mã đối tượng", draft.paymentObjectCode));
     results.push(await chooseValue("Nhóm chi phí", draft.costGroup));

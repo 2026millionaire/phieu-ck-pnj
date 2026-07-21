@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "PNJ QT82 Draft Helper",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Chuyển bản nháp QT82 từ dangkhoa.io.vn sang eOffice trong bộ nhớ phiên Chrome.",
   "permissions": ["storage", "alarms"],
   "host_permissions": [
-    "https://dangkhoa.io.vn/bk/*",
+    "https://dangkhoa.io.vn/*",
     "http://localhost:5050/*",
     "https://eoffice.pnj.com.vn/workflow/*"
   ],
@@ -16,7 +16,9 @@
     {
       "matches": [
         "https://dangkhoa.io.vn/bk/eoffice*",
-        "http://localhost:5050/eoffice*"
+        "https://dangkhoa.io.vn/dnck*",
+        "http://localhost:5050/eoffice*",
+        "http://localhost:5050/dnck*"
       ],
       "js": ["web-bridge.js"],
       "run_at": "document_idle"

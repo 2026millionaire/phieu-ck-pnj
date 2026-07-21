@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ p.planning_file_title }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 10mm 10mm;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0 auto;
+            width: 210mm;
+            padding: 10mm;
+            color: #000;
+            background: #fff;
+            font-family: "Times New Roman", "Noto Serif", serif;
+            font-size: 11px;
+            line-height: 1.28;
+        }
+        .no-print {
+            margin: 0 0 10px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        .no-print button,
+        .no-print a {
+            display: inline-block;
+            margin: 0 3px;
+            padding: 7px 16px;
+            border: 0;
+            border-radius: 4px;
+            color: #fff;
+            background: #0ea5e9;
+            font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .no-print a.xlsx {
+            background: #16a34a;
+        }
+        .doc {
+            width: 100%;
+        }
+        .title {
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+            margin: 0 0 4px;
+        }
+        .subtitle {
+            text-align: center;
+            margin-bottom: 6px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        th,
+        td {
+            border: 1px solid #000;
+            padding: 3px 5px;
+            vertical-align: middle;
+            overflow-wrap: anywhere;
+        }
+        th {
+            font-weight: 700;
+            text-align: center;
+        }
+        .section {
+            background: #fff2cc;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .subsection {
+            font-weight: 700;
+        }
+        .label {
+            font-weight: 700;
+            width: 21%;
+        }
+        .value {
+            font-weight: 400;
+        }
+        .money {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .center {
+            text-align: center;
+        }
+        .stt {
+            width: 9%;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .schedule th {
+            background: #e2f0d9;
+        }
+        .schedule td {
+            text-align: center;
+        }
+        .schedule .money {
+            text-align: right;
+        }
+        .signature td {
+            height: 76px;
+            text-align: center;
+            font-weight: 700;
+            vertical-align: top;
+        }
+        .signature .sign-space {
+            height: 30px;
+        }
+        .signature .sign-title {
+            margin-top: 2px;
+            text-transform: none;
+        }
+        .signature .sign-name {
+            text-transform: uppercase;
+        }
+        .date-row td {
+            height: 28px;
+            text-align: center;
+        }
+        @media print {
+            body {
+                width: auto;
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+        @media screen {
+            body {
+                background: #f8fafc;
+                box-shadow: 0 2px 12px rgba(15, 23, 42, 0.18);
+                margin: 16px auto;
+            }
+            .doc {
+                background: #fff;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button onclick="window.print()">In phụ lục</button>
+        <a href="{{ url_for('api_payment_planning_pdf', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải PDF</a>
+        <a class="xlsx" href="{{ url_for('api_payment_planning_xlsx', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải Excel</a>
+    </div>
+
+    <div class="doc">
+        <div class="title">Phụ lục số 01: Kế hoạch thanh toán giá trị thu đổi</div>
+        <div class="subtitle">Kèm theo Bảng kê mua lại tài sản số: <strong>{{ p.so_bk }}</strong> ngày ____/____/________</div>
+
+        <table>
+            <colgroup>
+                <col style="width: 22%;">
+                <col style="width: 33%;">
+                <col style="width: 20%;">
+                <col style="width: 25%;">
+            </colgroup>
+            <tr><td colspan="4" class="section">I. Thông tin các bên</td></tr>
+            <tr>
+                <td class="label">BÊN MUA</td>
+                <td class="value">CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (PNJ)</td>
+                <td class="label">BÊN BÁN</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="label">Địa chỉ</td>
+                <td>{{ p.planning_pnj_address }}</td>
+                <td class="label">Họ và tên</td>
+                <td>{{ p.ten_kh }}</td>
+            </tr>
+            <tr>
+                <td class="label">Mã số doanh nghiệp</td>
+                <td>{{ p.planning_tax_code }}</td>
+                <td class="label">Số CCCD/Hộ chiếu</td>
+                <td>{{ p.cccd }}</td>
+            </tr>
+            <tr>
+                <td class="label">Đại diện/Người tiếp nhận</td>
+                <td>{{ p.nguoi_ki_name }}</td>
+                <td class="label">Ngày cấp/Nơi cấp</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="label">Cửa hàng/Đơn vị</td>
+                <td>{{ p.planning_store_name }}</td>
+                <td class="label">Địa chỉ liên hệ</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="label">Điện thoại/Email PNJ</td>
+                <td colspan="3"></td>
+            </tr>
+            <tr><td colspan="4" class="subsection">Thông tin tài khoản nhận tiền</td></tr>
+            <tr>
+                <td class="label">Chủ tài khoản</td>
+                <td>{{ p.ten_tk or p.ten_kh }}</td>
+                <td class="label">Số tài khoản</td>
+                <td>{{ p.so_tk }}</td>
+            </tr>
+            <tr>
+                <td class="label">Ngân hàng</td>
+                <td>{{ p.ngan_hang }}</td>
+                <td class="label">Chi nhánh (nếu có)</td>
+                <td></td>
+            </tr>
+
+            <tr><td colspan="4" class="section">II. Giá trị thu đổi và phương án nhận giá trị</td></tr>
+            <tr>
+                <td class="label">Tổng giá trị thu đổi(VNĐ)</td>
+                <td class="money">{{ "{:,.0f}".format(p.total_trade | float) }}</td>
+                <td colspan="2"></td>
+            </tr>
+            <tr>
+                <td class="label">Bằng chữ</td>
+                <td colspan="3">{{ p.total_trade_words }}</td>
+            </tr>
+            <tr>
+                <td class="label">Phương án lựa chọn</td>
+                <td colspan="3">☐ Phương án 1 &nbsp;&nbsp; ☐ Phương án 2 &nbsp;&nbsp; ☐ Phương án 3</td>
+            </tr>
+            <tr>
+                <td class="label">Giá trị quy đổi sang sản phẩm PNJ (VNĐ)</td>
+                <td class="money">{{ "{:,.0f}".format(p.product_conversion | float) }}</td>
+                <td colspan="2"></td>
+            </tr>
+            <tr>
+                <td class="label">Giá trị nhận bằng tiền (VNĐ)</td>
+                <td class="money">{{ "{:,.0f}".format(p.cash_amount | float) }}</td>
+                <td colspan="2"></td>
+            </tr>
+            <tr>
+                <td class="label">Nguyên tắc cấn trừ</td>
+                <td colspan="3">Giá trị quy đổi sang sản phẩm PNJ được cấn trừ trực tiếp vào giá mua sản phẩm PNJ thể hiện trên hóa đơn bán hàng tương ứng.<br>Phần chênh lệch còn lại (nếu có) do Bên Bán thanh toán thêm hoặc được PNJ thanh toán theo thỏa thuận và chứng từ giao dịch.</td>
+            </tr>
+
+            <tr><td colspan="4" class="section">III. Định nghĩa và cách xác định thời hạn</td></tr>
+            <tr>
+                <td class="label">Ngày T</td>
+                <td colspan="3">Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Phụ lục này; trường hợp các thời điểm trên khác nhau, Ngày T là ngày hoàn tất ký xác nhận sau cùng.<br>VD: BKML ký ngày 1/7. Kế hoạch thanh toán ký ngày 2/7. Như vậy T là ngày 2/7</td>
+            </tr>
+            <tr>
+                <td class="label">Ngày làm việc</td>
+                <td colspan="3">Là ngày từ thứ Hai đến thứ Sáu, không bao gồm ngày nghỉ hằng tuần, ngày nghỉ lễ, tết và ngày PNJ/ngân hàng phục vụ thanh toán không làm việc theo quy định hoặc thông báo hợp lệ.</td>
+            </tr>
+            <tr>
+                <td class="label">Cách tính T+n</td>
+                <td colspan="3">“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.</td>
+            </tr>
+            <tr>
+                <td class="label">Hoàn tất thanh toán</td>
+                <td colspan="3">Đối với chuyển khoản, nghĩa vụ thanh toán được xem là thực hiện khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản do Bên Bán xác nhận; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.</td>
+            </tr>
+        </table>
+
+        <table class="schedule">
+            <tr><td colspan="4" class="section">IV. Kế hoạch thanh toán</td></tr>
+            <tr>
+                <th>Đợt</th>
+                <th>Thời điểm dự kiến</th>
+                <th>Tỷ lệ</th>
+                <th>Số tiền (VNĐ)</th>
+            </tr>
+            {% for item in p.payment_schedule %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ item.label }}</td>
+                <td>{{ item.percent }}%</td>
+                <td class="money">{{ "{:,.0f}".format(item.amount | float) }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td><strong>Tổng</strong></td>
+                <td></td>
+                <td><strong>100%</strong></td>
+                <td class="money"><strong>{{ "{:,.0f}".format(p.cash_amount | float) }}</strong></td>
+            </tr>
+        </table>
+
+        <table>
+            <tr><td colspan="4" class="section">V. Hình thức và thông tin thanh toán</td></tr>
+            <tr>
+                <td class="label">Hình thức</td>
+                <td colspan="3">☐ Chuyển khoản &nbsp;&nbsp;&nbsp; ☐ Khác</td>
+            </tr>
+            <tr>
+                <td class="label">Nội dung chuyển khoản</td>
+                <td colspan="3"></td>
+            </tr>
+
+            <tr><td colspan="4" class="section">VI. Nguyên tắc thanh toán</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp chậm thanh toán do lỗi của PNJ, quyền và nghĩa vụ của các bên được xử lý theo thỏa thuận và quy định pháp luật áp dụng.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">Bên Bán chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Bên Bán điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ. PNJ không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Bên Bán cung cấp, trừ phần lỗi thuộc PNJ.</td></tr>
+            <tr><td class="stt">4</td><td colspan="3">Mọi sửa đổi, bổ sung kế hoạch thanh toán phải được lập thành văn bản hoặc thông điệp dữ liệu có thể truy cập, lưu trữ và xác định được sự chấp thuận của cả hai bên; nội dung sửa đổi là bộ phận của Phụ lục này.</td></tr>
+            <tr><td class="stt">5</td><td colspan="3">Khi phát sinh sự kiện bất khả kháng hoặc trở ngại khách quan ảnh hưởng trực tiếp đến việc thanh toán, bên bị ảnh hưởng phải thông báo cho bên còn lại trong thời gian hợp lý, cung cấp thông tin cần thiết và phối hợp thống nhất phương án xử lý phù hợp pháp luật.</td></tr>
+            <tr><td class="stt">6</td><td colspan="3">Các khoản phí do ngân hàng của Bên Bán thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.</td></tr>
+
+            <tr><td colspan="4" class="section">VII. Xác nhận và cam kết của Bên Bán</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">Bên Bán xác nhận đã được PNJ giải thích đầy đủ về giá trị thu đổi, phương án nhận giá trị, nguyên tắc cấn trừ, lịch thanh toán, phương thức thanh toán và các thông tin cần thiết trước khi lựa chọn.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">Bên Bán tự nguyện lựa chọn phương án nêu tại Phụ lục này; đã đọc, hiểu, có cơ hội đặt câu hỏi và nhận một bản Phụ lục sau khi ký.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">Bên Bán cam kết thông tin nhận diện, liên hệ và tài khoản thanh toán cung cấp cho PNJ là chính xác, hợp pháp; thông báo kịp thời khi phát hiện sai sót hoặc thay đổi.</td></tr>
+            <tr><td class="stt">4</td><td colspan="3">Bên Bán có trách nhiệm bảo mật thông tin giao dịch và dữ liệu cá nhân của bên khác mà mình tiếp cận; quy định này không hạn chế quyền cung cấp thông tin cho cơ quan nhà nước có thẩm quyền, luật sư, cố vấn, ngân hàng hoặc chủ thể khác theo yêu cầu pháp luật hoặc để bảo vệ quyền, lợi ích hợp pháp.</td></tr>
+
+            <tr><td colspan="4" class="section">VIII. Cam kết của PNJ</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">PNJ cam kết thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán theo quy trình áp dụng.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Bên Bán đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin và phản ánh liên quan đến việc thực hiện kế hoạch thanh toán.</td></tr>
+
+            <tr><td colspan="4" class="section">IX. Hiệu lực, thứ tự ưu tiên và giải quyết phát sinh</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">Phụ lục này là bộ phận không tách rời của Bảng kê mua lại tài sản nêu tại phần đầu Phụ lục và có hiệu lực kể từ thời điểm đại diện hợp lệ của hai bên ký/xác nhận.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">PNJ thực hiện nghĩa vụ thanh toán trên cơ sở hồ sơ giao dịch gồm Bảng kê mua lại tài sản, Phụ lục này và thông tin thanh toán hợp lệ. Việc thiếu bản giấy do Bên Bán lưu giữ không làm mất quyền yêu cầu thanh toán nếu PNJ có thể đối chiếu giao dịch trên hệ thống hoặc bằng chứng hợp pháp khác.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">Nếu có khác biệt giữa Phụ lục này và Bảng kê mua lại tài sản về lịch, phương thức thanh toán thì nội dung cụ thể tại Phụ lục này được ưu tiên áp dụng; các nội dung khác thực hiện theo Bảng kê mua lại tài sản và pháp luật.</td></tr>
+            <tr><td class="stt">4</td><td colspan="3">Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.</td></tr>
+            <tr><td class="stt">5</td><td colspan="3">Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản</td></tr>
+
+            <tr><td colspan="4" class="section">X. Xác nhận của các bên</td></tr>
+            <tr class="signature">
+                <td colspan="2">
+                    BÊN BÁN<br><span>(Ký, ghi rõ họ tên)</span>
+                    <div class="sign-space"></div>
+                    <div class="sign-name">{{ p.seller_signature_name }}</div>
+                </td>
+                <td colspan="2">
+                    ĐẠI DIỆN BÊN MUA/NGƯỜI ĐƯỢC ỦY QUYỀN<br><span>(Ký, ghi rõ họ tên, chức danh)</span>
+                    <div class="sign-space"></div>
+                    <div class="sign-title">{{ p.buyer_signature_title }}</div>
+                    <div class="sign-name">{{ p.buyer_signature_name }}</div>
+                </td>
+            </tr>
+            <tr class="date-row">
+                <td colspan="2">Ngày ký: ____/____/________</td>
+                <td colspan="2">Ngày ký: ____/____/________</td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        if (new URLSearchParams(window.location.search).has('print')) {
+            window.addEventListener('load', function() {
+                setTimeout(function() { window.print(); }, 500);
+            });
+        }
+    </script>
+</body>
+</html>

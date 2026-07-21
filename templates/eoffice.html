@@ -40,6 +40,32 @@
 .qt82-check.ok i { color: #16a34a; }
 .qt82-check.fail i { color: #dc2626; }
 .qt82-warning { border-left: 3px solid #f59e0b; background: #fffbeb; }
+.qt82-mode-switch {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+}
+.qt82-mode-switch .btn {
+    border-radius: 4px;
+    font-weight: 700;
+    padding: 0.45rem 0.9rem;
+}
+.qt82-tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+.qt82-tag {
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 4px 8px;
+}
 .history-mini th { font-size: .72rem; background: #f8fafc; }
 .history-mini td { font-size: .8rem; vertical-align: middle; }
 .history-mini .active-row { background: #eff6ff !important; }
@@ -49,30 +75,52 @@
 }
 {% endblock %}
 
+{% set qt82_mode = eoffice_mode if eoffice_mode is defined and eoffice_mode else (phieu.source if phieu and phieu.source else 'phieu') %}
+
+{% block topbar_right %}
+<div class="qt82-mode-switch">
+    <a class="btn {{ 'btn-danger' if qt82_mode != 'dnck' else 'btn-outline-danger' }}" href="{{ url_for('eoffice_index', mode='phieu') }}">
+        CK Bảng Kê
+    </a>
+    <a class="btn {{ 'btn-success' if qt82_mode == 'dnck' else 'btn-outline-success' }}" href="{{ url_for('eoffice_index', mode='dnck') }}">
+        CK Khác
+    </a>
+</div>
+{% endblock %}
+
 {% block content %}
-{% if phieu %}
 <div class="row g-3">
     <div class="col-xl-5">
+        {% if phieu %}
         <div class="card mb-3">
             <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-clipboard-data"></i> <strong>{{ phieu.ten_kh }}</strong></span>
+                <span>
+                    <i class="bi bi-clipboard-data"></i> <strong>{{ phieu.ten_kh }}</strong>
+                    {% if phieu.hashtags %}
+                    <span class="qt82-tag-cloud">
+                        {% for tag in phieu.hashtags %}
+                        <span class="qt82-tag">#{{ tag }}</span>
+                        {% endfor %}
+                    </span>
+                    {% endif %}
+                </span>
                 <span class="badge bg-primary">{{ "{:,.0f}".format(phieu.tong_ck | float) }}đ</span>
             </div>
             <div class="card-body p-2">
                 <div id="copyFields">
-                    <div class="copy-field"><div><div class="field-label">Mã KH</div><div class="field-value" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">{{ 'Mã đối tượng' if phieu.source == 'dnck' else 'Mã KH' }}</div><div class="field-value" id="val_ma_kh">{{ phieu.eo_ma_kh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_kh')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div><div class="field-label">Nội dung</div><div class="field-value" id="val_noi_dung">{{ phieu.eo_noi_dung }}</div></div><button class="btn-copy" type="button" onclick="copyField('noi_dung')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field">
                         <div class="flex-grow-1">
                             <div class="field-label">Mã chứng từ SAP</div>
-                            {% if admin %}
+                            {% if admin and phieu.source != 'dnck' %}
                             <input class="form-control form-control-sm mt-1" id="val_so_ct_sap" value="{{ phieu.eo_so_ct_sap }}" maxlength="200" autocomplete="off">
                             <div class="small mt-1 d-none" id="sapDocumentMessage"></div>
                             {% else %}
                             <div class="field-value" id="val_so_ct_sap">{{ phieu.eo_so_ct_sap }}</div>
                             {% endif %}
                         </div>
-                        {% if admin %}
+                        {% if admin and phieu.source != 'dnck' %}
                         <button class="btn-copy" type="button" id="btnSaveSapDocument" title="Lưu số SAP"><i class="bi bi-check2"></i></button>
                         {% endif %}
                         <button class="btn-copy" type="button" onclick="copyField('so_ct_sap')"><i class="bi bi-clipboard"></i></button>
@@ -80,7 +128,18 @@
                     <div class="copy-field"><div><div class="field-label">Tên tài khoản</div><div class="field-value" id="val_ten_tk">{{ phieu.eo_ten_tk }}</div></div><button class="btn-copy" type="button" onclick="copyField('ten_tk')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div><div class="field-label">Số tài khoản</div><div class="field-value" id="val_so_tk">{{ phieu.eo_so_tk }}</div></div><button class="btn-copy" type="button" onclick="copyField('so_tk')"><i class="bi bi-clipboard"></i></button></div>
                     <div class="copy-field"><div><div class="field-label">Mã ngân hàng</div><div class="field-value" id="val_ma_nh">{{ phieu.eo_ma_nh }}</div></div><button class="btn-copy" type="button" onclick="copyField('ma_nh')"><i class="bi bi-clipboard"></i></button></div>
-                    <div class="copy-field"><div><div class="field-label">CCCD</div><div class="field-value" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" type="button" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">{{ 'CCCD/MST' if phieu.source == 'dnck' else 'CCCD' }}</div><div class="field-value" id="val_cccd">{{ phieu.eo_cccd }}</div></div><button class="btn-copy" type="button" onclick="copyField('cccd')"><i class="bi bi-clipboard"></i></button></div>
+                    {% if phieu.source == 'dnck' %}
+                    <div class="copy-field"><div><div class="field-label">Mục đích</div><div class="field-value" id="val_purpose">{{ qt82_payload.purpose }}</div></div><button class="btn-copy" type="button" onclick="copyField('purpose')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Cấp duyệt</div><div class="field-value" id="val_approval_emails">{{ qt82_payload.approvalEmailsText }}</div></div><button class="btn-copy" type="button" onclick="copyField('approval_emails')"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="copy-field"><div><div class="field-label">Nhóm chi phí</div><div class="field-value" id="val_cost_group">{{ qt82_payload.costGroup }}</div></div><button class="btn-copy" type="button" onclick="copyField('cost_group')"><i class="bi bi-clipboard"></i></button></div>
+                    {% if qt82_payload.costLimitRef %}
+                    <div class="copy-field"><div><div class="field-label">Số QT định mức / tham chiếu</div><div class="field-value" id="val_cost_limit_ref">{{ qt82_payload.costLimitRef }}</div></div><button class="btn-copy" type="button" onclick="copyField('cost_limit_ref')"><i class="bi bi-clipboard"></i></button></div>
+                    {% endif %}
+                    {% if qt82_payload.referenceNote %}
+                    <div class="copy-field"><div><div class="field-label">Ghi chú tham khảo</div><div class="field-value" id="val_reference_note">{{ qt82_payload.referenceNote }}</div></div><button class="btn-copy" type="button" onclick="copyField('reference_note')"><i class="bi bi-clipboard"></i></button></div>
+                    {% endif %}
+                    {% endif %}
                 </div>
 
                 {% if admin %}
@@ -98,7 +157,7 @@
                         <button type="button" class="btn btn-primary" id="btnPrepareQt82" {% if not qt82_payload.ready %}disabled{% endif %}>
                             <i class="bi bi-box-arrow-up-right"></i> Mở Tạo yêu cầu và điền QT82
                         </button>
-                        <a href="{{ url_for('api_template_tt', phieu_id=phieu.id) }}" class="btn btn-outline-success qt82-action" id="btnDownloadTemplate">
+                        <a href="{{ url_for('api_dnck_template_tt', dnck_id=phieu.id) if phieu.source == 'dnck' else url_for('api_template_tt', phieu_id=phieu.id) }}" class="btn btn-outline-success qt82-action" id="btnDownloadTemplate">
                             <i class="bi bi-file-earmark-excel"></i> Tải Template TT
                         </a>
                         <a href="{{ url_for('api_qt82_extension') }}" class="btn btn-outline-primary qt82-action" id="btnDownloadQt82Extension">
@@ -116,7 +175,22 @@
                 {% endif %}
             </div>
         </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-arrow-right" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0">
+                    {% if qt82_mode == 'dnck' %}
+                    Chọn một ĐNCK khác từ lịch sử để chuẩn bị QT82.
+                    {% else %}
+                    Chọn phiếu từ lịch sử để chuẩn bị QT82.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
 
+        {% if phieu %}
         <div class="card">
             <div class="card-header py-2 d-flex justify-content-between align-items-center gap-2">
                 <span><i class="bi bi-clipboard-check"></i> <strong>Kiểm tra trước khi tạo QT82</strong></span>
@@ -139,15 +213,16 @@
                 {% endif %}
             </div>
         </div>
+        {% endif %}
     </div>
 
     <div class="col-xl-7">
         <div class="card">
-            <div class="card-header py-2"><i class="bi bi-clock-history"></i> Lịch sử phiếu CK</div>
+            <div class="card-header py-2"><i class="bi bi-clock-history"></i> {{ 'Lịch sử ĐNCK khác' if qt82_mode == 'dnck' else 'Lịch sử phiếu CK' }}</div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover table-sm history-mini mb-0">
-                        <thead><tr><th>Ngày</th><th>Tên KH</th><th>TVV</th><th class="text-end">Số tiền</th><th class="text-center" style="width:55px;">Trình</th><th style="width:40px;"></th></tr></thead>
+                        <thead><tr><th>Ngày</th><th>{{ 'Đối tượng' if qt82_mode == 'dnck' else 'Tên KH' }}</th><th>{{ 'Mục đích' if qt82_mode == 'dnck' else 'TVV' }}</th><th class="text-end">Số tiền</th><th class="text-center" style="width:55px;">Trình</th><th style="width:40px;"></th></tr></thead>
                         <tbody id="histBody"></tbody>
                     </table>
                 </div>
@@ -155,22 +230,17 @@
         </div>
     </div>
 </div>
+{% if phieu %}
 <script type="application/json" id="qt82DraftPayload">{{ qt82_payload|tojson }}</script>
-{% else %}
-<div class="card">
-    <div class="card-body text-center py-5 text-muted">
-        <i class="bi bi-arrow-right" style="font-size:2rem;"></i>
-        <p class="mt-2 mb-0">Chọn phiếu từ lịch sử để chuẩn bị QT82.</p>
-    </div>
-</div>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
 const currentId = {{ phieu.id if phieu else 0 }};
+const currentSource = {{ qt82_mode|tojson }};
 function appPath(suffix) {
-    const match = window.location.pathname.match(/^(.*)\/eoffice(?:\/\d+)?\/?$/i);
+    const match = window.location.pathname.match(/^(.*)\/eoffice(?:\/dnck)?(?:\/\d+)?\/?$/i);
     const basePath = match ? match[1] : '';
     return basePath + suffix;
 }
@@ -313,9 +383,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!json.ok || !json.data) return;
         const tbody = document.getElementById('histBody');
         if (!tbody) return;
-        json.data.forEach(function(p) {
+        const visibleRows = json.data.filter(function(p) { return (p.source || 'phieu') === currentSource; });
+        if (!visibleRows.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 6;
+            cell.className = 'text-center text-muted py-3';
+            cell.textContent = currentSource === 'dnck' ? 'Chưa có ĐNCK khác.' : 'Chưa có phiếu CK.';
+            row.appendChild(cell);
+            tbody.replaceChildren(row);
+            return;
+        }
+        visibleRows.forEach(function(p) {
             const tr = document.createElement('tr');
-            if (p.id === currentId) tr.className = 'active-row';
+            if (p.id === currentId && (p.source || 'phieu') === currentSource) tr.className = 'active-row';
             tr.style.cursor = 'pointer';
             tr.title = 'Double click để chọn phiếu này';
 
@@ -344,12 +425,13 @@ document.addEventListener('DOMContentLoaded', function() {
             checkbox.type = 'checkbox';
             checkbox.className = 'form-check-input da-trinh';
             checkbox.dataset.id = p.id;
+            checkbox.dataset.source = p.source || 'phieu';
             checkbox.checked = Boolean(p.da_trinh);
             submittedCell.appendChild(checkbox);
 
             const actionCell = document.createElement('td');
             const link = document.createElement('a');
-            link.href = appPath('/eoffice/' + p.id);
+            link.href = (p.source === 'dnck') ? appPath('/eoffice/dnck/' + p.id) : appPath('/eoffice/' + p.id);
             link.className = 'btn btn-sm btn-outline-primary py-0 px-1';
             link.title = 'Chọn';
             link.innerHTML = '<i class="bi bi-arrow-right-short"></i>';
@@ -365,7 +447,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         tbody.addEventListener('change', function(e) {
             if (!e.target.classList.contains('da-trinh')) return;
-            fetch(appPath('/api/da-trinh/' + e.target.dataset.id), {
+            const endpoint = e.target.dataset.source === 'dnck'
+                ? appPath('/api/dnck/da-trinh/' + e.target.dataset.id)
+                : appPath('/api/da-trinh/' + e.target.dataset.id);
+            fetch(endpoint, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({da_trinh: e.target.checked})

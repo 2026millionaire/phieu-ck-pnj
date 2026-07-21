@@ -33,10 +33,18 @@ function isAllowedWebSender(sender) {
   const url = senderUrl(sender);
   if (!url) return false;
   if (url.origin === "https://dangkhoa.io.vn") {
-    return url.pathname === "/bk/eoffice" || url.pathname.startsWith("/bk/eoffice/");
+    return url.pathname === "/bk/eoffice"
+      || url.pathname.startsWith("/bk/eoffice/")
+      || url.pathname === "/dnck"
+      || url.pathname.startsWith("/dnck/");
   }
   return url.origin === "http://localhost:5050"
-    && (url.pathname === "/eoffice" || url.pathname.startsWith("/eoffice/"));
+    && (
+      url.pathname === "/eoffice"
+      || url.pathname.startsWith("/eoffice/")
+      || url.pathname === "/dnck"
+      || url.pathname.startsWith("/dnck/")
+    );
 }
 
 function isAllowedEofficeSender(sender) {

@@ -696,6 +696,11 @@ textarea#sap_data {
                             <div id="bankFullName" class="text-muted small mt-1 d-none" style="font-size:0.78rem;">
                                 <i class="bi bi-bank"></i> <span id="bankFullNameText"></span>
                             </div>
+                            {% if admin %}
+                            <div id="bankEofficeCode" class="text-primary small mt-1 d-none" style="font-size:0.78rem;">
+                                <i class="bi bi-clipboard-data"></i> Mã eOffice: <strong id="bankEofficeCodeText"></strong>
+                            </div>
+                            {% endif %}
                             <input type="hidden" id="ngan_hang" name="ngan_hang" value="">
                             <input type="hidden" id="bank_bin" name="bank_bin" value="">
                         </div>
@@ -863,14 +868,30 @@ textarea#sap_data {
             <!-- Actions -->
             <div class="d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-outline-primary" id="btnSaveDraft">
-                    <i class="bi bi-save"></i> Lưu nháp
+                    <i class="bi bi-save"></i> Save
                 </button>
-                <button type="button" class="btn btn-success" id="btnSavePdf" data-action="pdf">
-                    <i class="bi bi-download"></i> Tải PDF
+                <button type="button" class="btn btn-outline-secondary" id="btnCopyPhieu">
+                    <i class="bi bi-files"></i> Copy
                 </button>
-                <button type="button" class="btn btn-outline-primary" id="btnSavePrint" data-action="view">
-                    <i class="bi bi-printer"></i> In phiếu
-                </button>
+                <div class="dropdown">
+                    <button type="button" class="btn btn-success dropdown-toggle" id="btnSavePdf" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download"></i> Tải xuống
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><button type="button" class="dropdown-item final-action" data-action="download-planning-pdf"><i class="bi bi-file-earmark-pdf"></i> Kế hoạch thanh toán (pdf)</button></li>
+                        <li><button type="button" class="dropdown-item final-action" data-action="download-planning-xlsx"><i class="bi bi-file-earmark-spreadsheet"></i> Kế hoạch thanh toán (excel)</button></li>
+                        <li><button type="button" class="dropdown-item final-action" data-action="download-xnck-pdf"><i class="bi bi-file-earmark-pdf"></i> Phiếu XNTTTTCK (pdf)</button></li>
+                    </ul>
+                </div>
+                <div class="dropdown">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" id="btnSavePrint" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-printer"></i> In phiếu
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><button type="button" class="dropdown-item final-action" data-action="print-planning"><i class="bi bi-file-earmark-pdf"></i> Kế hoạch thanh toán (pdf)</button></li>
+                        <li><button type="button" class="dropdown-item final-action" data-action="print-xnck"><i class="bi bi-file-earmark-pdf"></i> Phiếu XNTTTTCK (pdf)</button></li>
+                    </ul>
+                </div>
                 <button type="button" class="btn btn-outline-secondary" id="btnClear">
                     <i class="bi bi-x-lg"></i> Xóa
                 </button>
@@ -952,12 +973,14 @@ textarea#sap_data {
                             Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.
                         </div>
                         <div style="font-size:0.42rem;">
-                            <strong>Thời gian thanh toán:</strong> <span class="pv-ngay_tt">--/--/---- --:--</span>
+                            <strong>Thời gian thanh toán:</strong><br>
+                            1. T+0/1: 10% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="10">0</span> đồng</strong><br>
+                            2. T+30: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong><br>
+                            3. T+60: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
+                            4. T+90: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
+                            5. T+120: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong>
                         </div>
                         <div style="font-size:0.4rem;">
-                            <strong>Lưu ý:</strong><br>
-                            1. T2-T6 trước 16h30: TT trong ngày (T)<br>
-                            2. T2-T6 sau 16h30, T7; CN, Lễ, Tết: T+1<br>
                             * Liên hệ: <strong>0234 3847 588</strong>
                         </div>
 
@@ -1402,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', function() {
         ).slice(0, 12);
         if (!matches.length) { bankDropdown.classList.remove('show'); return; }
         bankDropdown.innerHTML = matches.map(b =>
-            `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}">
+            `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}" data-eoffice="${b.eoffice || ''}">
                 <strong>${b.ten_gd}</strong> <small class="text-muted">(${b.code})</small>
             </a>`
         ).join('');
@@ -1413,17 +1436,22 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const item = e.target.closest('.dropdown-item');
         if (!item) return;
-        selectBank(item.dataset.code, item.dataset.ten, item.dataset.bin);
+        selectBank(item.dataset.code, item.dataset.ten, item.dataset.bin, item.dataset.eoffice || '');
         bankDropdown.classList.remove('show');
     });
 
-    function selectBank(code, ten, bin) {
+    function selectBank(code, ten, bin, eoffice) {
         bankSearch.value = code;  // short name in input
         document.getElementById('ngan_hang').value = ten;
         document.getElementById('bank_bin').value = bin;
         // Show full name below
         document.getElementById('bankFullNameText').textContent = ten;
         document.getElementById('bankFullName').classList.remove('d-none');
+        const eofficeBox = document.getElementById('bankEofficeCode');
+        if (eofficeBox) {
+            document.getElementById('bankEofficeCodeText').textContent = eoffice || 'Chưa có';
+            eofficeBox.classList.remove('d-none');
+        }
         document.getElementById('btnClearBank').classList.remove('d-none');
         document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = ten);
         updateQR();
@@ -1434,6 +1462,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ngan_hang').value = '';
         document.getElementById('bank_bin').value = '';
         document.getElementById('bankFullName').classList.add('d-none');
+        const eofficeBox = document.getElementById('bankEofficeCode');
+        if (eofficeBox) {
+            document.getElementById('bankEofficeCodeText').textContent = '';
+            eofficeBox.classList.add('d-none');
+        }
         document.getElementById('btnClearBank').classList.add('d-none');
         document.querySelectorAll('.pv-ngan_hang').forEach(el => el.textContent = '___');
         bankSearch.focus();
@@ -1972,6 +2005,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = formatNum(totalCK));
         document.querySelectorAll('.pv-bang_chu').forEach(el => el.textContent = '(Bằng chữ: ' + numberToVietnamese(totalCK) + ' đồng)');
+        updatePaymentSchedulePreview(totalCK);
 
         // Show summary box if any item has value
         const hasData = sapItems.some(i => i.gia_tri > 0);
@@ -2029,6 +2063,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatNum(n) {
         return Math.round(n).toLocaleString('vi-VN');
+    }
+
+    function updatePaymentSchedulePreview(totalCK) {
+        document.querySelectorAll('.pv-payment-schedule-amount').forEach(function(el) {
+            const percent = parseFloat(el.dataset.pct || '0') || 0;
+            el.textContent = formatNum((Math.max(0, totalCK) * percent / 100) + 0.000001);
+        });
     }
 
     // Vietnamese number to words
@@ -2225,27 +2266,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== LƯU & IN PHIẾU =====
     let savePrintInProgress = false;
     let saveDraftInProgress = false;
-    document.getElementById('btnSaveDraft').addEventListener('click', function() {
-        if (saveDraftInProgress) return;
+    let copyInProgress = false;
+    let currentPhieuId = null;
+
+    function attachCurrentPhieuId(payload, forceCreate) {
+        if (currentPhieuId && !forceCreate) {
+            payload.phieu_id = currentPhieuId;
+        }
+        if (forceCreate) {
+            payload.force_create = true;
+        }
+        return payload;
+    }
+
+    function updateCurrentPhieuId(id) {
+        if (!id) return;
+        currentPhieuId = String(id);
+        const url = new URL(window.location.href);
+        url.searchParams.set('draft_id', currentPhieuId);
+        window.history.replaceState({}, '', url.toString());
+    }
+
+    function buildDraftPayload(forceCreate) {
         const maKhValue = document.getElementById('ma_kh').value.trim();
         const tenKhValue = document.getElementById('ten_kh').value.trim();
         const soBkValue = document.getElementById('so_bk').value.trim();
-        if (!maKhValue && !tenKhValue && !soBkValue) {
-            if (!confirm('Phi\u1ebfu g\u1ea7n nh\u01b0 \u0111ang tr\u1ed1ng. B\u1ea1n v\u1eabn mu\u1ed1n l\u01b0u nh\u00e1p?')) return;
-        }
-
-        saveDraftInProgress = true;
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> \u0110ang l\u01b0u...';
-
         const chungTuJson = document.getElementById('chung_tu_json').value;
         let chungTu = [];
         try { chungTu = JSON.parse(chungTuJson); } catch(e) {}
-        if (!confirmTaxDocNumbers(chungTu)) return;
-
         const ten_kh = tenKhValue.toUpperCase();
         const nguoiKi = document.querySelector('input[name="nguoi_ki"]:checked').value;
-        const payload = {
+        return attachCurrentPhieuId({
             ma_kh: maKhValue.replace(/^0+/, ''),
             ten_kh: ten_kh,
             sdt: document.getElementById('sdt').value.trim(),
@@ -2265,7 +2316,33 @@ document.addEventListener('DOMContentLoaded', function() {
             nguoi_ki: nguoiKi,
             ngay_lap: document.getElementById('ngayLap').value,
             status: 'draft',
-        };
+        }, forceCreate);
+    }
+
+    document.getElementById('btnSaveDraft').addEventListener('click', function() {
+        if (saveDraftInProgress) return;
+        const maKhValue = document.getElementById('ma_kh').value.trim();
+        const tenKhValue = document.getElementById('ten_kh').value.trim();
+        const soBkValue = document.getElementById('so_bk').value.trim();
+        if (!maKhValue && !tenKhValue && !soBkValue) {
+            if (!confirm('Phi\u1ebfu g\u1ea7n nh\u01b0 \u0111ang tr\u1ed1ng. B\u1ea1n v\u1eabn mu\u1ed1n l\u01b0u nh\u00e1p?')) return;
+        }
+
+        saveDraftInProgress = true;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> \u0110ang l\u01b0u...';
+
+        const chungTuJson = document.getElementById('chung_tu_json').value;
+        let chungTu = [];
+        try { chungTu = JSON.parse(chungTuJson); } catch(e) {}
+        if (!confirmTaxDocNumbers(chungTu)) {
+            saveDraftInProgress = false;
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-save"></i> Save';
+            return;
+        }
+
+        const payload = buildDraftPayload(false);
 
         fetch('/api/save', {
             method: 'POST',
@@ -2275,7 +2352,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                alert('\u0110\u00e3 l\u01b0u nh\u00e1p phi\u1ebfu #' + data.id + '. C\u00f3 th\u1ec3 m\u1edf l\u1ea1i t\u1eeb trang L\u1ecbch s\u1eed.');
+                updateCurrentPhieuId(data.id);
+                alert((data.updated ? 'Đã cập nhật phiếu #' : 'Đã lưu phiếu #') + data.id + '. Có thể mở lại từ trang Lịch sử.');
             } else {
                 alert('L\u1ed7i: ' + (data.error || 'Kh\u00f4ng r\u00f5'));
             }
@@ -2284,23 +2362,67 @@ document.addEventListener('DOMContentLoaded', function() {
         .finally(() => {
             saveDraftInProgress = false;
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-save"></i> L\u01b0u nh\u00e1p';
+            this.innerHTML = '<i class="bi bi-save"></i> Save';
         });
     });
 
+    document.getElementById('btnCopyPhieu').addEventListener('click', function() {
+        if (copyInProgress) return;
+        const payload = buildDraftPayload(true);
+        if (!payload.ma_kh && !payload.ten_kh && !payload.so_bk) {
+            if (!confirm('Phiếu gần như đang trống. Bạn vẫn muốn tạo bản copy?')) return;
+        }
+        if (!confirmTaxDocNumbers(payload.chung_tu || [])) return;
+        if (!confirm('Tạo một phiếu mới từ nội dung đang hiển thị? Phiếu gốc sẽ được giữ nguyên.')) return;
+
+        copyInProgress = true;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang copy...';
+        fetch('/api/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                updateCurrentPhieuId(data.id);
+                alert('Đã tạo phiếu copy #' + data.id + '. Bạn đang sửa trên bản copy mới.');
+            } else {
+                alert('Lỗi: ' + (data.error || 'Không rõ'));
+            }
+        })
+        .catch(err => alert('Lỗi kết nối: ' + err))
+        .finally(() => {
+            copyInProgress = false;
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-files"></i> Copy';
+        });
+    });
+
+    function finalActionLabel(action) {
+        if (action === 'download-planning-pdf') return 'Tải kế hoạch PDF';
+        if (action === 'download-planning-xlsx') return 'Tải kế hoạch Excel';
+        if (action === 'download-xnck-pdf') return 'Tải phiếu PDF';
+        if (action === 'print-planning') return 'In kế hoạch';
+        return 'In phiếu';
+    }
+
     function handleSaveFinalClick() {
         if (savePrintInProgress) return;
-        const action = this.dataset.action || 'view';
+        const action = this.dataset.action || 'print-xnck';
+        const trigger = this.closest('.dropdown')?.querySelector('.dropdown-toggle') || this;
+        const originalTriggerHtml = trigger.innerHTML;
         savePrintInProgress = true;
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+        trigger.disabled = true;
+        document.querySelectorAll('.final-action').forEach(btn => btn.disabled = true);
+        trigger.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
 
         const resetSaveButton = () => {
             savePrintInProgress = false;
-            this.disabled = false;
-            this.innerHTML = action === 'pdf'
-                ? '<i class="bi bi-download"></i> PDF'
-                : '<i class="bi bi-printer"></i> In phiếu';
+            trigger.disabled = false;
+            document.querySelectorAll('.final-action').forEach(btn => btn.disabled = false);
+            trigger.innerHTML = originalTriggerHtml;
         };
 
         const checks = [
@@ -2376,7 +2498,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'kt2': '{{ settings.get("kt2_name", "LÊ THỊ MỸ TUYỀN") }}'
         };
 
-        const payload = {
+        const payload = attachCurrentPhieuId({
             ma_kh: document.getElementById('ma_kh').value.trim(),
             ten_kh: ten_kh,
             sdt: document.getElementById('sdt').value.trim(),
@@ -2396,15 +2518,16 @@ document.addEventListener('DOMContentLoaded', function() {
             nguoi_ki: nguoiKi,
             ngay_lap: document.getElementById('ngayLap').value,
             status: 'printed',
-        };
+        }, false);
 
-        // Only the view flow opens a new window. PDF download stays in the current tab,
+        const isPrintAction = action === 'print-xnck' || action === 'print-planning';
+        // Only print flows open a new window. PDF download stays in the current tab,
         // which works better inside Zalo and other in-app browsers.
         let printWindow = null;
-        if (action === 'view') {
+        if (isPrintAction) {
             printWindow = window.open('about:blank', '_blank');
             if (printWindow) {
-                printWindow.document.write('<!doctype html><title>Đang tạo phiếu...</title><p style="font-family:sans-serif;padding:16px;">Đang tạo phiếu, vui lòng chờ...</p>');
+                printWindow.document.write('<!doctype html><title>Đang tạo file...</title><p style="font-family:sans-serif;padding:16px;">' + finalActionLabel(action) + ', vui lòng chờ...</p>');
             }
         }
 
@@ -2416,15 +2539,29 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
-                if (action === 'pdf') {
-                    const tokenParam = data.pdf_token ? '?token=' + encodeURIComponent(data.pdf_token) : '';
+                updateCurrentPhieuId(data.id);
+                const tokenParam = data.pdf_token ? '?token=' + encodeURIComponent(data.pdf_token) : '';
+                if (action === 'download-xnck-pdf') {
                     window.location.href = appUrl('/api/pdf/' + data.id + tokenParam);
                     resetSaveButton();
                     return;
                 }
-                const printUrl = data.pdf_token
+                if (action === 'download-planning-pdf') {
+                    window.location.href = appUrl('/api/payment-planning-pdf/' + data.id + tokenParam);
+                    resetSaveButton();
+                    return;
+                }
+                if (action === 'download-planning-xlsx') {
+                    window.location.href = appUrl('/api/payment-planning-xlsx/' + data.id + tokenParam);
+                    resetSaveButton();
+                    return;
+                }
+                let printUrl = data.pdf_token
                     ? appUrl('/p/' + encodeURIComponent(data.pdf_token) + '?print=1')
                     : appUrl('/api/print/' + data.id + '?print=1');
+                if (action === 'print-planning') {
+                    printUrl = appUrl('/api/payment-planning/' + data.id + (data.pdf_token ? '?token=' + encodeURIComponent(data.pdf_token) + '&print=1' : '?print=1'));
+                }
                 if (printWindow) {
                     printWindow.location.href = printUrl;
                     resetSaveButton();
@@ -2447,14 +2584,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    document.getElementById('btnSavePrint').addEventListener('click', handleSaveFinalClick);
-    document.getElementById('btnSavePdf').addEventListener('click', handleSaveFinalClick);
+    document.querySelectorAll('.final-action').forEach(function(button) {
+        button.addEventListener('click', handleSaveFinalClick);
+    });
 
 
     function loadDraftFromQuery() {
         const params = new URLSearchParams(window.location.search);
         const draftId = params.get('draft_id');
         if (!draftId) return;
+        currentPhieuId = String(draftId);
         fetch(appUrl('/api/phieu/' + draftId))
             .then(r => r.json())
             .then(data => {
