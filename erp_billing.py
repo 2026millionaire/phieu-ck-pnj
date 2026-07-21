@@ -82,6 +82,10 @@ def parse_sap_odata_date(value: Any) -> date | None:
     return parse_date(text)
 
 
+def sap_datetime_literal(day: date) -> str:
+    return f"datetime'{day.isoformat()}T00:00:00'"
+
+
 def is_cancelled_value(value: Any) -> bool:
     return str(value or "").strip().lower() in {"yes", "y", "true", "1", "x"}
 
@@ -163,10 +167,21 @@ def login_erp_session() -> requests.Session:
     return session
 
 
-def load_erp_billing_documents(customer_code: Any, top: int = 80) -> list[dict[str, Any]]:
+def load_erp_billing_documents(
+    customer_code: Any,
+    target_date: Any = None,
+    lookback_days: Any = DEFAULT_LOOKBACK_DAYS,
+    top: int = 80,
+) -> list[dict[str, Any]]:
     canonical = normalize_customer_code(customer_code)
     if not canonical:
         return []
+    anchor_date = parse_date(target_date) or date.today()
+    try:
+        lookback = max(0, min(int(lookback_days), 365))
+    except (TypeError, ValueError):
+        lookback = DEFAULT_LOOKBACK_DAYS
+    earliest = anchor_date - timedelta(days=lookback)
     session = login_erp_session()
     url = f"{ERP_BASE_URL}/sap/opu/odata/sap/SD_CUSTOMER_INVOICES_MANAGE/C_BillingDocument_F0797"
     params = {
@@ -180,6 +195,8 @@ def load_erp_billing_documents(customer_code: Any, top: int = 80) -> list[dict[s
         ),
         "$filter": (
             f"SoldToParty eq '{canonical}' "
+            f"and BillingDocumentDate ge {sap_datetime_literal(earliest)} "
+            f"and BillingDocumentDate le {sap_datetime_literal(anchor_date)} "
             "and BillingDocument ge '9000000000' "
             "and BillingDocument lt '9100000000'"
         ),
@@ -243,7 +260,7 @@ def billing_suggestions(
     matches = []
     seen_documents = set()
     source_records = (
-        load_erp_billing_documents(canonical_customer)
+        load_erp_billing_documents(canonical_customer, anchor_date, lookback, top=capped_limit * 2)
         if erp_credentials()
         else load_billing_documents()
     )

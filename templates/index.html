@@ -1323,13 +1323,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value !== normalized) this.value = normalized;
             customerSuggestionCache.clear();
             billingSuggestionCache.clear();
+            purchaseOrderSuggestionCache.clear();
             hideCustomerSuggestions();
-            hideBillingSuggestions();
-            scheduleBillingPrefetch();
+            hideDocumentSuggestions();
+            scheduleDocumentPrefetch();
         });
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.customer-suggestion-field')) hideCustomerSuggestions();
-            if (!event.target.closest('.sap-invoice-suggestion-field')) hideBillingSuggestions();
+            if (!event.target.closest('.sap-invoice-suggestion-field')) hideDocumentSuggestions();
         });
         if (captchaElement) {
             captchaElement.addEventListener('shown.bs.modal', () => renderCustomerLookupCaptcha(0));
@@ -1354,8 +1355,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (target.id === 'ma_kh') {
                 customerSuggestionCache.clear();
                 billingSuggestionCache.clear();
+                purchaseOrderSuggestionCache.clear();
                 hideCustomerSuggestions();
-                hideBillingSuggestions();
+                hideDocumentSuggestions();
             } else if (target.id === 'ten_kh') {
                 customerSuggestionTargets.name.menu.classList.remove('show');
             } else if (target.id === 'sdt') {
@@ -1928,6 +1930,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const billingSuggestionCache = new Map();
+    const purchaseOrderSuggestionCache = new Map();
     let billingSuggestionTimer = null;
     let billingPrefetchTimer = null;
 
@@ -1974,19 +1977,19 @@ document.addEventListener('DOMContentLoaded', function() {
             + String(now.getDate()).padStart(2, '0');
     }
 
-    function renderInvoiceDocInput(item, idx) {
-        const menuId = 'sapInvoiceSuggestion' + idx;
+    function renderDocumentDocInput(item, idx) {
+        const menuId = 'sapDocumentSuggestion' + idx;
         const inputHtml = '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" '
             + 'data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" '
             + 'inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">';
-        if (item.loai !== 'Hóa đơn') return inputHtml;
+        if (item.loai !== 'Hóa đơn' && item.loai !== 'Bảng kê') return inputHtml;
         return '<div class="sap-invoice-suggestion-field">'
             + inputHtml
             + '<div class="sap-invoice-suggestion-menu" id="' + menuId + '"></div>'
             + '</div>';
     }
 
-    function hideBillingSuggestions() {
+    function hideDocumentSuggestions() {
         document.querySelectorAll('.sap-invoice-suggestion-menu.show').forEach(function(menu) {
             menu.classList.remove('show');
         });
@@ -1998,6 +2001,15 @@ document.addEventListener('DOMContentLoaded', function() {
         sapItems[idx].so_ct = suggestion.billing_document || '';
         sapItems[idx].gia_tri = parseFloat(suggestion.amount || 0) || 0;
         sapItems[idx].sign = loaiSignMap['Hóa đơn'] || '+';
+        renderSapTable(sapItems);
+    }
+
+    function applyPurchaseOrderSuggestion(idx, suggestion) {
+        if (!sapItems[idx]) return;
+        sapItems[idx].loai = 'Bảng kê';
+        sapItems[idx].so_ct = suggestion.purchase_order || '';
+        sapItems[idx].gia_tri = parseFloat(suggestion.amount || 0) || 0;
+        sapItems[idx].sign = loaiSignMap['Bảng kê'] || '-';
         renderSapTable(sapItems);
     }
 
@@ -2017,8 +2029,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return false;
     }
 
-    function showBillingSuggestions(idx, suggestions) {
-        const menu = document.getElementById('sapInvoiceSuggestion' + idx);
+    function maybeApplyPurchaseOrderAmount(idx, docNumber) {
+        const normalized = normalizeDocNumber(docNumber);
+        if (!normalized || !sapItems[idx] || sapItems[idx].loai !== 'Bảng kê') return false;
+        for (const suggestions of purchaseOrderSuggestionCache.values()) {
+            const found = suggestions.find(function(item) {
+                return item.purchase_order === normalized;
+            });
+            if (found) {
+                sapItems[idx].so_ct = found.purchase_order;
+                sapItems[idx].gia_tri = parseFloat(found.amount || 0) || 0;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function showDocumentSuggestions(idx, suggestions, loai) {
+        const menu = document.getElementById('sapDocumentSuggestion' + idx);
         if (!menu) return;
         menu.innerHTML = '';
         if (!suggestions || !suggestions.length) {
@@ -2026,18 +2054,21 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         suggestions.slice(0, 10).forEach(function(item) {
+            const isPurchaseOrder = loai === 'Bảng kê';
+            const documentNumber = isPurchaseOrder ? item.purchase_order : item.billing_document;
             const option = document.createElement('button');
             option.type = 'button';
             option.className = 'sap-invoice-suggestion-option';
             option.dataset.idx = idx;
-            option.dataset.document = item.billing_document || '';
+            option.dataset.document = documentNumber || '';
             option.innerHTML =
                 '<span class="sap-invoice-suggestion-title">'
-                + '<span class="sap-invoice-suggestion-doc">' + escapeHtml(item.billing_document || '') + '</span>'
+                + '<span class="sap-invoice-suggestion-doc">' + escapeHtml(documentNumber || '') + '</span>'
                 + '<span class="sap-invoice-suggestion-muted">' + formatNum(item.amount || 0) + 'đ</span>'
                 + '</span>';
             option.addEventListener('click', function() {
-                applyBillingSuggestion(idx, item);
+                if (isPurchaseOrder) applyPurchaseOrderSuggestion(idx, item);
+                else applyBillingSuggestion(idx, item);
             });
             menu.appendChild(option);
         });
@@ -2048,12 +2079,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const item = sapItems[idx];
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!item || item.loai !== 'Hóa đơn' || !customerCode) {
-            hideBillingSuggestions();
+            hideDocumentSuggestions();
             return;
         }
         const key = billingSuggestionCacheKey(customerCode);
         if (billingSuggestionCache.has(key)) {
-            showBillingSuggestions(idx, billingSuggestionCache.get(key));
+            showDocumentSuggestions(idx, billingSuggestionCache.get(key), 'Hóa đơn');
             return;
         }
         try {
@@ -2072,10 +2103,45 @@ document.addEventListener('DOMContentLoaded', function() {
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             billingSuggestionCache.set(key, suggestions);
             if (sapItems[idx] && sapItems[idx].loai === 'Hóa đơn') {
-                showBillingSuggestions(idx, suggestions);
+                showDocumentSuggestions(idx, suggestions, 'Hóa đơn');
             }
         } catch (error) {
             billingSuggestionCache.set(key, []);
+        }
+    }
+
+    async function fetchPurchaseOrderSuggestions(idx) {
+        const item = sapItems[idx];
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        if (!item || item.loai !== 'Bảng kê' || !customerCode) {
+            hideDocumentSuggestions();
+            return;
+        }
+        const key = billingSuggestionCacheKey(customerCode);
+        if (purchaseOrderSuggestionCache.has(key)) {
+            showDocumentSuggestions(idx, purchaseOrderSuggestionCache.get(key), 'Bảng kê');
+            return;
+        }
+        try {
+            const response = await fetch(appUrl('/api/purchase-order-suggestions'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    customer_code: customerCode,
+                    purchase_order_date: todayIsoDate(),
+                    lookback_days: billingLookbackDays(),
+                    limit: 10
+                })
+            });
+            const data = await response.json();
+            const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
+            purchaseOrderSuggestionCache.set(key, suggestions);
+            if (sapItems[idx] && sapItems[idx].loai === 'Bảng kê') {
+                showDocumentSuggestions(idx, suggestions, 'Bảng kê');
+            }
+        } catch (error) {
+            purchaseOrderSuggestionCache.set(key, []);
         }
     }
 
@@ -2100,22 +2166,54 @@ document.addEventListener('DOMContentLoaded', function() {
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             billingSuggestionCache.set(key, suggestions);
             sapItems.forEach(function(item, idx) {
-                if (item.loai === 'Hóa đơn') showBillingSuggestions(idx, suggestions);
+                if (item.loai === 'Hóa đơn') showDocumentSuggestions(idx, suggestions, 'Hóa đơn');
             });
         } catch (error) {
             billingSuggestionCache.set(key, []);
         }
     }
 
-    function scheduleBillingPrefetch() {
-        clearTimeout(billingPrefetchTimer);
-        billingPrefetchTimer = setTimeout(prefetchBillingSuggestionsForCustomer, 500);
+    async function prefetchPurchaseOrderSuggestionsForCustomer() {
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        if (!validLookupCustomerCode(customerCode)) return;
+        const key = billingSuggestionCacheKey(customerCode);
+        if (purchaseOrderSuggestionCache.has(key)) return;
+        try {
+            const response = await fetch(appUrl('/api/purchase-order-suggestions'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    customer_code: customerCode,
+                    purchase_order_date: todayIsoDate(),
+                    lookback_days: billingLookbackDays(),
+                    limit: 10
+                })
+            });
+            const data = await response.json();
+            const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
+            purchaseOrderSuggestionCache.set(key, suggestions);
+            sapItems.forEach(function(item, idx) {
+                if (item.loai === 'Bảng kê') showDocumentSuggestions(idx, suggestions, 'Bảng kê');
+            });
+        } catch (error) {
+            purchaseOrderSuggestionCache.set(key, []);
+        }
     }
 
-    function scheduleBillingSuggestions(idx) {
+    function scheduleDocumentPrefetch() {
+        clearTimeout(billingPrefetchTimer);
+        billingPrefetchTimer = setTimeout(function() {
+            prefetchBillingSuggestionsForCustomer();
+            prefetchPurchaseOrderSuggestionsForCustomer();
+        }, 500);
+    }
+
+    function scheduleDocumentSuggestions(idx) {
         clearTimeout(billingSuggestionTimer);
         billingSuggestionTimer = setTimeout(function() {
-            fetchBillingSuggestions(idx);
+            if (sapItems[idx] && sapItems[idx].loai === 'Bảng kê') fetchPurchaseOrderSuggestions(idx);
+            else fetchBillingSuggestions(idx);
         }, 180);
     }
 
@@ -2153,7 +2251,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '</div>' +
                     '<div class="sap-mobile-field-labels"><span>Số CT</span><span>Số tiền</span></div>' +
                     '<div class="sap-mobile-inputs">' +
-                    renderInvoiceDocInput(item, idx) +
+                    renderDocumentDocInput(item, idx) +
                     '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
                     '</div>' +
                     '</div>' +
@@ -2161,7 +2259,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 tr.innerHTML =
                     '<td>' + renderLoaiButton(item, idx) + '</td>' +
-                    '<td>' + renderInvoiceDocInput(item, idx) + '</td>' +
+                    '<td>' + renderDocumentDocInput(item, idx) + '</td>' +
                     '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
                     '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
                     '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
@@ -2186,7 +2284,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     sapItems[idx].gio = todayStr + ' ' + timeValue;
                 } else if (field === 'so_ct') {
                     sapItems[idx][field] = this.value;
-                    if (maybeApplyBillingAmount(idx, this.value)) {
+                    if (maybeApplyBillingAmount(idx, this.value) || maybeApplyPurchaseOrderAmount(idx, this.value)) {
                         renderSapTable(sapItems);
                         return;
                     }
@@ -2200,12 +2298,12 @@ document.addEventListener('DOMContentLoaded', function() {
         tbody.querySelectorAll('.sap-doc-number-input').forEach(function(el) {
             el.addEventListener('focus', function() {
                 const idx = parseInt(this.dataset.idx);
-                scheduleBillingSuggestions(idx);
+                scheduleDocumentSuggestions(idx);
             });
             el.addEventListener('input', function() {
                 const idx = parseInt(this.dataset.idx);
                 if (sapItems[idx]) sapItems[idx].so_ct = this.value;
-                scheduleBillingSuggestions(idx);
+                scheduleDocumentSuggestions(idx);
             });
         });
 

@@ -31,6 +31,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import shared_auth
 import erp_billing
+import erp_purchase_orders
 
 try:
     from customer_lookup import (
@@ -2230,6 +2231,34 @@ def api_billing_suggestions():
         app.logger.exception("Không thể lấy gợi ý hóa đơn ERP.")
         return _customer_lookup_json(
             {"ok": False, "error": "Không thể lấy gợi ý hóa đơn lúc này."}, 503
+        )
+    return _customer_lookup_json({"ok": True, "suggestions": suggestions})
+
+
+@app.route("/api/purchase-order-suggestions", methods=["POST"])
+def api_purchase_order_suggestions():
+    """Return recent ERP buyback purchase-order suggestions for one customer code."""
+    if request.content_length is not None and request.content_length > 4096:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+
+    data = request.get_json(silent=True) or {}
+    customer_code = data.get("customer_code")
+    if not erp_purchase_orders.normalize_customer_code(customer_code):
+        return _customer_lookup_json({"ok": True, "suggestions": []})
+
+    try:
+        suggestions = erp_purchase_orders.purchase_order_suggestions(
+            customer_code=customer_code,
+            target_date=data.get("purchase_order_date"),
+            lookback_days=data.get("lookback_days", erp_purchase_orders.DEFAULT_LOOKBACK_DAYS),
+            limit=data.get("limit", erp_purchase_orders.MAX_SUGGESTIONS),
+        )
+    except Exception:
+        app.logger.exception("Không thể lấy gợi ý bảng kê ERP.")
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể lấy gợi ý bảng kê lúc này."}, 503
         )
     return _customer_lookup_json({"ok": True, "suggestions": suggestions})
 

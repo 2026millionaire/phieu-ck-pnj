@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import app as app_module
 import erp_billing
@@ -164,6 +165,37 @@ class BillingSuggestionTests(unittest.TestCase):
         data = response.get_json()
         self.assertTrue(data["ok"])
         self.assertEqual(len(data["suggestions"]), 10)
+
+    def test_erp_query_filters_billing_date_on_server(self):
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"d": {"results": []}}
+
+        class FakeSession:
+            def __init__(self):
+                self.params = None
+
+            def get(self, url, params=None, timeout=None, headers=None):
+                self.params = params
+                return FakeResponse()
+
+        session = FakeSession()
+        with mock.patch.object(erp_billing, "login_erp_session", return_value=session):
+            erp_billing.load_erp_billing_documents(
+                "0100000000",
+                target_date="2026-07-21",
+                lookback_days=1,
+                top=10,
+            )
+
+        filter_text = session.params["$filter"]
+        self.assertIn("SoldToParty eq '100000000'", filter_text)
+        self.assertIn("BillingDocumentDate ge datetime'2026-07-20T00:00:00'", filter_text)
+        self.assertIn("BillingDocumentDate le datetime'2026-07-21T00:00:00'", filter_text)
+        self.assertIn("BillingDocument ge '9000000000'", filter_text)
 
     def test_invoice_suggestion_cards_are_compact_two_lines(self):
         html = self.client.get("/").get_data(as_text=True)
