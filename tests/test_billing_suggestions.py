@@ -135,12 +135,12 @@ class BillingSuggestionTests(unittest.TestCase):
         html = self.client.get("/").get_data(as_text=True)
 
         self.assertIn("sap-invoice-suggestion-doc", html)
-        self.assertIn("formatBillingDateShort(item.billing_date)", html)
         self.assertIn("formatNum(item.amount || 0)", html)
         self.assertIn("đ</span>", html)
         self.assertIn("billing_invoice_days", html)
         self.assertIn("billingLookbackDays()", html)
         self.assertNotIn("lookback_days: 1", html)
+        self.assertNotIn("formatBillingDateShort", html)
         self.assertNotIn("sap-invoice-suggestion-meta", html)
         self.assertNotIn("Gần đây", html)
         self.assertNotIn("Cùng ngày", html)
