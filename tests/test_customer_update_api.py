@@ -466,13 +466,20 @@ class CustomerUpdateApiTests(unittest.TestCase):
         )
         self.assertEqual(saved.status_code, 200)
 
-    def test_bank_api_does_not_send_eoffice_code_to_admin(self):
-        self.login(role="admin", user_id=1)
+    def test_bank_api_sends_eoffice_code_to_admin_only(self):
+        self.login(role="user", user_id=2)
         response = self.client.get("/api/banks")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["data"])
         self.assertTrue(
             all("eoffice" not in bank for bank in response.get_json()["data"])
+        )
+
+        self.login(role="admin", user_id=1)
+        response = self.client.get("/api/banks")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any("eoffice" in bank for bank in response.get_json()["data"])
         )
 
 

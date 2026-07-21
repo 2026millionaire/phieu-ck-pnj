@@ -131,9 +131,13 @@ class EofficeQt82Tests(unittest.TestCase):
         filler = (extension_dir / "eoffice-fill.js").read_text(encoding="utf-8")
         manifest = json.loads((extension_dir / "manifest.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(manifest["version"], "0.1.17")
+        self.assertEqual(manifest["version"], "0.1.18")
         self.assertIn("/workflow/sitepages/createworkflow.aspx?rcid=8&rscid=0&wid=0", background)
         self.assertIn('message.draft.openMode === "deeplink" ? message.draft.formUrl : CREATE_WORKFLOW_URL', background)
+        self.assertIn('url.pathname === "/dnck"', background)
+        self.assertIn('"https://dangkhoa.io.vn/dnck*"', json.dumps(manifest))
+        self.assertIn("function fillApprovers(draft)", filler)
+        self.assertIn("if (!draft.skipStoreManager)", filler)
         self.assertIn('message.type === "DISABLE_HELPER"', background)
         self.assertIn('text === "qt82 quy trinh thanh toan"', filler)
         self.assertIn("sessionStorage.setItem(HUB_CLICK_NONCE_KEY, nonce)", filler)
@@ -155,15 +159,48 @@ class EofficeQt82Tests(unittest.TestCase):
         self.login(role="admin")
         older_id = self.create_phieu(doc_num="2500000001")
         latest_id = self.create_phieu(doc_num="2500000002")
+        dnck = self.client.post(
+            "/api/dnck",
+            json={
+                "object_code": "104850022",
+                "object_name": "HEPCO",
+                "identity_value": "3300123456",
+                "account_number": "123456789",
+                "account_name": "HEPCO",
+                "bank": "OCB",
+                "request_content": "1305_THANH TOÁN CHI PHÍ KHÁC",
+                "sap_document": "2500000003",
+                "amount": 100000,
+                "detail": [{"label": "Chi phí", "amount": 100000}],
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        dnck_id = dnck.get_json()["id"]
 
         response = self.client.get("/eoffice", follow_redirects=False)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].endswith(f"/eoffice/{latest_id}"))
 
+        response = self.client.get("/eoffice?mode=dnck", follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith(f"/eoffice/dnck/{dnck_id}"))
+
         self.client.delete(f"/api/delete/{latest_id}")
         response = self.client.get("/eoffice", follow_redirects=False)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].endswith(f"/eoffice/{older_id}"))
+
+    def test_eoffice_dnck_mode_renders_history_shell_without_dnck_rows(self):
+        self.login(role="admin")
+        self.create_phieu(doc_num="2500000001")
+
+        response = self.client.get("/eoffice?mode=dnck", follow_redirects=False)
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("CK Khác", html)
+        self.assertIn("Lịch sử ĐNCK khác", html)
+        self.assertIn("Chọn một ĐNCK khác từ lịch sử để chuẩn bị QT82", html)
+        self.assertIn("Chưa có ĐNCK khác.", html)
 
     def test_missing_sap_document_uses_1234_without_falling_back_to_bk(self):
         self.login(role="admin")
@@ -222,12 +259,16 @@ class EofficeQt82Tests(unittest.TestCase):
         phieu_id = self.create_phieu(doc_num="2500000001")
         html = self.client.get(f"/eoffice/{phieu_id}").get_data(as_text=True)
 
+        self.assertIn("CK Bảng Kê", html)
+        self.assertIn("CK Khác", html)
+        self.assertNotIn("ĐNCK bảng kê", html)
         customer_card = html.index('<i class="bi bi-clipboard-data"></i>')
         prepare_button = html.index('id="btnPrepareQt82"')
         preflight_card = html.index('<strong>Kiểm tra trước khi tạo QT82</strong>')
 
         self.assertLess(customer_card, prepare_button)
         self.assertLess(prepare_button, preflight_card)
+        self.assertIn('<span class="badge bg-primary">', html)
 
     def test_history_navigation_derives_reverse_proxy_prefix_from_browser_path(self):
         self.login(role="admin")
@@ -236,8 +277,10 @@ class EofficeQt82Tests(unittest.TestCase):
 
         self.assertIn("window.location.pathname.match", html)
         self.assertIn("const historyApiUrl = appPath('/api/history');", html)
-        self.assertIn("link.href = appPath('/eoffice/' + p.id);", html)
-        self.assertIn("fetch(appPath('/api/da-trinh/' + e.target.dataset.id)", html)
+        self.assertIn("p.source === 'dnck'", html)
+        self.assertIn("appPath('/eoffice/dnck/' + p.id)", html)
+        self.assertIn("appPath('/api/dnck/da-trinh/' + e.target.dataset.id)", html)
+        self.assertIn("appPath('/api/da-trinh/' + e.target.dataset.id)", html)
         self.assertNotIn("link.href = '/eoffice/'", html)
         self.assertNotIn("const historyApiUrl = \"/api/history\";", html)
         self.assertIn("Không tải được lịch sử phiếu", html)
@@ -284,6 +327,362 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(sheet.cell(row=5, column=3).value, 1500000)
         self.assertEqual(sheet.cell(row=5, column=4).value, "4403000001")
         self.assertEqual(sheet.cell(row=5, column=5).value, "012345678901")
+
+    def test_payment_planning_output_and_bk_save_copy_flow(self):
+        self.login(role="admin")
+        payload = {
+            "status": "draft",
+            "ngay_lap": "2026-07-21",
+            "ma_kh": "100000001",
+            "ten_kh": "NGUYEN VAN TEST",
+            "sdt": "0900000001",
+            "cccd": "012345678902",
+            "so_tk": "123456789",
+            "ten_tk": "NGUYEN VAN TEST",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000002",
+            "tvv_code": "11358",
+            "tvv_name": "NGUYEN TVV",
+            "plant": "1305",
+            "tong_ck": 6000000,
+            "nguoi_ki": "cht",
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000002", "gia_tri": 10000000, "gio": "21/07/2026 10:00"},
+                {"loai": "Hóa đơn", "so_ct": "1400000001", "gia_tri": 4000000, "gio": "21/07/2026 10:05"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        phieu_id = created["id"]
+
+        updated = self.client.post("/api/save", json={**payload, "phieu_id": phieu_id, "ten_kh": "TEN DA SUA"}).get_json()
+        self.assertTrue(updated["updated"])
+        self.assertEqual(updated["id"], phieu_id)
+        self.assertEqual(self.client.get(f"/api/phieu/{phieu_id}").get_json()["phieu"]["ten_kh"], "TEN DA SUA")
+
+        copied = self.client.post("/api/save", json={**payload, "phieu_id": phieu_id, "force_create": True}).get_json()
+        self.assertNotEqual(copied["id"], phieu_id)
+
+        html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
+        self.assertIn("Kế hoạch thanh toán", html)
+        self.assertIn("CỬA HÀNG PNJ NEXT 27 HÀ NỘI - HUẾ", html)
+        self.assertIn("Cửa Hàng Trưởng", html)
+
+        xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
+        self.assertEqual(xlsx_response.status_code, 200)
+        workbook = load_workbook(io.BytesIO(xlsx_response.data), data_only=False)
+        sheet = workbook["Payment Planning"]
+        self.assertEqual(sheet["B14"].value, 10000000)
+        self.assertEqual(sheet["B17"].value, 4000000)
+        self.assertEqual(sheet["B18"].value, "=B14-B17")
+
+    def test_bk_create_and_history_have_payment_planning_actions(self):
+        self.login(role="admin")
+        index_html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="btnCopyPhieu"', index_html)
+        self.assertIn("download-planning-pdf", index_html)
+        self.assertIn("download-planning-xlsx", index_html)
+        self.assertIn("print-planning", index_html)
+        self.assertIn("attachCurrentPhieuId", index_html)
+
+        history_html = self.client.get("/history").get_data(as_text=True)
+        self.assertIn("api/payment-planning-pdf/", history_html)
+        self.assertIn("api/payment-planning-xlsx/", history_html)
+        self.assertIn("Template TT (excel)", history_html)
+
+    def test_bank_eoffice_code_is_admin_only_on_create_forms(self):
+        self.login(role="user", user_id=2)
+        banks = self.client.get("/api/banks").get_json()["data"]
+        self.assertTrue(banks)
+        self.assertNotIn("eoffice", banks[0])
+
+        self.login(role="admin")
+        banks = self.client.get("/api/banks").get_json()["data"]
+        self.assertIn("eoffice", banks[0])
+        index_html = self.client.get("/").get_data(as_text=True)
+        dnck_html = self.client.get("/dnck").get_data(as_text=True)
+        self.assertIn("bankEofficeCode", index_html)
+        self.assertIn("bankEofficeCode", dnck_html)
+
+    def test_dnck_object_lookup_fills_employee_demo_data(self):
+        self.login(role="user", user_id=2)
+        self.assertEqual(self.client.get("/api/dnck/object-lookup?code=E0124764").status_code, 403)
+
+        self.login(role="admin")
+        response = self.client.get("/api/dnck/object-lookup?code=E0124764")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["found"])
+        profile = data["data"]
+        self.assertEqual(profile["object_code"], "E0124764")
+        self.assertEqual(profile["object_name"], "CHÂU ĐĂNG KHOA")
+        self.assertEqual(profile["account_number"], "109876756206")
+        self.assertEqual(profile["bank"], "Vietinbank")
+        self.assertEqual(profile["identity_value"], "046093004708")
+        self.assertTrue(profile["bank_eoffice_code"])
+        self.assertEqual(profile["account_name"], "CHÂU ĐĂNG KHOA")
+
+        html = self.client.get("/dnck").get_data(as_text=True)
+        self.assertIn("/api/dnck/object-lookup?code=", html)
+        self.assertIn("objectLookupMessage", html)
+        self.assertIn("selectBankFromLookup", html)
+
+    def test_dnck_object_data_crud_api_and_modal_shell(self):
+        self.login(role="user", user_id=2)
+        self.assertEqual(self.client.get("/api/dnck/objects").status_code, 403)
+
+        self.login(role="admin")
+        html = self.client.get("/dnck").get_data(as_text=True)
+        self.assertIn("Dữ liệu đối tượng", html)
+        self.assertIn("objectDataModal", html)
+        self.assertIn("/api/dnck/objects", html)
+
+        create = self.client.post(
+            "/api/dnck/objects",
+            json={
+                "object_code": "E0199999",
+                "object_name": "NHAN VIEN CRUD",
+                "account_number": "123000999",
+                "bank": "Vietinbank",
+                "identity_value": "046000000999",
+                "bank_eoffice_code": "01201001-",
+                "is_primary": True,
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(create.status_code, 200)
+        object_id = create.get_json()["id"]
+
+        listing = self.client.get("/api/dnck/objects?q=E0199999").get_json()["data"]
+        self.assertEqual(len(listing), 1)
+        self.assertEqual(listing[0]["object_name"], "NHAN VIEN CRUD")
+        self.assertTrue(listing[0]["is_primary"])
+
+        update = self.client.put(
+            f"/api/dnck/objects/{object_id}",
+            json={
+                "object_code": "E0199999",
+                "object_name": "NHAN VIEN CRUD SUA",
+                "account_number": "123000999",
+                "bank": "Vietinbank",
+                "identity_value": "046000000999",
+                "bank_eoffice_code": "01201001-",
+                "is_primary": True,
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(update.status_code, 200)
+        self.assertEqual(update.get_json()["data"]["object_name"], "NHAN VIEN CRUD SUA")
+
+        delete = self.client.delete(f"/api/dnck/objects/{object_id}", headers={"Origin": "http://localhost"})
+        self.assertEqual(delete.status_code, 200)
+        self.assertTrue(delete.get_json()["ok"])
+
+    def test_dnck_admin_only_save_payload_and_template(self):
+        self.login(role="user", user_id=2)
+        self.assertEqual(self.client.get("/dnck").status_code, 403)
+        self.assertEqual(self.client.post("/api/dnck", json={}).status_code, 403)
+
+        self.login(role="admin")
+        save = self.client.post(
+            "/api/dnck",
+            json={
+                "object_type": "vendor",
+                "object_code": "104850022",
+                "object_name": "HEPCO",
+                "identity_value": "3300123456",
+                "account_number": "123 456 789",
+                "account_name": "HEPCO",
+                "bank": "OCB",
+                "purpose": "Thanh toán cho nhà cung cấp",
+                "approval_level": "Cấp chi nhánh",
+                "expense_type": "CSKH",
+                "cost_group": "Khác",
+                "request_content": "1305_THANH TOÁN CHI PHÍ KHÁC CH 27 HÀ NỘI - HUẾ",
+                "sap_document": "2500000009",
+                "amount": 250000,
+                "approver_option": "hoang",
+                "hashtags": "#cskh #tiepkhach #cskh",
+                "cost_limit_ref": "QT82-DM-001",
+                "reference_links": "https://www.meinvoice.vn/tra-cuu | Mã: TEST",
+                "reference_note": "Ghi chú định mức chi phí",
+                "detail": [
+                    {
+                        "label": "Bảng kê",
+                        "amount": 300000,
+                        "document": "4403902171",
+                        "identity": "3300123456",
+                        "note": "Dòng tăng",
+                    },
+                    {
+                        "label": "Hóa đơn",
+                        "amount": -50000,
+                        "document": "9014589540",
+                        "identity": "3300123456",
+                        "note": "Dòng giảm",
+                    },
+                ],
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(save.status_code, 200)
+        data = save.get_json()
+        dnck_id = data["id"]
+        payload = data["qt82"]
+        self.assertEqual(payload["source"], "dnck")
+        self.assertEqual(payload["purpose"], "Thanh toán cho nhà cung cấp")
+        self.assertTrue(payload["skipStoreManager"])
+        self.assertEqual(payload["costGroup"], "Khác")
+        self.assertEqual(payload["sapDocument"], "2500000009")
+        self.assertEqual(payload["paymentAmount"], 250000)
+        self.assertEqual(payload["customerId"], "3300123456")
+        self.assertEqual([item["query"] for item in payload["approvers"]], ["hoang.vp", "my.hth"])
+        self.assertTrue(payload["ready"])
+
+        html = self.client.get(f"/dnck/{dnck_id}").get_data(as_text=True)
+        self.assertIn("qt82DraftPayload", html)
+        self.assertNotIn('name="payment_tag"', html)
+        self.assertIn("saveDnckRecord", html)
+        self.assertIn("forceCreate: true", html)
+        self.assertIn("freshDraft", html)
+        self.assertIn('placeholder="Diễn giải nhỏ"', html)
+        self.assertNotIn("detail-label'><select", html)
+        self.assertIn("handleDetailPaste", html)
+        self.assertIn("handleDetailKeydown", html)
+        self.assertIn("detail-remove", html)
+        self.assertIn('id="amount" type="hidden"', html)
+        self.assertIn("#cskh #tiepkhach", html)
+        self.assertIn("QT82-DM-001", html)
+
+        response = self.client.get(f"/api/dnck/template-tt/{dnck_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.startswith(b"PK"))
+        workbook = load_workbook(io.BytesIO(response.data), data_only=False)
+        sheet = workbook["Sheet1"]
+        self.assertEqual(sheet.cell(row=5, column=2).value, "Bảng kê")
+        self.assertEqual(sheet.cell(row=5, column=3).value, 300000)
+        self.assertEqual(sheet.cell(row=5, column=4).value, "4403902171")
+        self.assertEqual(sheet.cell(row=5, column=5).value, "3300123456")
+        self.assertEqual(sheet.cell(row=5, column=6).value, "Dòng tăng")
+        self.assertEqual(sheet.cell(row=6, column=2).value, "Hóa đơn")
+        self.assertEqual(sheet.cell(row=6, column=3).value, -50000)
+        self.assertEqual(sheet.cell(row=6, column=4).value, "9014589540")
+
+        history = self.client.get("/api/history").get_json()["data"]
+        dnck_history = next(item for item in history if item["source"] == "dnck" and item["id"] == dnck_id)
+        self.assertEqual(dnck_history["ma_kh"], "104850022")
+        self.assertEqual(dnck_history["ten_kh"], "HEPCO")
+        self.assertEqual(dnck_history["so_bk"], "DNCK")
+        self.assertEqual(dnck_history["hashtags"], ["cskh", "tiepkhach"])
+        self.assertEqual(dnck_history["reference_links"], ["https://www.meinvoice.vn/tra-cuu | Mã: TEST"])
+        history_html = self.client.get("/history").get_data(as_text=True)
+        self.assertIn("historyTagFilters", history_html)
+        self.assertIn("data-history-tag", history_html)
+        self.assertIn("b[1] - a[1]", history_html)
+        self.assertIn("deleteDnck", history_html)
+        self.assertIn("b[1] - a[1]", html)
+
+        eoffice_html = self.client.get(f"/eoffice/dnck/{dnck_id}").get_data(as_text=True)
+        self.assertIn("qt82DraftPayload", eoffice_html)
+        self.assertIn("api/dnck/template-tt", eoffice_html)
+        self.assertIn("CK Bảng Kê", eoffice_html)
+        self.assertIn("CK Khác", eoffice_html)
+        self.assertNotIn("ĐNCK thanh toán khác", eoffice_html)
+        self.assertIn("#cskh", eoffice_html)
+        self.assertIn("#tiepkhach", eoffice_html)
+        self.assertIn("Cấp duyệt", eoffice_html)
+        self.assertIn("hoang.vp@pnj.com.vn", eoffice_html)
+        self.assertIn("my.hth@pnj.com.vn", eoffice_html)
+        self.assertNotIn("Loại chi phí", eoffice_html)
+        self.assertIn("Nhóm chi phí", eoffice_html)
+        self.assertIn("Số QT định mức / tham chiếu", eoffice_html)
+        self.assertIn("Mã đối tượng", eoffice_html)
+        self.assertIn("CCCD/MST", eoffice_html)
+        self.assertIn('id="btnPrepareQt82"', eoffice_html)
+
+    def test_dnck_update_copy_and_delete(self):
+        self.login(role="admin")
+        save = self.client.post(
+            "/api/dnck",
+            json={
+                "object_code": "E0124764",
+                "object_name": "CHÂU ĐĂNG KHOA",
+                "identity_value": "046093004708",
+                "account_number": "109876756206",
+                "account_name": "CHÂU ĐĂNG KHOA",
+                "bank": "Vietinbank",
+                "purpose": "Thanh toán cho nhân viên",
+                "approval_level": "Cấp chi nhánh",
+                "expense_type": "Công tác phí",
+                "cost_group": "Công tác",
+                "request_content": "1305_THANH TOÁN CÔNG TÁC PHÍ",
+                "sap_document": "2500000010",
+                "detail": [{"label": "Công tác phí", "amount": 100000, "document": "HD01"}],
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(save.status_code, 200)
+        dnck_id = save.get_json()["id"]
+        update = self.client.put(
+            f"/api/dnck/{dnck_id}",
+            json={
+                "object_code": "E0124764",
+                "object_name": "CHÂU ĐĂNG KHOA",
+                "identity_value": "046093004708",
+                "account_number": "109876756206",
+                "account_name": "CHÂU ĐĂNG KHOA",
+                "bank": "Vietinbank",
+                "purpose": "Thanh toán cho nhân viên",
+                "approval_level": "Cấp công ty",
+                "expense_type": "CSKH",
+                "cost_group": "Khác",
+                "request_content": "1305_THANH TOÁN CSKH",
+                "sap_document": "2500000011",
+                "hashtags": ["cskh"],
+                "detail": [{"label": "CSKH", "amount": 200000, "document": "HD02"}],
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(update.status_code, 200)
+        payload = update.get_json()["qt82"]
+        self.assertEqual(payload["qt82Mode"], "thanh_toan_khac")
+        self.assertEqual(payload["approvalLevel"], "Cấp công ty")
+        self.assertIn("my.hth@pnj.com.vn", payload["approvalEmails"])
+        self.assertEqual(payload["expenseType"], "CSKH")
+        self.assertEqual(payload["paymentAmount"], 200000)
+
+        copied = self.client.post(f"/api/dnck/{dnck_id}/copy", headers={"Origin": "http://localhost"})
+        self.assertEqual(copied.status_code, 200)
+        copy_id = copied.get_json()["id"]
+        self.assertNotEqual(copy_id, dnck_id)
+
+        delete = self.client.delete(f"/api/dnck/{dnck_id}", headers={"Origin": "http://localhost"})
+        self.assertEqual(delete.status_code, 200)
+        self.assertTrue(delete.get_json()["ok"])
+        self.assertEqual(self.client.get(f"/eoffice/dnck/{dnck_id}").status_code, 404)
+
+    def test_dnck_employee_code_infers_employee_and_omits_store_manager(self):
+        self.login(role="admin")
+        save = self.client.post(
+            "/api/dnck",
+            json={
+                "object_code": "E0100001",
+                "object_name": "NHAN VIEN TEST",
+                "identity_value": "001200000000",
+                "account_number": "A123",
+                "account_name": "NHAN VIEN TEST",
+                "bank": "OCB",
+                "request_content": "1305_THANH TOÁN CHI PHÍ CÔNG TÁC CH 27 HÀ NỘI - HUẾ",
+                "amount": 100000,
+                "cost_group": "Công tác",
+            },
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(save.status_code, 200)
+        payload = save.get_json()["qt82"]
+        self.assertEqual(payload["purpose"], "Thanh toán cho nhân viên")
+        self.assertTrue(payload["skipStoreManager"])
+        self.assertEqual(payload["costGroup"], "Công tác")
 
     def test_clean_html_print_token_hides_row_id_from_print_url(self):
         self.login(role="admin")

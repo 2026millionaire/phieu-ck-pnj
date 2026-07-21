@@ -52,10 +52,27 @@
 .action-btn.print { color: #10b981; }
 .action-btn.delete { color: #ef4444; }
 .action-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 30px);
+    align-items: center;
+    display: flex;
     gap: 4px;
     justify-content: center;
+    flex-wrap: wrap;
+}
+.action-menu .dropdown-toggle::after {
+    display: none;
+}
+.action-menu .dropdown-menu {
+    font-size: 0.82rem;
+    min-width: 230px;
+    padding: 4px;
+}
+.action-menu .dropdown-item {
+    border-radius: 4px;
+    padding: 7px 9px;
+}
+.action-menu .dropdown-item i {
+    margin-right: 6px;
+    width: 16px;
 }
 .mobile-only { display: none; }
 .mobile-inline { display: none; }
@@ -95,6 +112,38 @@
     font-weight: 700;
     line-height: 1.25;
     white-space: nowrap;
+}
+.history-tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+}
+.history-tag {
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    display: inline-flex;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 4px 8px;
+    text-decoration: none;
+}
+.history-tag-filter {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 5px 9px;
+}
+.history-tag-filter.active {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
 }
 
 .empty-state {
@@ -204,6 +253,9 @@
 
 {% block content %}
 <div class="card">
+    <div class="card-body py-2 border-bottom d-none" id="historyTagFilterBox">
+        <div class="d-flex flex-wrap gap-2" id="historyTagFilters"></div>
+    </div>
     <div class="card-body p-0">
         <!-- Loading state -->
         <div id="loadingState" class="text-center py-5">
@@ -220,10 +272,10 @@
                             <th class="text-center desktop-stt" style="width:40px;">STT</th>
                             <th>Ngày giờ<br><span class="text-muted">Người tạo</span></th>
                             <th class="admin-owner-col d-none desktop-only">User tạo</th>
-                            <th class="desktop-only">Mã KH</th>
-                            <th class="desktop-only">Tên KH</th>
-                            <th class="desktop-only">TVV</th>
-                            <th class="desktop-only">Số BK</th>
+                            <th class="desktop-only">Mã/Loại</th>
+                            <th class="desktop-only">Tên đối tượng</th>
+                            <th class="desktop-only">Ghi chú</th>
+                            <th class="desktop-only">Chứng từ</th>
                             <th class="text-end desktop-only">Số tiền CK</th>
                             <th class="text-center desktop-only">Trạng thái</th>
                             <th class="text-center desktop-only" style="width:60px;">Đã Trình</th>
@@ -255,6 +307,7 @@
 <script>
 var allData = [];
 var isAdminHistory = false;
+var activeHistoryTag = '';
 
 document.addEventListener('DOMContentLoaded', function() {
     loadHistory();
@@ -276,6 +329,7 @@ function loadHistory() {
                 document.querySelectorAll('.admin-owner-col').forEach(function(el) {
                     el.classList.toggle('d-none', !isAdminHistory);
                 });
+                renderTagFilters(allData);
                 renderTable(allData);
             } else {
                 document.getElementById('emptyState').classList.remove('d-none');
@@ -289,14 +343,15 @@ function loadHistory() {
 
 function filterData() {
     var q = document.getElementById('searchInput').value.trim().toUpperCase();
-    if (!q) {
-        renderTable(allData);
-        return;
-    }
     var filtered = allData.filter(function(p) {
-        return (p.ten_kh && p.ten_kh.toUpperCase().indexOf(q) >= 0) ||
-               (p.ma_kh && p.ma_kh.toUpperCase().indexOf(q) >= 0) ||
-               (p.owner_name && p.owner_name.toUpperCase().indexOf(q) >= 0);
+        var textOk = !q ||
+            (p.ten_kh && p.ten_kh.toUpperCase().indexOf(q) >= 0) ||
+            (p.ma_kh && p.ma_kh.toUpperCase().indexOf(q) >= 0) ||
+            (p.source && p.source.toUpperCase().indexOf(q) >= 0) ||
+            (p.owner_name && p.owner_name.toUpperCase().indexOf(q) >= 0) ||
+            ((p.hashtags || []).join(' ').toUpperCase().indexOf(q.replace(/^#/, '')) >= 0);
+        var tagOk = !activeHistoryTag || (p.hashtags || []).indexOf(activeHistoryTag) >= 0;
+        return textOk && tagOk;
     });
     renderTable(filtered);
 }
@@ -319,6 +374,60 @@ function formatCreatedAtParts(value) {
 function shortTvvCode(value) {
     var raw = String(value || '').replace(/\s+/g, '');
     return raw ? raw.slice(-5) : '';
+}
+
+function tagFrequency(rows) {
+    var counts = new Map();
+    rows.forEach(function(item) {
+        (item.hashtags || []).forEach(function(tag) {
+            if (!counts.has(tag)) counts.set(tag, 0);
+            counts.set(tag, counts.get(tag) + 1);
+        });
+    });
+    return Array.from(counts.entries()).sort(function(a, b) { return b[1] - a[1]; });
+}
+
+function renderTagFilters(rows) {
+    var box = document.getElementById('historyTagFilterBox');
+    var target = document.getElementById('historyTagFilters');
+    if (!box || !target) return;
+    var tags = tagFrequency(rows);
+    box.classList.toggle('d-none', !tags.length);
+    target.innerHTML = '';
+    if (!tags.length) return;
+    if (activeHistoryTag) {
+        var clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'history-tag-filter';
+        clear.textContent = 'Tất cả';
+        clear.addEventListener('click', function() {
+            activeHistoryTag = '';
+            renderTagFilters(allData);
+            filterData();
+        });
+        target.appendChild(clear);
+    }
+    tags.forEach(function(pair) {
+        var tag = pair[0];
+        var count = pair[1];
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'history-tag-filter' + (tag === activeHistoryTag ? ' active' : '');
+        btn.textContent = '#' + tag + ' · ' + count;
+        btn.addEventListener('click', function() {
+            activeHistoryTag = tag === activeHistoryTag ? '' : tag;
+            renderTagFilters(allData);
+            filterData();
+        });
+        target.appendChild(btn);
+    });
+}
+
+function renderHistoryTags(tags) {
+    if (!tags || !tags.length) return '';
+    return '<div class="history-tag-cloud">' + tags.map(function(tag) {
+        return '<button type="button" class="history-tag" data-history-tag="' + escapeHtml(tag) + '">#' + escapeHtml(tag) + '</button>';
+    }).join('') + '</div>';
 }
 
 function renderTable(data) {
@@ -356,35 +465,62 @@ function renderTable(data) {
         var checked = p.da_trinh ? 'checked' : '';
         var daTrinhText = p.da_trinh ? 'Đã trình' : 'Chưa trình';
         var daTrinhDisabled = p.can_update_da_trinh === false ? 'disabled title="Chỉ chủ phiếu hoặc admin được cập nhật"' : '';
+        var isDnck = p.source === 'dnck';
         var deleteNameArg = JSON.stringify(p.ten_kh || '');
-        var deleteAction = p.can_manage === false
-            ? ''
-            : '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', ' + escapeHtml(deleteNameArg) + ')"><i class="bi bi-trash"></i></button>';
+        var deleteAction = isDnck
+            ? '<button class="action-btn delete" title="Xóa DNCK" onclick="deleteDnck(' + p.id + ', ' + escapeHtml(deleteNameArg) + ')"><i class="bi bi-trash"></i></button>'
+            : (p.can_manage === false ? '' : '<button class="action-btn delete" title="Xóa" onclick="deletePhieu(' + p.id + ', ' + escapeHtml(deleteNameArg) + ')"><i class="bi bi-trash"></i></button>');
 
-        var refillAction = '<a href="./?draft_id=' + p.id + '" class="action-btn view" title="Điền lại phiếu"><i class="bi bi-pencil-square"></i></a>';
+        var refillAction = isDnck ? '<a href="dnck/' + p.id + '" class="action-btn view" title="Mở DNCK"><i class="bi bi-pencil-square"></i></a>' : '<a href="./?draft_id=' + p.id + '" class="action-btn view" title="Điền lại phiếu"><i class="bi bi-pencil-square"></i></a>';
         var ownerName = p.owner_name || ('User ' + (p.user_id || ''));
         var tvvCode = shortTvvCode(p.tvv_code || p.tvv_name);
         var createdAt = formatCreatedAtParts(p.created_at);
+        var tokenParam = !isDnck && p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '';
+        var tokenPrintParam = !isDnck && p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) + '&print=1' : '?print=1';
+        var xnttPrintUrl = !isDnck && p.pdf_token ? 'p/' + encodeURIComponent(p.pdf_token) + '?print=1' : 'api/print/' + p.id + '?print=1';
         var ownerCell = isAdminHistory ? '<td class="desktop-only" style="font-size:0.8rem;">' + escapeHtml(ownerName) + '</td>' : '';
         var mobileOwner = '<div class="history-owner mobile-inline">' + escapeHtml(ownerName) + (tvvCode ? '<br>' + escapeHtml(tvvCode) : '') + '</div>';
+        var sourceBadge = isDnck ? '<span class="badge bg-primary badge-status">DNCK</span>' : '';
+        var tagHtml = renderHistoryTags(p.hashtags || []);
         var mobileInfo =
             '<div class="history-ma-kh">' + escapeHtml(p.ma_kh) + '</div>' +
             '<div class="history-customer">' + escapeHtml(p.ten_kh) + '</div>' +
+            tagHtml +
             '<div class="history-amount mt-1">' + tongCk + '</div>' +
-            '<div class="history-sub mt-1">' + statusBadge + ' - ' + daTrinhText + '</div>';
+            '<div class="history-sub mt-1">' + (sourceBadge || statusBadge) + ' - ' + daTrinhText + '</div>';
         {% if admin %}
         var qt82Actions =
-            '<a href="eoffice/' + p.id + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a>' +
-            '<a href="api/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a>';
+            '<a href="' + (isDnck ? 'eoffice/dnck/' + p.id : 'eoffice/' + p.id) + '" class="action-btn view" title="eOffice QT82" target="_blank"><i class="bi bi-clipboard-data"></i></a>' +
+            (isDnck ? '<a href="api/dnck/template-tt/' + p.id + '" class="action-btn view" title="Tải template TT"><i class="bi bi-file-earmark-excel"></i></a>' : '');
+        var adminDownloadItem = isDnck ? '' : '<li><a class="dropdown-item" href="api/template-tt/' + p.id + '"><i class="bi bi-file-earmark-excel"></i>Template TT (excel)</a></li>';
         {% else %}
         var qt82Actions = '';
+        var adminDownloadItem = '';
         {% endif %}
+        var printMenu = isDnck ? '' :
+            '<div class="dropdown action-menu">' +
+                '<button type="button" class="action-btn print dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="In"><i class="bi bi-printer"></i></button>' +
+                '<ul class="dropdown-menu dropdown-menu-end">' +
+                    '<li><a class="dropdown-item" href="api/payment-planning/' + p.id + tokenPrintParam + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Kế hoạch thanh toán (pdf)</a></li>' +
+                    '<li><a class="dropdown-item" href="' + xnttPrintUrl + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Phiếu XNTTTTCK (pdf)</a></li>' +
+                '</ul>' +
+            '</div>';
+        var downloadMenu = isDnck ? '' :
+            '<div class="dropdown action-menu">' +
+                '<button type="button" class="action-btn view dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Tải xuống"><i class="bi bi-download"></i></button>' +
+                '<ul class="dropdown-menu dropdown-menu-end">' +
+                    '<li><a class="dropdown-item" href="api/payment-planning-pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Kế hoạch thanh toán (pdf)</a></li>' +
+                    '<li><a class="dropdown-item" href="api/payment-planning-xlsx/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-spreadsheet"></i>Kế hoạch thanh toán (excel)</a></li>' +
+                    '<li><a class="dropdown-item" href="api/pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Phiếu XNTTTTCK (pdf)</a></li>' +
+                    adminDownloadItem +
+                '</ul>' +
+            '</div>';
         var actionGrid =
             '<div class="action-grid">' +
                 qt82Actions +
                 refillAction +
-                '<a href="' + (p.pdf_token ? 'p/' + encodeURIComponent(p.pdf_token) : 'api/print/' + p.id) + '" class="action-btn print" title="In lại" target="_blank"><i class="bi bi-printer"></i></a>' +
-                '<a href="api/pdf/' + p.id + (p.pdf_token ? '?token=' + encodeURIComponent(p.pdf_token) : '') + '" class="action-btn view" title="Tải PDF"><i class="bi bi-download"></i></a>' +
+                printMenu +
+                downloadMenu +
                 deleteAction +
             '</div>';
         var tr = document.createElement('tr');
@@ -392,24 +528,34 @@ function renderTable(data) {
             '<td class="text-center text-muted desktop-stt">' + (idx + 1) + '</td>' +
             '<td class="history-date">' + escapeHtml(createdAt.date) + '<br><span class="text-muted">' + escapeHtml(createdAt.time) + '</span>' + mobileOwner + '</td>' +
             ownerCell +
-            '<td class="desktop-only"><code>' + escapeHtml(p.ma_kh) + '</code></td>' +
-            '<td class="desktop-only"><strong>' + escapeHtml(p.ten_kh) + '</strong></td>' +
+            '<td class="desktop-only"><code>' + escapeHtml(p.ma_kh) + '</code>' + (isDnck ? '<br><span class="badge bg-primary">DNCK</span>' : '') + '</td>' +
+            '<td class="desktop-only"><strong>' + escapeHtml(p.ten_kh) + '</strong>' + tagHtml + '</td>' +
             '<td class="desktop-only" style="font-size:0.8rem;">' + escapeHtml(p.tvv_name) + '</td>' +
             '<td class="desktop-only">' + escapeHtml(p.so_bk) + '</td>' +
             '<td class="amount desktop-only">' + tongCk + '</td>' +
-            '<td class="text-center desktop-only">' + statusBadge + '</td>' +
-            '<td class="text-center desktop-only"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" ' + checked + ' ' + daTrinhDisabled + '></td>' +
+            '<td class="text-center desktop-only">' + (sourceBadge || statusBadge) + '</td>' +
+            '<td class="text-center desktop-only"><input type="checkbox" class="form-check-input da-trinh-cb" data-id="' + p.id + '" data-source="' + escapeHtml(p.source || 'phieu') + '" ' + checked + ' ' + daTrinhDisabled + '></td>' +
             '<td class="mobile-only">' + mobileInfo + '</td>' +
             '<td class="text-center">' + actionGrid + '</td>';
         tbody.appendChild(tr);
     });
 }
 
+document.getElementById('historyBody').addEventListener('click', function(event) {
+    var tagButton = event.target.closest('[data-history-tag]');
+    if (!tagButton) return;
+    event.preventDefault();
+    activeHistoryTag = tagButton.dataset.historyTag || '';
+    renderTagFilters(allData);
+    filterData();
+});
+
 function handleDaTrinh(e) {
     if (!e.target.classList.contains('da-trinh-cb')) return;
     var id = e.target.dataset.id;
     var checked = e.target.checked;
-    fetch('/api/da-trinh/' + id, {
+    var endpoint = e.target.dataset.source === 'dnck' ? '/api/dnck/da-trinh/' + id : '/api/da-trinh/' + id;
+    fetch(endpoint, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({da_trinh: checked})
@@ -425,6 +571,23 @@ function deletePhieu(id, name) {
                     loadHistory();
                 } else {
                     alert('Lỗi: ' + (data.error || 'Không thể xóa.'));
+                }
+            })
+            .catch(function() {
+                alert('Lỗi kết nối. Vui lòng thử lại.');
+            });
+    }
+}
+
+function deleteDnck(id, name) {
+    if (confirm('Xác nhận xóa DNCK của "' + name + '"?')) {
+        fetch('/api/dnck/' + id, { method: 'DELETE' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    loadHistory();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể xóa DNCK.'));
                 }
             })
             .catch(function() {

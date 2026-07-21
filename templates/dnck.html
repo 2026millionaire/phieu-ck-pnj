@@ -1,0 +1,1279 @@
+{% extends "base.html" %}
+
+{% block title %}ĐNCK khác{% endblock %}
+{% block nav_dnck %}active{% endblock %}
+{% block page_title %}Tạo đề nghị CK khác{% endblock %}
+
+{% block extra_css %}
+.dnck-section-title { font-size: .78rem; font-weight: 700; color: #475569; text-transform: uppercase; }
+.search-dropup-field { position: relative; }
+.search-dropup-menu { max-height: 260px; overflow-y: auto; }
+.dnck-detail-table th { font-size: .78rem; white-space: nowrap; }
+.dnck-detail-table td { vertical-align: middle; }
+.dnck-detail-table input,
+.dnck-detail-table select { min-width: 120px; }
+.dnck-detail-table input:focus {
+    border-color: #2563eb;
+    box-shadow: inset 0 0 0 1px #2563eb;
+}
+.dnck-detail-total { font-weight: 700; color: #0f172a; }
+.dnck-history td { font-size: .82rem; vertical-align: middle; }
+.dnck-history .amount { text-align: right; font-weight: 700; white-space: nowrap; color: #0369a1; }
+.dnck-tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+.dnck-tag {
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 5px 9px;
+}
+.dnck-tag button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
+    padding: 0;
+}
+.dnck-tag-filter {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 5px 9px;
+}
+.dnck-tag-filter.active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.object-data-table td,
+.object-data-table th { font-size: .78rem; vertical-align: middle; }
+.object-data-table input { min-width: 110px; }
+.qt82-check { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #e2e8f0; font-size: .84rem; }
+.qt82-check:last-child { border-bottom: 0; }
+.qt82-check.ok i { color: #16a34a; }
+.qt82-check.fail i { color: #dc2626; }
+@media (max-width: 575.98px) { .dnck-actions .btn { width: 100%; } }
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="card">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-cash-coin"></i> Thông tin đề nghị</span>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnOpenObjectData">
+                        <i class="bi bi-database"></i> Dữ liệu đối tượng
+                    </button>
+                    {% if dnck %}<span class="badge bg-primary">DNCK #{{ dnck.id }}</span>{% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="dnckForm" autocomplete="off">
+                    <div class="dnck-section-title mb-2">Đối tượng nhận tiền</div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Mã đối tượng</label>
+                            <input class="form-control" id="object_code" value="{{ dnck.object_code if dnck else '' }}" required>
+                            <div id="objectLookupMessage" class="small mt-1 d-none"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">CCCD/MST</label>
+                            <input class="form-control" id="identity_value" value="{{ dnck.identity_value if dnck else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Mục đích</label>
+                            <select class="form-select" id="purpose">
+                                <option>Thanh toán cho khách hàng</option>
+                                <option>Thanh toán cho nhân viên</option>
+                                <option>Thanh toán cho nhà cung cấp</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Tên đối tượng</label>
+                            <input class="form-control text-uppercase" id="object_name" value="{{ dnck.object_name if dnck else '' }}" required>
+                        </div>
+                    </div>
+
+                    <div class="dnck-section-title mb-2">2. Thông tin thanh toán / Ủy Quyền chuyển khoản</div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Số tài khoản</label>
+                            <input type="text" class="form-control" id="account_number" value="{{ dnck.account_number if dnck else '' }}" placeholder="Số TK thụ hưởng" required>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">Ngân hàng</label>
+                            <div class="search-dropup-field">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="bank_search" autocomplete="off" placeholder="Tên ngắn (VCB, Vietcom,...)">
+                                    <button class="btn btn-outline-secondary d-none" type="button" id="btnClearBank" title="Xóa ngân hàng">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <div id="bankDropdown" class="dropdown-menu search-dropup-menu w-100" style="font-size:0.85rem;"></div>
+                            </div>
+                            <div id="bankFullName" class="text-muted small mt-1 d-none">
+                                <i class="bi bi-bank"></i> <span id="bankFullNameText"></span>
+                            </div>
+                            <div id="bankEofficeCode" class="text-primary small mt-1 d-none">
+                                <i class="bi bi-clipboard-data"></i> Mã eOffice: <strong id="bankEofficeCodeText"></strong>
+                            </div>
+                            <input type="hidden" id="bank" value="{{ dnck.bank if dnck else '' }}">
+                            <input type="hidden" id="bank_bin" value="">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label mb-1">Tên tài khoản thụ hưởng</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="text" class="form-control flex-grow-1 text-uppercase" id="account_name"
+                                       value="{{ dnck.account_name if dnck else '' }}"
+                                       placeholder="Nhấn Kiểm tra TK để tra tên tài khoản" style="font-weight:700; color:#0369a1;" readonly required>
+                                <button type="button" class="btn btn-outline-info text-nowrap" id="btnLookup">
+                                    <i class="bi bi-search"></i> Kiểm tra TK
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div id="lookupError" class="text-danger small d-none"></div>
+                                <div id="nameWarning" class="small d-none" style="color:#dc2626; font-weight:600;">
+                                    <i class="bi bi-exclamation-triangle"></i> Tên TK không khớp tên đối tượng!
+                                </div>
+                                <div id="nameMatch" class="small d-none" style="color:#16a34a; font-weight:600;">
+                                    <i class="bi bi-check-circle-fill"></i> Tên TK khớp tên đối tượng!
+                                </div>
+                            </div>
+                            <div id="realAccountSuggestion" class="alert alert-warning py-2 px-2 mt-2 mb-0 d-none" style="font-size:0.82rem;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        Ngân hàng trả về STK thật: <strong id="realAccountValue"></strong>. QT82 nên dùng số tài khoản thật.
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <button type="button" class="btn btn-sm btn-success" id="btnUseRealAccount">YES</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnKeepAliasAccount">NO</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dnck-section-title mb-2">3. Chi tiết thanh toán</div>
+                    <div class="table-responsive mb-2">
+                        <table class="table table-bordered table-sm align-middle dnck-detail-table mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:44px;">#</th>
+                                    <th>Nội dung <span class="text-danger">(*)</span></th>
+                                    <th>Số tiền</th>
+                                    <th>Số hóa đơn <span class="text-danger">(*)</span></th>
+                                    <th>Mã số thuế/CCCD <span class="text-danger">(*)</span></th>
+                                    <th>Ghi chú</th>
+                                    <th style="width:42px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailBody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2"></td>
+                                    <td class="dnck-detail-total" id="detailTotal">0</td>
+                                    <td colspan="4"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="btnAddDetailRow">
+                        <i class="bi bi-plus-lg"></i> Thêm dòng
+                    </button>
+
+                    <div class="dnck-section-title mb-2">Nội dung QT82</div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nhóm chi phí</label>
+                            <select class="form-select" id="cost_group">
+                                <option>Khác</option>
+                                <option>Tiếp khách</option>
+                                <option>Công tác</option>
+                                <option>Hàng hóa(ML)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Cấp duyệt</label>
+                            <select class="form-select" id="approval_level">
+                                <option>Cấp cửa hàng</option>
+                                <option>Cấp chi nhánh</option>
+                                <option>Cấp công ty</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Loại chi phí</label>
+                            <input class="form-control" id="expense_type" value="{{ dnck.expense_type if dnck and dnck.expense_type else '' }}" placeholder="Ví dụ: CSKH, công tác phí, tiếp khách...">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mã chứng từ SAP</label>
+                            <input class="form-control" id="sap_document" value="{{ dnck.sap_document if dnck else '' }}" placeholder="Để trống sẽ tạm dùng 1234">
+                        </div>
+                        <input id="amount" type="hidden" value="{{ dnck.amount|int if dnck else '' }}">
+                        <div class="col-12">
+                            <label class="form-label">Nội dung đề nghị thanh toán</label>
+                            <textarea class="form-control" id="request_content" rows="4" required>{{ dnck.request_content if dnck else '' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Người phê duyệt thêm</label>
+                            <select class="form-select" id="approver_option">
+                                <option value="none">KHÔNG CÓ</option>
+                                <option value="hoang">hoang.vp@pnj.com.vn</option>
+                                <option value="lanh">lanh.nt01@pnj.com.vn</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Hashtag</label>
+                            <input class="form-control" id="hashtags" value="{% if dnck and dnck.hashtags %}{% for tag in dnck.hashtags %}#{{ tag }}{% if not loop.last %} {% endif %}{% endfor %}{% endif %}" placeholder="#cskh #congtacphi #tiepkhach">
+                            <div class="dnck-tag-cloud mt-2" id="hashtagPreview"></div>
+                        </div>
+                    </div>
+
+                    <div class="dnck-section-title mb-2">Thông tin tham khảo</div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Số QT định mức / tham chiếu</label>
+                            <input class="form-control" id="cost_limit_ref" value="{{ dnck.cost_limit_ref if dnck else '' }}">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Link tham khảo</label>
+                            <textarea class="form-control" id="reference_links" rows="2" placeholder="Mỗi link một dòng">{{ ('\n'.join(dnck.reference_links)) if dnck and dnck.reference_links else '' }}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Ghi chú tham khảo</label>
+                            <textarea class="form-control" id="reference_note" rows="2" placeholder="Ví dụ: mã tra cứu hóa đơn, ghi chú định mức chi phí...">{{ dnck.reference_note if dnck else '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 dnck-actions">
+                        <button class="btn btn-success" type="submit" id="btnSaveDnck">
+                            <i class="bi bi-save"></i> Save
+                        </button>
+                        {% if dnck and qt82_payload %}
+                        <button class="btn btn-outline-secondary" type="button" id="btnCopyDnck">
+                            <i class="bi bi-files"></i> Copy
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" id="btnDeleteDnck">
+                            <i class="bi bi-trash"></i> Xóa
+                        </button>
+                        <button class="btn btn-primary" type="button" id="btnPrepareQt82" {% if not qt82_payload.ready %}disabled{% endif %}>
+                            <i class="bi bi-box-arrow-up-right"></i> Mở Tạo yêu cầu và điền QT82
+                        </button>
+                        <a class="btn btn-outline-success" href="{{ url_for('api_dnck_template_tt', dnck_id=dnck.id) }}" id="btnDownloadTemplate">
+                            <i class="bi bi-file-earmark-excel"></i> Tải Template TT
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="small mt-2 d-none" id="dnckMessage"></div>
+                </form>
+            </div>
+        </div>
+
+        {% if qt82_payload %}
+        <div class="card mt-3">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-check"></i> Kiểm tra trước khi tạo QT82</span>
+                <span class="badge {{ 'bg-success' if qt82_payload.ready else 'bg-danger' }}">{{ 'Sẵn sàng' if qt82_payload.ready else 'Thiếu dữ liệu' }}</span>
+            </div>
+            <div class="card-body py-2">
+                {% for check in qt82_payload.checks %}
+                <div class="qt82-check {{ 'ok' if check.ok else 'fail' }}">
+                    <i class="bi {{ 'bi-check-circle-fill' if check.ok else 'bi-x-circle-fill' }}"></i>
+                    <span>{{ check.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <script type="application/json" id="qt82DraftPayload">{{ qt82_payload|tojson }}</script>
+        {% endif %}
+    </div>
+
+    <div class="col-xl-5">
+        <div class="card">
+            <div class="card-header py-2"><i class="bi bi-clock-history"></i> Lịch sử DNCK gần đây</div>
+            <div class="card-body py-2 border-bottom d-none" id="dnckTagFilterBox">
+                <div class="dnck-tag-cloud" id="dnckTagFilters"></div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover dnck-history mb-0">
+                        <thead><tr><th>Ngày</th><th>Đối tượng</th><th class="text-end">Số tiền</th><th class="text-center">Trình</th></tr></thead>
+                        <tbody id="dnckHistoryBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="objectDataModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-database"></i> Dữ liệu đối tượng nhận tiền</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3"><input class="form-control form-control-sm" id="obj_code" placeholder="Mã NV/KH/NCC"></div>
+                    <div class="col-md-3"><input class="form-control form-control-sm text-uppercase" id="obj_name" placeholder="Tên đối tượng"></div>
+                    <div class="col-md-2"><input class="form-control form-control-sm" id="obj_account" placeholder="Số tài khoản"></div>
+                    <div class="col-md-2"><input class="form-control form-control-sm" id="obj_bank" placeholder="Ngân hàng"></div>
+                    <div class="col-md-2"><input class="form-control form-control-sm" id="obj_identity" placeholder="CCCD/MST"></div>
+                    <div class="col-md-3"><input class="form-control form-control-sm" id="obj_eoffice" placeholder="Mã eOffice ngân hàng"></div>
+                    <div class="col-md-3 form-check d-flex align-items-center ps-4">
+                        <input class="form-check-input me-2" type="checkbox" id="obj_primary" checked>
+                        <label class="form-check-label" for="obj_primary">STK chính</label>
+                    </div>
+                    <div class="col-md-6 d-flex gap-2">
+                        <button class="btn btn-sm btn-success" type="button" id="btnSaveObjectRow"><i class="bi bi-save"></i> Lưu dòng</button>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" id="btnResetObjectForm">Nhập mới</button>
+                        <input class="form-control form-control-sm ms-auto" id="objectSearch" placeholder="Tìm mã, tên, STK, CCCD/MST">
+                    </div>
+                </div>
+                <div class="small mb-2 d-none" id="objectDataMessage"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover object-data-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mã</th><th>Tên</th><th>STK</th><th>Ngân hàng</th><th>CCCD/MST</th><th>Mã eOffice</th><th>Chính</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="objectDataBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const currentDnckId = {{ dnck.id if dnck else 0 }};
+const initialDnck = {{ dnck|tojson if dnck else 'null' }};
+const draftNode = document.getElementById('qt82DraftPayload');
+const qt82Draft = draftNode ? JSON.parse(draftNode.textContent) : null;
+const MAX_TEMPLATE_BYTES = 1024 * 1024;
+let preparingQt82 = false;
+let allBanks = [];
+let skipNextRealAccountSuggestion = false;
+let detailRows = [];
+let dnckHistoryRows = [];
+let activeDnckTag = '';
+
+function appPath(suffix) {
+    const match = window.location.pathname.match(/^(.*)\/dnck(?:\/\d+)?\/?$/i);
+    const basePath = match ? match[1] : '';
+    return basePath + suffix;
+}
+
+function setMessage(message, type) {
+    const el = document.getElementById('dnckMessage');
+    if (!el) return;
+    el.className = 'small mt-2 text-' + (type || 'muted');
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function(ch) {
+        return ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[ch];
+    });
+}
+
+function normalizeAccountNumber(value) {
+    return (value || '').trim().replace(/\s+/g, '').toUpperCase();
+}
+
+function removeDiacritics(str) {
+    return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
+function splitLookupAccountName(accountName) {
+    const rawName = (accountName || '').trim();
+    const compactName = rawName.replace(/\s+/g, ' ');
+    const patterns = [/^(.+?)\s*[_-]\s*([0-9]{6,})$/, /^(.+?)\s*\(([0-9]{6,})\)$/, /^(.+?)\s+([0-9]{6,})$/];
+    for (const pattern of patterns) {
+        const match = compactName.match(pattern);
+        if (match) return {displayName: match[1].trim(), realAccount: match[2].trim()};
+    }
+    return {displayName: rawName, realAccount: ''};
+}
+
+function hideRealAccountSuggestion() {
+    const suggestionEl = document.getElementById('realAccountSuggestion');
+    suggestionEl.classList.add('d-none');
+    suggestionEl.dataset.realAccount = '';
+}
+
+function showRealAccountSuggestion(realAccount) {
+    const suggestionEl = document.getElementById('realAccountSuggestion');
+    suggestionEl.dataset.realAccount = realAccount;
+    document.getElementById('realAccountValue').textContent = realAccount;
+    suggestionEl.classList.remove('d-none');
+}
+
+function checkNameMatch() {
+    const nameEl = document.getElementById('account_name');
+    const warnEl = document.getElementById('nameWarning');
+    const matchEl = document.getElementById('nameMatch');
+    const objectName = document.getElementById('object_name').value.trim().toUpperCase();
+    const accountName = splitLookupAccountName(nameEl.value).displayName.trim().toUpperCase();
+    warnEl.classList.add('d-none');
+    matchEl.classList.add('d-none');
+    nameEl.classList.remove('bg-danger-subtle', 'bg-success-subtle');
+    if (!objectName || !accountName) return;
+    if (removeDiacritics(objectName) === removeDiacritics(accountName)) {
+        matchEl.classList.remove('d-none');
+        nameEl.classList.add('bg-success-subtle');
+    } else {
+        warnEl.classList.remove('d-none');
+        nameEl.classList.add('bg-danger-subtle');
+    }
+}
+
+function inferPurpose() {
+    const code = document.getElementById('object_code').value.trim().toUpperCase();
+    const purpose = document.getElementById('purpose');
+    if (/^E01/.test(code)) purpose.value = 'Thanh toán cho nhân viên';
+}
+
+function setObjectLookupMessage(message, type) {
+    const el = document.getElementById('objectLookupMessage');
+    if (!el) return;
+    el.className = 'small mt-1 text-' + (type || 'muted');
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+function hideObjectLookupMessage() {
+    const el = document.getElementById('objectLookupMessage');
+    if (!el) return;
+    el.classList.add('d-none');
+    el.textContent = '';
+}
+
+function bankMatchesLookup(bank, bankName, eofficeCode) {
+    const q = removeDiacritics(bankName || '').toLowerCase();
+    const eoffice = String(eofficeCode || '').trim();
+    return Boolean(
+        (eoffice && bank.eoffice === eoffice) ||
+        removeDiacritics(bank.ten_tra_cuu || '').toLowerCase() === q ||
+        removeDiacritics(bank.ten_gd || '').toLowerCase() === q ||
+        String(bank.code || '').toLowerCase() === q ||
+        (q && removeDiacritics(bank.ten_tra_cuu || '').toLowerCase().includes(q)) ||
+        (q && removeDiacritics(bank.ten_gd || '').toLowerCase().includes(q))
+    );
+}
+
+function selectBankFromLookup(bankName, eofficeCode) {
+    const bank = allBanks.find(item => bankMatchesLookup(item, bankName, eofficeCode));
+    if (bank) {
+        selectBank(bank.code, bank.ten_tra_cuu, bank.bin, bank.eoffice || eofficeCode || '');
+    } else {
+        document.getElementById('bank_search').value = bankName || '';
+        document.getElementById('bank').value = bankName || '';
+        document.getElementById('bank_bin').value = '';
+        document.getElementById('bankFullNameText').textContent = bankName || '';
+        document.getElementById('bankFullName').classList.toggle('d-none', !bankName);
+        document.getElementById('bankEofficeCodeText').textContent = eofficeCode || 'Chưa có';
+        document.getElementById('bankEofficeCode').classList.remove('d-none');
+        document.getElementById('btnClearBank').classList.remove('d-none');
+    }
+}
+
+function fillIdentityToEmptyDetailRows(identityValue) {
+    document.querySelectorAll('.detail-identity').forEach(input => {
+        if (!input.value.trim()) input.value = identityValue || '';
+    });
+    syncDetailRowsFromDom();
+}
+
+function applyObjectLookup(data) {
+    document.getElementById('object_code').value = data.object_code || document.getElementById('object_code').value;
+    document.getElementById('object_name').value = (data.object_name || '').toUpperCase();
+    document.getElementById('identity_value').value = data.identity_value || '';
+    document.getElementById('account_number').value = normalizeAccountNumber(data.account_number || '');
+    document.getElementById('account_name').value = (data.account_name || data.object_name || '').toUpperCase();
+    selectBankFromLookup(data.bank || '', data.bank_eoffice_code || '');
+    inferPurpose();
+    fillIdentityToEmptyDetailRows(data.identity_value || '');
+    hideRealAccountSuggestion();
+    checkNameMatch();
+}
+
+function lookupObjectByCode() {
+    const codeEl = document.getElementById('object_code');
+    const code = codeEl.value.trim().toUpperCase();
+    codeEl.value = code;
+    inferPurpose();
+    if (!code || !/^E01/.test(code)) return;
+    setObjectLookupMessage('Đang tra thông tin đối tượng...', 'muted');
+    fetch(appPath('/api/dnck/object-lookup?code=' + encodeURIComponent(code)), {
+        credentials: 'same-origin',
+        cache: 'no-store'
+    }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(result => {
+        if (!result.ok || !result.data.ok) throw new Error(result.data.error || 'Không tra được mã đối tượng.');
+        if (!result.data.found) {
+            setObjectLookupMessage('Chưa có dữ liệu demo cho mã này, có thể nhập tay.', 'warning');
+            return;
+        }
+        applyObjectLookup(result.data.data);
+        setObjectLookupMessage('Đã tự điền thông tin nhân viên từ dữ liệu demo.', 'success');
+    }).catch(error => {
+        setObjectLookupMessage(error.message || 'Không tra được mã đối tượng.', 'danger');
+    });
+}
+
+function collectPayload() {
+    return {
+        purpose: document.getElementById('purpose').value,
+        object_code: document.getElementById('object_code').value,
+        object_name: document.getElementById('object_name').value,
+        identity_value: document.getElementById('identity_value').value,
+        account_name: document.getElementById('account_name').value,
+        account_number: normalizeAccountNumber(document.getElementById('account_number').value),
+        bank: document.getElementById('bank').value,
+        detail: collectDetailRows(),
+        cost_group: document.getElementById('cost_group').value,
+        approval_level: document.getElementById('approval_level').value,
+        expense_type: document.getElementById('expense_type').value,
+        sap_document: document.getElementById('sap_document').value,
+        amount: Number(document.getElementById('amount').value || 0),
+        request_content: document.getElementById('request_content').value,
+        approver_option: document.getElementById('approver_option').value,
+        hashtags: normalizeHashtags(document.getElementById('hashtags').value),
+        cost_limit_ref: document.getElementById('cost_limit_ref').value,
+        reference_links: document.getElementById('reference_links').value,
+        reference_note: document.getElementById('reference_note').value
+    };
+}
+
+function formatAmount(value) {
+    return Math.round(Number(value || 0)).toLocaleString('vi-VN');
+}
+
+function normalizeAmount(value) {
+    const raw = String(value || '').replace(/\./g, '').replace(/,/g, '').trim();
+    return Number(raw || 0);
+}
+
+function normalizeHashtags(value) {
+    const seen = new Set();
+    return String(value || '')
+        .split(/[\s,;]+/)
+        .map(tag => tag.trim().replace(/^#+/, '').toLowerCase().replace(/[^0-9a-zA-Z_À-ỹ-]/g, ''))
+        .filter(tag => {
+            if (!tag || seen.has(tag)) return false;
+            seen.add(tag);
+            return true;
+        })
+        .slice(0, 20);
+}
+
+function renderHashtagPreview() {
+    const box = document.getElementById('hashtagPreview');
+    if (!box) return;
+    const tags = normalizeHashtags(document.getElementById('hashtags').value);
+    box.innerHTML = tags.map(tag => '<span class="dnck-tag">#' + escapeHtml(tag) + '</span>').join('');
+}
+
+function emptyDetailRow() {
+    return {label: '', amount: '', document: '', identity: document.getElementById('identity_value').value || '', note: ''};
+}
+
+function detailFieldNames() {
+    return ['label', 'amount', 'document', 'identity', 'note'];
+}
+
+function detailInputSelectorByCol(col) {
+    return ['.detail-label', '.detail-amount', '.detail-document', '.detail-identity', '.detail-note'][col];
+}
+
+function ensureDetailRowCount(count) {
+    while (detailRows.length < count) detailRows.push(emptyDetailRow());
+}
+
+function focusDetailCell(rowIndex, colIndex) {
+    const rows = document.querySelectorAll('#detailBody tr');
+    const row = rows[rowIndex];
+    if (!row) return;
+    const input = row.querySelector(detailInputSelectorByCol(colIndex));
+    if (!input) return;
+    input.focus();
+    input.select();
+}
+
+function detailCellPosition(input) {
+    const tr = input.closest('tr');
+    const rows = Array.from(document.querySelectorAll('#detailBody tr'));
+    const rowIndex = rows.indexOf(tr);
+    const selectors = detailInputSelectorByCol;
+    for (let col = 0; col < 5; col += 1) {
+        if (input.matches(selectors(col))) return {rowIndex, colIndex: col};
+    }
+    return {rowIndex, colIndex: 0};
+}
+
+function setDetailCell(rowIndex, colIndex, value) {
+    ensureDetailRowCount(rowIndex + 1);
+    const field = detailFieldNames()[colIndex];
+    if (!field) return;
+    detailRows[rowIndex][field] = field === 'amount' ? normalizeAmount(value) : String(value || '').trim();
+}
+
+function handleDetailPaste(event) {
+    const text = event.clipboardData && event.clipboardData.getData('text/plain');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return;
+    event.preventDefault();
+    syncDetailRowsFromDom();
+    const start = detailCellPosition(event.target);
+    const rows = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    if (rows.length && rows[rows.length - 1] === '') rows.pop();
+    rows.forEach((line, rowOffset) => {
+        line.split('\t').forEach((cell, colOffset) => {
+            const colIndex = start.colIndex + colOffset;
+            if (colIndex < 5) setDetailCell(start.rowIndex + rowOffset, colIndex, cell);
+        });
+    });
+    renderDetailRows();
+    focusDetailCell(start.rowIndex + rows.length - 1, Math.min(4, start.colIndex + (rows[rows.length - 1] || '').split('\t').length - 1));
+}
+
+function handleDetailKeydown(event) {
+    if (!['Tab', 'Enter'].includes(event.key)) return;
+    event.preventDefault();
+    syncDetailRowsFromDom();
+    const pos = detailCellPosition(event.target);
+    let nextRow = pos.rowIndex;
+    let nextCol = pos.colIndex;
+    if (event.key === 'Tab') {
+        nextCol += event.shiftKey ? -1 : 1;
+        if (nextCol > 4) { nextCol = 0; nextRow += 1; }
+        if (nextCol < 0) { nextCol = 4; nextRow = Math.max(0, nextRow - 1); }
+    } else {
+        nextRow += event.shiftKey ? -1 : 1;
+        nextRow = Math.max(0, nextRow);
+    }
+    ensureDetailRowCount(nextRow + 1);
+    renderDetailRows();
+    focusDetailCell(nextRow, nextCol);
+}
+
+function renderDetailRows() {
+    const tbody = document.getElementById('detailBody');
+    tbody.replaceChildren();
+    detailRows.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="text-center">' + (index + 1) + '</td>' +
+            '<td><input class="form-control form-control-sm detail-label" placeholder="Diễn giải nhỏ"></td>' +
+            '<td><input class="form-control form-control-sm detail-amount" inputmode="decimal"></td>' +
+            '<td><input class="form-control form-control-sm detail-document"></td>' +
+            '<td><input class="form-control form-control-sm detail-identity"></td>' +
+            '<td><input class="form-control form-control-sm detail-note"></td>' +
+            '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger detail-remove" title="Xóa dòng"><i class="bi bi-trash"></i></button></td>';
+        tbody.appendChild(tr);
+        tr.querySelector('.detail-label').value = row.label || '';
+        tr.querySelector('.detail-amount').value = row.amount === 0 || row.amount ? row.amount : '';
+        tr.querySelector('.detail-document').value = row.document || '';
+        tr.querySelector('.detail-identity').value = row.identity || '';
+        tr.querySelector('.detail-note').value = row.note || '';
+        tr.querySelectorAll('input, select').forEach(control => {
+            control.addEventListener('input', syncDetailRowsFromDom);
+            control.addEventListener('change', syncDetailRowsFromDom);
+            control.addEventListener('paste', handleDetailPaste);
+            control.addEventListener('keydown', handleDetailKeydown);
+        });
+        tr.querySelector('.detail-remove').addEventListener('click', function() {
+            deleteDetailRow(index);
+        });
+    });
+    updateDetailTotal();
+}
+
+function deleteDetailRow(index) {
+    syncDetailRowsFromDom();
+    detailRows.splice(index, 1);
+    if (!detailRows.length) detailRows.push(emptyDetailRow());
+    renderDetailRows();
+    focusDetailCell(Math.min(index, detailRows.length - 1), 0);
+}
+
+function syncDetailRowsFromDom() {
+    detailRows = Array.from(document.querySelectorAll('#detailBody tr')).map(tr => ({
+        label: tr.querySelector('.detail-label').value,
+        amount: normalizeAmount(tr.querySelector('.detail-amount').value),
+        document: tr.querySelector('.detail-document').value.trim(),
+        identity: tr.querySelector('.detail-identity').value.trim(),
+        note: tr.querySelector('.detail-note').value.trim()
+    }));
+    updateDetailTotal();
+}
+
+function collectDetailRows() {
+    syncDetailRowsFromDom();
+    return detailRows.filter(row => row.label || row.amount || row.document || row.identity || row.note);
+}
+
+function updateDetailTotal() {
+    const total = detailRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    document.getElementById('detailTotal').textContent = formatAmount(total);
+    document.getElementById('amount').value = total || '';
+}
+
+function browserToday() {
+    const now = new Date();
+    return String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + String(now.getFullYear()).slice(-2);
+}
+
+fetch(appPath('/api/banks'), {credentials: 'same-origin'}).then(r => r.json()).then(json => {
+    allBanks = json.data || [];
+    if (initialDnck && initialDnck.bank) {
+        const bank = allBanks.find(item => item.ten_tra_cuu === initialDnck.bank || item.code === initialDnck.bank);
+        if (bank) selectBank(bank.code, bank.ten_tra_cuu, bank.bin, bank.eoffice || '');
+        else {
+            document.getElementById('bank_search').value = initialDnck.bank;
+            document.getElementById('bank').value = initialDnck.bank;
+        }
+    }
+});
+
+const bankSearch = document.getElementById('bank_search');
+const bankDropdown = document.getElementById('bankDropdown');
+bankSearch.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    if (!q) { bankDropdown.classList.remove('show'); return; }
+    const matches = allBanks.filter(b =>
+        b.ten_gd.toLowerCase().includes(q) || b.code.toLowerCase().includes(q) ||
+        b.ten_tra_cuu.toLowerCase().includes(q) || b.bin.includes(q)
+    ).slice(0, 12);
+    if (!matches.length) { bankDropdown.classList.remove('show'); return; }
+    bankDropdown.innerHTML = matches.map(b =>
+        `<a class="dropdown-item py-1" href="#" data-bin="${b.bin}" data-ten="${b.ten_tra_cuu}" data-code="${b.code}" data-eoffice="${b.eoffice || ''}">
+            <strong>${b.ten_gd}</strong> <small class="text-muted">(${b.code})</small>
+        </a>`
+    ).join('');
+    bankDropdown.classList.add('show');
+});
+bankDropdown.addEventListener('click', function(e) {
+    e.preventDefault();
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+    selectBank(item.dataset.code, item.dataset.ten, item.dataset.bin, item.dataset.eoffice || '');
+    bankDropdown.classList.remove('show');
+    setTimeout(tryAutoLookup, 100);
+});
+document.addEventListener('click', function(e) {
+    if (!bankSearch.contains(e.target) && !bankDropdown.contains(e.target)) bankDropdown.classList.remove('show');
+});
+
+function selectBank(code, ten, bin, eoffice) {
+    bankSearch.value = code;
+    document.getElementById('bank').value = ten;
+    document.getElementById('bank_bin').value = bin;
+    document.getElementById('bankFullNameText').textContent = ten;
+    document.getElementById('bankFullName').classList.remove('d-none');
+    document.getElementById('bankEofficeCodeText').textContent = eoffice || 'Chưa có';
+    document.getElementById('bankEofficeCode').classList.remove('d-none');
+    document.getElementById('btnClearBank').classList.remove('d-none');
+}
+
+function clearBank() {
+    bankSearch.value = '';
+    document.getElementById('bank').value = '';
+    document.getElementById('bank_bin').value = '';
+    document.getElementById('bankFullName').classList.add('d-none');
+    document.getElementById('bankEofficeCodeText').textContent = '';
+    document.getElementById('bankEofficeCode').classList.add('d-none');
+    document.getElementById('btnClearBank').classList.add('d-none');
+    bankSearch.focus();
+}
+document.getElementById('btnClearBank').addEventListener('click', clearBank);
+
+let autoLookupDone = false;
+function tryAutoLookup() {
+    if (autoLookupDone) return;
+    const account = normalizeAccountNumber(document.getElementById('account_number').value);
+    const bankBin = document.getElementById('bank_bin').value;
+    if (account.length >= 6 && bankBin) {
+        autoLookupDone = true;
+        document.getElementById('btnLookup').click();
+    }
+}
+document.getElementById('account_number').addEventListener('blur', function() {
+    this.value = normalizeAccountNumber(this.value);
+    tryAutoLookup();
+});
+document.getElementById('account_number').addEventListener('input', hideRealAccountSuggestion);
+document.getElementById('object_name').addEventListener('blur', function() {
+    this.value = this.value.toUpperCase();
+    checkNameMatch();
+});
+document.getElementById('object_code').addEventListener('input', function() {
+    hideObjectLookupMessage();
+    inferPurpose();
+});
+document.getElementById('object_code').addEventListener('blur', lookupObjectByCode);
+document.getElementById('hashtags').addEventListener('input', renderHashtagPreview);
+document.getElementById('identity_value').addEventListener('input', function() {
+    document.querySelectorAll('.detail-identity').forEach(input => {
+        if (!input.value.trim()) input.value = this.value.trim();
+    });
+    syncDetailRowsFromDom();
+});
+document.getElementById('btnAddDetailRow').addEventListener('click', function() {
+    syncDetailRowsFromDom();
+    detailRows.push(emptyDetailRow());
+    renderDetailRows();
+});
+
+document.getElementById('btnUseRealAccount').addEventListener('click', function() {
+    const realAccount = document.getElementById('realAccountSuggestion').dataset.realAccount || '';
+    if (!realAccount) return;
+    document.getElementById('account_number').value = realAccount;
+    hideRealAccountSuggestion();
+    skipNextRealAccountSuggestion = true;
+    document.getElementById('btnLookup').click();
+});
+document.getElementById('btnKeepAliasAccount').addEventListener('click', hideRealAccountSuggestion);
+
+document.getElementById('btnLookup').addEventListener('click', function() {
+    const account = normalizeAccountNumber(document.getElementById('account_number').value);
+    const bankBin = document.getElementById('bank_bin').value;
+    const errEl = document.getElementById('lookupError');
+    const nameEl = document.getElementById('account_name');
+    errEl.classList.add('d-none');
+    hideRealAccountSuggestion();
+    nameEl.value = '';
+    nameEl.classList.remove('bg-danger-subtle', 'bg-success-subtle');
+    if (!account) { errEl.textContent = 'Nhập số tài khoản trước.'; errEl.classList.remove('d-none'); return; }
+    if (!bankBin) { errEl.textContent = 'Chọn ngân hàng trước.'; errEl.classList.remove('d-none'); return; }
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    fetch(appPath('/api/lookup-account'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bin: bankBin, accountNumber: account})
+    }).then(r => r.json()).then(data => {
+        if (!data.ok) throw new Error(data.error || 'Không tìm thấy tài khoản');
+        const lookupName = splitLookupAccountName(data.accountName);
+        nameEl.value = data.accountName;
+        if (lookupName.realAccount && lookupName.realAccount !== account && !skipNextRealAccountSuggestion) {
+            showRealAccountSuggestion(lookupName.realAccount);
+        }
+        skipNextRealAccountSuggestion = false;
+        checkNameMatch();
+    }).catch(error => {
+        skipNextRealAccountSuggestion = false;
+        errEl.textContent = error.message || 'Không tra được tài khoản.';
+        errEl.classList.remove('d-none');
+    }).finally(() => {
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-search"></i> Kiểm tra TK';
+    });
+});
+
+function saveDnckRecord(options) {
+    options = options || {};
+    const forceCreate = Boolean(options.forceCreate);
+    const isUpdate = currentDnckId > 0;
+    const endpoint = !forceCreate && isUpdate ? appPath('/api/dnck/' + currentDnckId) : appPath('/api/dnck');
+    const method = !forceCreate && isUpdate ? 'PUT' : 'POST';
+    return fetch(endpoint, {
+        method: method,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(collectPayload())
+    }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(result => {
+        if (!result.ok || !result.data.ok) throw new Error(result.data.error || 'Không lưu được DNCK.');
+        return result.data;
+    });
+}
+
+document.getElementById('dnckForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const isUpdate = currentDnckId > 0;
+    setMessage(isUpdate ? 'Đang cập nhật DNCK local...' : 'Đang lưu DNCK local...', 'muted');
+    saveDnckRecord().then(data => {
+        if (isUpdate) {
+            setMessage('Đã cập nhật DNCK local.', 'success');
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            window.location.href = appPath('/dnck/' + data.id);
+        }
+    }).catch(error => setMessage(error.message || 'Không lưu được DNCK.', 'danger'));
+});
+
+const copyButton = document.getElementById('btnCopyDnck');
+if (copyButton) {
+    copyButton.addEventListener('click', function() {
+        if (!confirm('Tạo một DNCK mới từ nội dung đang hiển thị? DNCK gốc #' + currentDnckId + ' sẽ được giữ nguyên.')) return;
+        setMessage('Đang tạo bản sao DNCK từ nội dung hiện tại...', 'muted');
+        saveDnckRecord({forceCreate: true}).then(data => {
+            window.location.href = appPath('/dnck/' + data.id);
+        }).catch(error => setMessage(error.message || 'Không sao chép được DNCK.', 'danger'));
+    });
+}
+
+const deleteButton = document.getElementById('btnDeleteDnck');
+if (deleteButton) {
+    deleteButton.addEventListener('click', function() {
+        if (!confirm('Xóa DNCK #' + currentDnckId + '?')) return;
+        setMessage('Đang xóa DNCK...', 'muted');
+        fetch(appPath('/api/dnck/' + currentDnckId), {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            cache: 'no-store'
+        }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(result => {
+            if (!result.ok || !result.data.ok) throw new Error(result.data.error || 'Không xóa được DNCK.');
+            window.location.href = appPath('/dnck');
+        }).catch(error => setMessage(error.message || 'Không xóa được DNCK.', 'danger'));
+    });
+}
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+}
+
+async function loadTemplateIntoMemory() {
+    const link = document.getElementById('btnDownloadTemplate');
+    if (!link) throw new Error('Cần lưu DNCK trước khi tạo Template TT.');
+    const response = await fetch(link.href, {credentials: 'same-origin', cache: 'no-store'});
+    if (!response.ok) throw new Error('Không tải được Template TT (' + response.status + ').');
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    if (!bytes.length || bytes.length > MAX_TEMPLATE_BYTES || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('Template TT không hợp lệ.');
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', buffer));
+    return {
+        name: 'Template-TT-DNCK-' + currentDnckId + '.xlsx',
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size: bytes.length,
+        sha256: Array.from(digest).map(b => b.toString(16).padStart(2, '0')).join(''),
+        base64: bytesToBase64(bytes)
+    };
+}
+
+window.addEventListener('message', function(event) {
+    if (event.source !== window || !event.data || event.data.source !== 'PNJ_QT82_EXTENSION') return;
+    if (event.data.type === 'DRAFT_ACCEPTED') {
+        preparingQt82 = false;
+        setMessage('Đã chuyển bản nháp sang Chrome. Không đóng tab QT82 cho đến khi tiện ích điền xong.', 'success');
+    } else if (event.data.type === 'ERROR') {
+        preparingQt82 = false;
+        setMessage(event.data.message || 'Không thể chuyển bản nháp sang tiện ích.', 'danger');
+        const btn = document.getElementById('btnPrepareQt82');
+        if (btn && qt82Draft && qt82Draft.ready) btn.disabled = false;
+    }
+});
+
+const prepareButton = document.getElementById('btnPrepareQt82');
+if (prepareButton && qt82Draft) {
+    prepareButton.addEventListener('click', async function() {
+        if (preparingQt82) return;
+        preparingQt82 = true;
+        prepareButton.disabled = true;
+        setMessage('Đang lưu DNCK và kiểm tra Template TT trong bộ nhớ...', 'muted');
+        try {
+            const saved = await saveDnckRecord();
+            const freshDraft = saved.qt82 || qt82Draft;
+            if (!freshDraft.ready) {
+                throw new Error('DNCK còn thiếu dữ liệu bắt buộc, chưa thể chuẩn bị QT82.');
+            }
+            const templateFile = await loadTemplateIntoMemory();
+            const draft = Object.assign({}, freshDraft, {
+                desiredDate: browserToday(),
+                issuedAt: Date.now(),
+                nonce: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+                openMode: 'workflow',
+                templateFile: templateFile
+            });
+            window.postMessage({source: 'PNJ_QT82_WEB', type: 'STORE_AND_OPEN', draft: draft}, window.location.origin);
+        } catch (error) {
+            preparingQt82 = false;
+            prepareButton.disabled = false;
+            setMessage(error.message || 'Không chuẩn bị được QT82.', 'danger');
+        }
+    });
+}
+
+function renderHistory(rows) {
+    dnckHistoryRows = rows || [];
+    renderDnckTagFilters(dnckHistoryRows);
+    const visibleRows = activeDnckTag
+        ? dnckHistoryRows.filter(item => (item.hashtags || []).includes(activeDnckTag))
+        : dnckHistoryRows;
+    const tbody = document.getElementById('dnckHistoryBody');
+    tbody.replaceChildren();
+    if (!visibleRows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 4; td.className = 'text-center text-muted py-3'; td.textContent = activeDnckTag ? 'Chưa có DNCK thuộc #' + activeDnckTag + '.' : 'Chưa có DNCK.';
+        tr.appendChild(td); tbody.appendChild(tr); return;
+    }
+    visibleRows.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        if (item.id === currentDnckId) tr.className = 'table-primary';
+        tr.addEventListener('dblclick', event => {
+            if (event.target.closest('input')) return;
+            window.location.href = appPath('/dnck/' + item.id);
+        });
+        const date = document.createElement('td');
+        date.textContent = item.created_at ? item.created_at.substring(5, 16) : '';
+        const name = document.createElement('td');
+        name.innerHTML = '<strong></strong><div class="text-muted small"></div>';
+        name.querySelector('strong').textContent = item.object_name || '';
+        name.querySelector('div').textContent = (item.object_code || '') + ' · ' + (item.purpose || '');
+        if (item.hashtags && item.hashtags.length) {
+            const tags = document.createElement('div');
+            tags.className = 'dnck-tag-cloud mt-1';
+            tags.innerHTML = item.hashtags.map(tag => '<button type="button" class="dnck-tag" data-tag="' + escapeHtml(tag) + '">#' + escapeHtml(tag) + '</button>').join('');
+            name.appendChild(tags);
+        }
+        const amount = document.createElement('td');
+        amount.className = 'amount';
+        amount.textContent = Math.round(Number(item.amount || 0)).toLocaleString('vi-VN');
+        const submitted = document.createElement('td');
+        submitted.className = 'text-center';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox'; checkbox.className = 'form-check-input'; checkbox.checked = Boolean(item.da_trinh);
+        checkbox.addEventListener('change', () => {
+            fetch(appPath('/api/dnck/da-trinh/' + item.id), {
+                method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({da_trinh: checkbox.checked})
+            });
+        });
+        submitted.appendChild(checkbox);
+        [date, name, amount, submitted].forEach(td => tr.appendChild(td));
+        tbody.appendChild(tr);
+    });
+}
+
+function tagFrequency(rows) {
+    const counts = new Map();
+    rows.forEach(item => {
+        (item.hashtags || []).forEach(tag => {
+            if (!counts.has(tag)) counts.set(tag, 0);
+            counts.set(tag, counts.get(tag) + 1);
+        });
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+}
+
+function renderDnckTagFilters(rows) {
+    const box = document.getElementById('dnckTagFilterBox');
+    const target = document.getElementById('dnckTagFilters');
+    if (!box || !target) return;
+    const tags = tagFrequency(rows);
+    box.classList.toggle('d-none', !tags.length);
+    target.innerHTML = '';
+    if (!tags.length) return;
+    if (activeDnckTag) {
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'dnck-tag-filter';
+        clear.textContent = 'Tất cả';
+        clear.addEventListener('click', function() {
+            activeDnckTag = '';
+            renderHistory(dnckHistoryRows);
+        });
+        target.appendChild(clear);
+    }
+    tags.forEach(([tag, count]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dnck-tag-filter' + (tag === activeDnckTag ? ' active' : '');
+        btn.textContent = '#' + tag + ' · ' + count;
+        btn.addEventListener('click', function() {
+            activeDnckTag = tag === activeDnckTag ? '' : tag;
+            renderHistory(dnckHistoryRows);
+        });
+        target.appendChild(btn);
+    });
+}
+
+document.getElementById('dnckHistoryBody').addEventListener('click', function(event) {
+    const tagButton = event.target.closest('[data-tag]');
+    if (!tagButton) return;
+    event.preventDefault();
+    activeDnckTag = tagButton.dataset.tag || '';
+    renderHistory(dnckHistoryRows);
+});
+
+let editingObjectId = 0;
+let objectDataModal = null;
+
+function setObjectDataMessage(message, type) {
+    const el = document.getElementById('objectDataMessage');
+    if (!el) return;
+    el.className = 'small mb-2 text-' + (type || 'muted');
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+function clearObjectDataMessage() {
+    const el = document.getElementById('objectDataMessage');
+    if (!el) return;
+    el.classList.add('d-none');
+    el.textContent = '';
+}
+
+function collectObjectForm() {
+    return {
+        object_code: document.getElementById('obj_code').value,
+        object_name: document.getElementById('obj_name').value,
+        account_number: document.getElementById('obj_account').value,
+        bank: document.getElementById('obj_bank').value,
+        identity_value: document.getElementById('obj_identity').value,
+        bank_eoffice_code: document.getElementById('obj_eoffice').value,
+        is_primary: document.getElementById('obj_primary').checked
+    };
+}
+
+function resetObjectForm() {
+    editingObjectId = 0;
+    ['obj_code', 'obj_name', 'obj_account', 'obj_bank', 'obj_identity', 'obj_eoffice'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('obj_primary').checked = true;
+    clearObjectDataMessage();
+}
+
+function fillObjectForm(item) {
+    editingObjectId = item.id || 0;
+    document.getElementById('obj_code').value = item.object_code || '';
+    document.getElementById('obj_name').value = item.object_name || '';
+    document.getElementById('obj_account').value = item.account_number || '';
+    document.getElementById('obj_bank').value = item.bank || '';
+    document.getElementById('obj_identity').value = item.identity_value || '';
+    document.getElementById('obj_eoffice').value = item.bank_eoffice_code || '';
+    document.getElementById('obj_primary').checked = Boolean(item.is_primary);
+    setObjectDataMessage('Đang sửa dòng #' + editingObjectId + '.', 'muted');
+}
+
+function renderObjectRows(rows) {
+    const tbody = document.getElementById('objectDataBody');
+    tbody.replaceChildren();
+    if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.className = 'text-center text-muted py-3';
+        td.textContent = 'Chưa có dữ liệu đối tượng.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+    rows.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><code></code></td><td><strong></strong><div class="text-muted small"></div></td>' +
+            '<td></td><td></td><td></td><td></td><td class="text-center"></td><td class="text-end"></td>';
+        tr.children[0].querySelector('code').textContent = item.object_code || '';
+        tr.children[1].querySelector('strong').textContent = item.object_name || '';
+        tr.children[1].querySelector('div').textContent = item.source || '';
+        tr.children[2].textContent = item.account_number || '';
+        tr.children[3].textContent = item.bank || '';
+        tr.children[4].textContent = item.identity_value || '';
+        tr.children[5].textContent = item.bank_eoffice_code || '';
+        tr.children[6].innerHTML = item.is_primary ? '<span class="badge bg-success">Chính</span>' : '';
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn btn-sm btn-outline-primary me-1';
+        edit.innerHTML = '<i class="bi bi-pencil"></i>';
+        edit.addEventListener('click', () => fillObjectForm(item));
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn btn-sm btn-outline-danger';
+        del.innerHTML = '<i class="bi bi-trash"></i>';
+        del.addEventListener('click', () => deleteObjectRow(item.id));
+        tr.children[7].appendChild(edit);
+        tr.children[7].appendChild(del);
+        tbody.appendChild(tr);
+    });
+}
+
+function loadObjectRows() {
+    const q = document.getElementById('objectSearch').value.trim();
+    fetch(appPath('/api/dnck/objects' + (q ? '?q=' + encodeURIComponent(q) : '')), {
+        credentials: 'same-origin',
+        cache: 'no-store'
+    }).then(r => r.json()).then(json => {
+        renderObjectRows(json.ok ? (json.data || []) : []);
+    }).catch(() => renderObjectRows([]));
+}
+
+function saveObjectRow() {
+    const payload = collectObjectForm();
+    setObjectDataMessage('Đang lưu dữ liệu đối tượng...', 'muted');
+    fetch(editingObjectId ? appPath('/api/dnck/objects/' + editingObjectId) : appPath('/api/dnck/objects'), {
+        method: editingObjectId ? 'PUT' : 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(result => {
+        if (!result.ok || !result.data.ok) throw new Error(result.data.error || 'Không lưu được dữ liệu đối tượng.');
+        setObjectDataMessage('Đã lưu dữ liệu đối tượng.', 'success');
+        resetObjectForm();
+        loadObjectRows();
+    }).catch(error => setObjectDataMessage(error.message || 'Không lưu được dữ liệu đối tượng.', 'danger'));
+}
+
+function deleteObjectRow(id) {
+    if (!confirm('Xóa dòng dữ liệu đối tượng #' + id + '?')) return;
+    fetch(appPath('/api/dnck/objects/' + id), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        cache: 'no-store'
+    }).then(r => r.json().then(data => ({ok: r.ok, data}))).then(result => {
+        if (!result.ok || !result.data.ok) throw new Error(result.data.error || 'Không xóa được dữ liệu đối tượng.');
+        loadObjectRows();
+    }).catch(error => setObjectDataMessage(error.message || 'Không xóa được dữ liệu đối tượng.', 'danger'));
+}
+
+document.getElementById('btnOpenObjectData').addEventListener('click', function() {
+    objectDataModal = objectDataModal || new bootstrap.Modal(document.getElementById('objectDataModal'));
+    objectDataModal.show();
+    loadObjectRows();
+});
+document.getElementById('btnSaveObjectRow').addEventListener('click', saveObjectRow);
+document.getElementById('btnResetObjectForm').addEventListener('click', resetObjectForm);
+document.getElementById('objectSearch').addEventListener('input', function() {
+    clearTimeout(this.dataset.timer);
+    this.dataset.timer = setTimeout(loadObjectRows, 250);
+});
+
+fetch(appPath('/api/dnck/history'), {credentials: 'same-origin', cache: 'no-store'})
+    .then(r => r.json())
+    .then(json => renderHistory(json.ok ? json.data : []))
+    .catch(() => renderHistory([]));
+
+if (initialDnck) {
+    document.getElementById('purpose').value = initialDnck.purpose || 'Thanh toán cho khách hàng';
+    document.getElementById('cost_group').value = initialDnck.cost_group || 'Khác';
+    document.getElementById('approval_level').value = initialDnck.approval_level || 'Cấp cửa hàng';
+    document.getElementById('expense_type').value = initialDnck.expense_type || initialDnck.cost_group || '';
+    document.getElementById('approver_option').value = initialDnck.approver_option || 'none';
+    checkNameMatch();
+}
+renderHashtagPreview();
+detailRows = initialDnck && Array.isArray(initialDnck.detail) && initialDnck.detail.length
+    ? initialDnck.detail.map(row => Object.assign(emptyDetailRow(), row))
+    : Array.from({length: 5}, emptyDetailRow);
+renderDetailRows();
+</script>
+{% endblock %}
