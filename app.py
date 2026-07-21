@@ -30,6 +30,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import shared_auth
+import erp_billing
 
 try:
     from customer_lookup import (
@@ -2202,6 +2203,34 @@ def api_customer_suggestion():
         return _customer_lookup_json(
             {"ok": False, "error": "Không thể tra cứu dữ liệu lúc này."}, 503
         )
+
+
+@app.route("/api/billing-suggestions", methods=["POST"])
+def api_billing_suggestions():
+    """Return recent ERP billing suggestions for one customer code."""
+    if request.content_length is not None and request.content_length > 4096:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+
+    data = request.get_json(silent=True) or {}
+    customer_code = data.get("customer_code")
+    if not erp_billing.normalize_customer_code(customer_code):
+        return _customer_lookup_json({"ok": True, "suggestions": []})
+
+    try:
+        suggestions = erp_billing.billing_suggestions(
+            customer_code=customer_code,
+            target_date=data.get("billing_date"),
+            lookback_days=data.get("lookback_days", erp_billing.DEFAULT_LOOKBACK_DAYS),
+            limit=data.get("limit", erp_billing.MAX_SUGGESTIONS),
+        )
+    except Exception:
+        app.logger.exception("Không thể lấy gợi ý hóa đơn ERP.")
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể lấy gợi ý hóa đơn lúc này."}, 503
+        )
+    return _customer_lookup_json({"ok": True, "suggestions": suggestions})
 
 
 @app.route("/history")
