@@ -125,6 +125,17 @@ class BillingSuggestionTests(unittest.TestCase):
         self.assertTrue(data["ok"])
         self.assertEqual(len(data["suggestions"]), 10)
 
+    def test_invoice_suggestion_cards_are_compact_two_lines(self):
+        html = self.client.get("/").get_data(as_text=True)
+
+        self.assertIn("sap-invoice-suggestion-doc", html)
+        self.assertIn("formatBillingDateShort(item.billing_date)", html)
+        self.assertIn("formatNum(item.amount || 0)", html)
+        self.assertIn("đ</span>", html)
+        self.assertNotIn("sap-invoice-suggestion-meta", html)
+        self.assertNotIn("Gần đây", html)
+        self.assertNotIn("Cùng ngày", html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -295,7 +295,7 @@ textarea#sap_data {
     max-height: min(42vh, 280px);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0.35rem;
+    padding: 0.25rem;
     background: #fff;
     border: 1px solid #fbbf24;
     border-radius: 0.45rem;
@@ -308,10 +308,10 @@ textarea#sap_data {
 
 .sap-invoice-suggestion-option {
     width: 100%;
-    min-height: 44px;
-    padding: 0.5rem 0.65rem;
+    min-height: 0;
+    padding: 0.38rem 0.55rem;
     text-align: left;
-    white-space: normal;
+    white-space: nowrap;
     color: #111827;
     background: #fffbeb;
     border: 1px solid #fcd34d;
@@ -319,7 +319,7 @@ textarea#sap_data {
 }
 
 .sap-invoice-suggestion-option + .sap-invoice-suggestion-option {
-    margin-top: 0.35rem;
+    margin-top: 0.25rem;
 }
 
 .sap-invoice-suggestion-option:hover,
@@ -329,27 +329,30 @@ textarea#sap_data {
 }
 
 .sap-invoice-suggestion-title {
-    display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    flex-wrap: wrap;
+    display: block;
+    line-height: 1.18;
 }
 
 .sap-invoice-suggestion-doc {
+    display: block;
     font-weight: 700;
+    font-size: 0.78rem;
     color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sap-invoice-suggestion-muted {
+    display: block;
     color: #64748b;
     font-size: 0.68rem !important;
     font-weight: 500;
-}
-
-.sap-invoice-suggestion-meta {
-    margin-top: 0.12rem;
-    font-size: 0.68rem !important;
-    color: #64748b;
+    line-height: 1.18;
+    margin-top: 0.18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .form-label {
@@ -2025,17 +2028,10 @@ document.addEventListener('DOMContentLoaded', function() {
             option.className = 'sap-invoice-suggestion-option';
             option.dataset.idx = idx;
             option.dataset.document = item.billing_document || '';
-            const label = (item.billing_document || '')
-                + ' (' + formatNum(item.amount || 0) + 'đ - ' + formatBillingDate(item.billing_date) + ')';
             option.innerHTML =
                 '<span class="sap-invoice-suggestion-title">'
-                + '<span class="sap-invoice-suggestion-muted">[' + escapeHtml(formatBillingDateShort(item.billing_date)) + ']</span>'
                 + '<span class="sap-invoice-suggestion-doc">' + escapeHtml(item.billing_document || '') + '</span>'
-                + '<span class="sap-invoice-suggestion-muted">- ' + formatNum(item.amount || 0) + 'đ</span>'
-                + '</span>'
-                + '<span class="sap-invoice-suggestion-meta">'
-                + '<span>' + escapeHtml(item.customer_name || '') + '</span>'
-                + '<span>' + (item.same_day ? 'Cùng ngày' : 'Gần đây') + '</span>'
+                + '<span class="sap-invoice-suggestion-muted">[' + escapeHtml(formatBillingDateShort(item.billing_date)) + '] ' + formatNum(item.amount || 0) + 'đ</span>'
                 + '</span>';
             option.addEventListener('click', function() {
                 applyBillingSuggestion(idx, item);
