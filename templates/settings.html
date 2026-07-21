@@ -271,18 +271,39 @@
         </div>
 
         <div class="admin-section">
-            <!-- BK Prefix -->
+            <!-- Document Prefixes -->
             <div class="card mb-3">
                 <div class="card-header py-2">
-                    <i class="bi bi-hash"></i> Tiền tố số Bảng kê (BB Hủy)
+                    <i class="bi bi-hash"></i> Tiền tố chứng từ
                 </div>
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-md-6">
+                            <label class="form-label" for="s_bk_prefix">Bảng kê</label>
                             <input type="text" class="form-control form-control-sm" id="s_bk_prefix"
                                    value="{{ settings.get('bk_prefix', '4403') }}" maxlength="6"
                                    placeholder="VD: 4403">
-                            <small class="text-muted">Tự điền trước vào ô số BK trong BB Hủy</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="s_invoice_prefix">Hoá đơn</label>
+                            <input type="text" class="form-control form-control-sm" id="s_invoice_prefix"
+                                   value="{{ settings.get('invoice_prefix', '901') }}" maxlength="10"
+                                   placeholder="VD: 901">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="s_deposit_prefix">Cọc</label>
+                            <input type="text" class="form-control form-control-sm" id="s_deposit_prefix"
+                                   value="{{ settings.get('deposit_prefix', '16') }}" maxlength="10"
+                                   placeholder="VD: 16">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="s_hbtl_prefix">HBTL</label>
+                            <input type="text" class="form-control form-control-sm" id="s_hbtl_prefix"
+                                   value="{{ settings.get('hbtl_prefix', '990') }}" maxlength="10"
+                                   placeholder="VD: 990">
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Tự điền trước vào ô số chứng từ khi tạo phiếu và biểu mẫu liên quan.</small>
                         </div>
                     </div>
                 </div>
@@ -370,6 +391,12 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
     }
     const bkEl = document.getElementById('s_bk_prefix');
     if (bkEl) payload.bk_prefix = bkEl.value.trim();
+    const invoiceEl = document.getElementById('s_invoice_prefix');
+    if (invoiceEl) payload.invoice_prefix = invoiceEl.value.trim();
+    const depositEl = document.getElementById('s_deposit_prefix');
+    if (depositEl) payload.deposit_prefix = depositEl.value.trim();
+    const hbtlEl = document.getElementById('s_hbtl_prefix');
+    if (hbtlEl) payload.hbtl_prefix = hbtlEl.value.trim();
 
     fetch('/api/settings', {
         method: 'POST',

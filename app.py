@@ -260,7 +260,7 @@ STAFF = {
     "tvv": "NGUYỄN THỊ MỸ UYÊN",
 }
 PAYMENT_PLANNING_STORE_NAME = "CỬA HÀNG PNJ NEXT 27 HÀ NỘI - HUẾ"
-PAYMENT_PLANNING_TAX_CODE = "0300521758-023"
+PAYMENT_PLANNING_TAX_CODE = "0300521758"
 PAYMENT_PLANNING_PNJ_ADDRESS = "170E Phan Đăng Lưu, Phường Đức Nhuận, Thành phố Hồ Chí Minh"
 
 # ---------------------------------------------------------------------------
@@ -540,6 +540,9 @@ def init_db():
         "mb_password": "",
         "mb_account": "",
         "bk_prefix": "4403",
+        "invoice_prefix": "901",
+        "deposit_prefix": "16",
+        "hbtl_prefix": "990",
         "tvv_button_color_mode": "0",
     }
     for k, v in defaults.items():
@@ -713,6 +716,13 @@ def prepare_payment_planning_for_output(row, settings=None):
     """Return display data for Payment Planning HTML/PDF/XLSX."""
     p = prepare_phieu_for_output(row, settings)
     amounts = payment_planning_amounts(p.get("chung_tu", []), p.get("tong_ck", 0))
+    bk_numbers = []
+    for item in p.get("chung_tu", []):
+        if item.get("loai") != "Bảng kê":
+            continue
+        so_ct = remove_all_whitespace(item.get("so_ct", ""))
+        if so_ct and so_ct not in bk_numbers:
+            bk_numbers.append(so_ct)
     signer_title_map = {
         "tvv": "Tư Vấn Viên",
         "cht": "Cửa Hàng Trưởng",
@@ -729,6 +739,8 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_store_name"] = PAYMENT_PLANNING_STORE_NAME
     p["planning_tax_code"] = PAYMENT_PLANNING_TAX_CODE
     p["planning_pnj_address"] = PAYMENT_PLANNING_PNJ_ADDRESS
+    p["planning_bk_numbers"] = ",".join(bk_numbers) or p.get("so_bk") or "__________"
+    p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
     p["payment_method_label"] = "☐ Chuyển khoản    ☐ Khác"
     p["planning_file_title"] = f"Payment Planning {ascii_filename_part(p.get('ten_kh'), 30)} {p.get('id')}"
     return p
@@ -3825,7 +3837,7 @@ def make_payment_planning_xlsx(p):
     ws.title = "Payment Planning"
     ws.sheet_view.showGridLines = False
 
-    widths = {"A": 18, "B": 48, "C": 22, "D": 38}
+    widths = {"A": 22, "B": 46, "C": 22, "D": 36}
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
 
@@ -3862,7 +3874,7 @@ def make_payment_planning_xlsx(p):
                 cell.fill = fills[col]
 
     merge(1, 1, 4, "PHỤ LỤC SỐ 01: KẾ HOẠCH THANH TOÁN GIÁ TRỊ THU ĐỔI", title_fill, title_font, center)
-    merge(2, 1, 4, f"Kèm theo Bảng kê mua lại tài sản số: {p.get('so_bk') or '__________'} ngày ____/____/________", None, normal, center)
+    merge(2, 1, 4, f"Kèm theo Bảng kê mua lại tài sản số: {p.get('planning_bk_numbers') or '__________'} ngày {p.get('planning_sign_date')}", None, normal, center)
 
     section_rows = {
         3: "I. THÔNG TIN CÁC BÊN",
@@ -3894,7 +3906,7 @@ def make_payment_planning_xlsx(p):
         16: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3", "", ""],
         17: ["Giá trị quy đổi sang sản phẩm PNJ (VNĐ)", p.get("product_conversion", 0), "", ""],
         18: ["Giá trị nhận bằng tiền (VNĐ)", "=B14-B17", "", ""],
-        19: ["Nguyên tắc cấn trừ", "Giá trị quy đổi sang sản phẩm PNJ được cấn trừ trực tiếp vào giá mua sản phẩm PNJ thể hiện trên hóa đơn bán hàng tương ứng.\nPhần chênh lệch còn lại (nếu có) do Bên Bán thanh toán thêm hoặc được PNJ thanh toán theo thỏa thuận và chứng từ giao dịch.", "", ""],
+        19: ["Nguyên tắc cấn trừ", "Giá trị quy đổi sang sản phẩm PNJ được cấn trừ trực tiếp vào giá mua sản phẩm PNJ thể hiện trên hóa đơn bán hàng tương ứng. Phần chênh lệch còn lại (nếu có) do Bên Bán thanh toán thêm hoặc được PNJ thanh toán theo thỏa thuận và chứng từ giao dịch.", "", ""],
         21: ["Ngày T", "Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Phụ lục này; trường hợp các thời điểm trên khác nhau, Ngày T là ngày hoàn tất ký xác nhận sau cùng.\nVD: BKML ký ngày 1/7. Kế hoạch thanh toán ký ngày 2/7. Như vậy T là ngày 2/7", "", ""],
         22: ["Ngày làm việc", "Là ngày từ thứ Hai đến thứ Sáu, không bao gồm ngày nghỉ hằng tuần, ngày nghỉ lễ, tết và ngày PNJ/ngân hàng phục vụ thanh toán không làm việc theo quy định hoặc thông báo hợp lệ.", "", ""],
         23: ["Cách tính T+n", "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.", "", ""],
@@ -3926,8 +3938,8 @@ def make_payment_planning_xlsx(p):
         55: [3, "Nếu có khác biệt giữa Phụ lục này và Bảng kê mua lại tài sản về lịch, phương thức thanh toán thì nội dung cụ thể tại Phụ lục này được ưu tiên áp dụng; các nội dung khác thực hiện theo Bảng kê mua lại tài sản và pháp luật.", "", ""],
         56: [4, "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.", "", ""],
         57: [5, "Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản", "", ""],
-        59: [f"BÊN BÁN\n(Ký, ghi rõ họ tên)\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN BÊN MUA/NGƯỜI ĐƯỢC ỦY QUYỀN\n(Ký, ghi rõ họ tên, chức danh)\n\n{p.get('buyer_signature_title', '')}\n{p.get('buyer_signature_name', '')}", ""],
-        60: ["Ngày ký: ____/____/________", "", "Ngày ký: ____/____/________", ""],
+        59: [f"BÊN BÁN\nKhách Hàng\n(Ký, ghi rõ họ tên)\n\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN BÊN MUA/NGƯỜI ĐƯỢC ỦY QUYỀN\n{p.get('buyer_signature_title', '')}\n(Ký, ghi rõ họ tên, chức danh)\n\n\n\n{p.get('buyer_signature_name', '')}", ""],
+        60: [f"Ngày ký: {p.get('planning_sign_date')}", "", f"Ngày ký: {p.get('planning_sign_date')}", ""],
     }
 
     merge_rows = {19, 21, 22, 23, 24, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56, 57}
@@ -3974,7 +3986,7 @@ def make_payment_planning_xlsx(p):
         ws.row_dimensions[row].height = 18
     for row in (19, 21, 22, 23, 24, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56):
         ws.row_dimensions[row].height = 42
-    ws.row_dimensions[59].height = 78
+    ws.row_dimensions[59].height = 104
 
     ws.print_area = "A1:D60"
     ws.page_setup.orientation = "portrait"

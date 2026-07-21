@@ -348,6 +348,7 @@ class EofficeQt82Tests(unittest.TestCase):
             "nguoi_ki": "cht",
             "chung_tu": [
                 {"loai": "Bảng kê", "so_ct": "4403000002", "gia_tri": 10000000, "gio": "21/07/2026 10:00"},
+                {"loai": "Bảng kê", "so_ct": "4403000003", "gia_tri": 2000000, "gio": "21/07/2026 10:01"},
                 {"loai": "Hóa đơn", "so_ct": "1400000001", "gia_tri": 4000000, "gio": "21/07/2026 10:05"},
             ],
         }
@@ -364,16 +365,27 @@ class EofficeQt82Tests(unittest.TestCase):
 
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Kế hoạch thanh toán", html)
+        self.assertIn("4403000002,4403000003", html)
+        self.assertIn("ngày 21 / 07 / 2026", html)
+        self.assertIn("0300521758", html)
+        self.assertNotIn("0300521758-023", html)
         self.assertIn("CỬA HÀNG PNJ NEXT 27 HÀ NỘI - HUẾ", html)
         self.assertIn("Cửa Hàng Trưởng", html)
+        self.assertIn("Khách Hàng", html)
+        self.assertIn("Ngày ký: 21 / 07 / 2026", html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
         self.assertEqual(xlsx_response.status_code, 200)
         workbook = load_workbook(io.BytesIO(xlsx_response.data), data_only=False)
         sheet = workbook["Payment Planning"]
-        self.assertEqual(sheet["B14"].value, 10000000)
-        self.assertEqual(sheet["B17"].value, 4000000)
+        self.assertIn("4403000002,4403000003", sheet["A2"].value)
+        self.assertEqual(sheet["B6"].value, "0300521758")
+        self.assertEqual(sheet["B14"].value, 12000000)
+        self.assertEqual(sheet["B17"].value, 6000000)
         self.assertEqual(sheet["B18"].value, "=B14-B17")
+        self.assertIn("Khách Hàng", sheet["A59"].value)
+        self.assertIn("Cửa Hàng Trưởng", sheet["C59"].value)
+        self.assertEqual(sheet["A60"].value, "Ngày ký: 21 / 07 / 2026")
 
     def test_bk_create_and_history_have_payment_planning_actions(self):
         self.login(role="admin")
@@ -383,11 +395,19 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("download-planning-xlsx", index_html)
         self.assertIn("print-planning", index_html)
         self.assertIn("attachCurrentPhieuId", index_html)
+        self.assertIn("'Hóa đơn': '901'", index_html)
+        self.assertIn("'Biên nhận cọc': '16'", index_html)
+        self.assertIn("'HBTL': '990'", index_html)
 
         history_html = self.client.get("/history").get_data(as_text=True)
         self.assertIn("api/payment-planning-pdf/", history_html)
         self.assertIn("api/payment-planning-xlsx/", history_html)
         self.assertIn("Template TT (excel)", history_html)
+        settings_html = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn("Tiền tố chứng từ", settings_html)
+        self.assertIn('id="s_invoice_prefix"', settings_html)
+        self.assertIn('id="s_deposit_prefix"', settings_html)
+        self.assertIn('id="s_hbtl_prefix"', settings_html)
 
     def test_bank_eoffice_code_is_admin_only_on_create_forms(self):
         self.login(role="user", user_id=2)

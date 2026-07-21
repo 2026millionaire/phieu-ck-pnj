@@ -1758,9 +1758,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const taxDocLength = 10;
     const docTypePrefixes = {
         'Bảng kê': '{{ bk_prefix }}',
-        'Hóa đơn': '901',
-        'Biên nhận cọc': '16',
-        'HBTL': '990',
+        'Hóa đơn': '{{ settings.get("invoice_prefix", "901") }}',
+        'Biên nhận cọc': '{{ settings.get("deposit_prefix", "16") }}',
+        'HBTL': '{{ settings.get("hbtl_prefix", "990") }}',
         'Thuế TNCN': taxDocPrefix,
         'Phải CK khác': '',
         'Phải thu khác': ''
