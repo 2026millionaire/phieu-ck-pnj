@@ -952,12 +952,14 @@ textarea#sap_data {
                             Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.
                         </div>
                         <div style="font-size:0.42rem;">
-                            <strong>Thời gian thanh toán:</strong> <span class="pv-ngay_tt">--/--/---- --:--</span>
+                            <strong>Thời gian thanh toán:</strong><br>
+                            1. T+0/1: 10% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="10">0</span> đồng</strong><br>
+                            2. T+30: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong><br>
+                            3. T+60: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
+                            4. T+90: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
+                            5. T+120: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong>
                         </div>
                         <div style="font-size:0.4rem;">
-                            <strong>Lưu ý:</strong><br>
-                            1. T2-T6 trước 16h30: TT trong ngày (T)<br>
-                            2. T2-T6 sau 16h30, T7; CN, Lễ, Tết: T+1<br>
                             * Liên hệ: <strong>0234 3847 588</strong>
                         </div>
 
@@ -1972,6 +1974,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.querySelectorAll('.pv-tong_ck').forEach(el => el.textContent = formatNum(totalCK));
         document.querySelectorAll('.pv-bang_chu').forEach(el => el.textContent = '(Bằng chữ: ' + numberToVietnamese(totalCK) + ' đồng)');
+        updatePaymentSchedulePreview(totalCK);
 
         // Show summary box if any item has value
         const hasData = sapItems.some(i => i.gia_tri > 0);
@@ -2029,6 +2032,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function formatNum(n) {
         return Math.round(n).toLocaleString('vi-VN');
+    }
+
+    function updatePaymentSchedulePreview(totalCK) {
+        document.querySelectorAll('.pv-payment-schedule-amount').forEach(function(el) {
+            const percent = parseFloat(el.dataset.pct || '0') || 0;
+            el.textContent = formatNum(Math.max(0, totalCK) * percent / 100);
+        });
     }
 
     // Vietnamese number to words

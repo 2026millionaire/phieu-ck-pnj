@@ -224,6 +224,14 @@
             margin: 2px 0 3px 0;
         }
 
+        .payment-time .schedule-title {
+            font-weight: 700;
+        }
+
+        .payment-time .schedule-line {
+            margin: 1px 0;
+        }
+
         /* ===== LƯU Ý ===== */
         .notes {
             font-size: 11px;
@@ -455,15 +463,18 @@
     <!-- ===== THỜI GIAN THANH TOÁN ===== -->
     {% if p.show_payment_time %}
     <div class="payment-time">
-        <strong>Thời gian thanh toán:</strong> {{ p.ngay_tt_fmt | default(p.ngay_tt) }}
+        <div class="schedule-title">Thời gian thanh toán:</div>
+        {% for item in p.payment_schedule %}
+        <div class="schedule-line">
+            {{ loop.index }}. {{ item.label }}: {{ item.percent }}% - tương ứng số tiền
+            <strong>{{ "{:,.0f}".format(item.amount | float) }} đồng</strong>
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
 
     <!-- ===== LƯU Ý ===== -->
     <div class="notes">
-        <div class="notes-title">Lưu ý:</div>
-        <div class="note-item">1. Các giao dịch phát sinh từ T2-T6 trước 16h30: Thanh toán trong ngày (T)</div>
-        <div class="note-item">2. Các giao dịch phát sinh từ T2-T6 sau 16h30, T7; CN, Lễ, Tết: Thanh toán vào ngày kế tiếp (T+1)</div>
         <div class="contact">* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <strong>0234 3847 588</strong></div>
     </div>
 

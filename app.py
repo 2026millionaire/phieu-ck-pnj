@@ -565,6 +565,29 @@ def so_thanh_chu(n):
     result = result[0].upper() + result[1:]
     return result + " \u0111\u1ed3ng"
 
+
+PAYMENT_SCHEDULE_RATES = (
+    ("T+0/1", 10),
+    ("T+30", 20),
+    ("T+60", 25),
+    ("T+90", 25),
+    ("T+120", 20),
+)
+
+
+def build_payment_schedule(total_amount):
+    """Tạo lịch thanh toán 5 đợt, làm tròn từng dòng theo mẫu biểu mới."""
+    total = max(0, int(round(float(total_amount or 0))))
+    return [
+        {
+            "label": label,
+            "percent": percent,
+            "amount": int((total * percent / 100) + 0.5),
+        }
+        for label, percent in PAYMENT_SCHEDULE_RATES
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Business logic helpers
 # ---------------------------------------------------------------------------
@@ -1122,6 +1145,7 @@ def prepare_phieu_for_output(row, settings=None):
     }
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
     d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
+    d["payment_schedule"] = build_payment_schedule(d.get("tong_ck", 0))
     d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
 
@@ -1295,8 +1319,14 @@ def make_phieu_pdf(p):
     story.append(ct_table)
     story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.", normal))
     if p.get("show_payment_time"):
-        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('ngay_tt_fmt') or p.get('ngay_tt') or ''}", normal))
-    story.append(Paragraph("<b>Lưu ý:</b><br/>1. Các giao dịch phát sinh từ T2-T6 trước 16h30: Thanh toán trong ngày (T)<br/>2. Các giao dịch phát sinh từ T2-T6 sau 16h30, T7; CN, Lễ, Tết: Thanh toán vào ngày kế tiếp (T+1)<br/>* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
+        schedule_html = ["<b>Thời gian thanh toán:</b>"]
+        for index, item in enumerate(p.get("payment_schedule") or build_payment_schedule(p.get("tong_ck", 0)), start=1):
+            schedule_html.append(
+                f"{index}. {item['label']}: {item['percent']}% - tương ứng số tiền "
+                f"<b>{int(item['amount']):,} đồng</b>"
+            )
+        story.append(Paragraph("<br/>".join(schedule_html), normal))
+    story.append(Paragraph("* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
     story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
     story.append(Spacer(1, 4 * mm))
     story.append(Table([

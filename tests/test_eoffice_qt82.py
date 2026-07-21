@@ -9,6 +9,8 @@ import zipfile
 from pathlib import Path
 
 import app as app_module
+from customer_lookup import CustomerLookupStore
+from employee_lookup import EmployeeLookupStore
 from openpyxl import load_workbook
 
 
@@ -17,13 +19,23 @@ class EofficeQt82Tests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.root = Path(self.temp_dir.name)
         self.original_db_path = app_module.DB_PATH
+        self.original_store = app_module._customer_lookup_store
+        self.original_employee_store = app_module._employee_lookup_store
         app_module.DB_PATH = str(self.root / "phieu.db")
         app_module.init_db()
+        self.store = CustomerLookupStore(self.root / "lookup.db", bytes(range(32)))
+        self.store.initialize()
+        app_module._customer_lookup_store = self.store
+        self.employee_store = EmployeeLookupStore(self.root / "employee.db", bytes(range(32)))
+        self.employee_store.initialize()
+        app_module._employee_lookup_store = self.employee_store
         app_module.app.config.update(TESTING=True)
         self.client = app_module.app.test_client()
 
     def tearDown(self):
         app_module.DB_PATH = self.original_db_path
+        app_module._customer_lookup_store = self.original_store
+        app_module._employee_lookup_store = self.original_employee_store
         self.temp_dir.cleanup()
 
     def login(self, role="admin", user_id=1):
@@ -32,7 +44,7 @@ class EofficeQt82Tests(unittest.TestCase):
             session["user_name"] = "ADMIN TEST"
             session["role"] = role
 
-    def create_phieu(self, doc_num=""):
+    def create_phieu(self, doc_num="", amount=1500000):
         payload = {
             "status": "draft",
             "ngay_lap": "2026-07-16",
@@ -45,13 +57,13 @@ class EofficeQt82Tests(unittest.TestCase):
             "ngan_hang": "OCB",
             "so_bk": "4403000001",
             "plant": "1305",
-            "tong_ck": 1500000,
+            "tong_ck": amount,
             "chung_tu": [
                 {
                     "loai": "Bảng kê",
                     "so_ct": "4403000001",
                     "doc_num": doc_num,
-                    "gia_tri": 1500000,
+                    "gia_tri": amount,
                     "gio": "16/07/2026 10:00",
                 }
             ],
@@ -292,6 +304,23 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("Phiếu xác nhận thông tin thanh toán chuyển khoản", html)
         self.assertIn(f'href="/api/pdf/{phieu_id}?token=', html)
         self.assertNotIn(f"/api/print/{phieu_id}", f"/p/{token}?print=1")
+
+    def test_print_uses_five_stage_payment_schedule(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(amount=143271123)
+
+        html = self.client.get(f"/api/print/{phieu_id}").get_data(as_text=True)
+
+        self.assertIn("1. T+0/1: 10% - tương ứng số tiền", html)
+        self.assertIn("<strong>14,327,112 đồng</strong>", html)
+        self.assertIn("2. T+30: 20% - tương ứng số tiền", html)
+        self.assertIn("<strong>28,654,225 đồng</strong>", html)
+        self.assertIn("3. T+60: 25% - tương ứng số tiền", html)
+        self.assertIn("<strong>35,817,781 đồng</strong>", html)
+        self.assertIn("4. T+90: 25% - tương ứng số tiền", html)
+        self.assertIn("5. T+120: 20% - tương ứng số tiền", html)
+        self.assertNotIn("Thanh toán trong ngày (T)", html)
+        self.assertNotIn("Thanh toán vào ngày kế tiếp (T+1)", html)
 
 
 if __name__ == "__main__":
