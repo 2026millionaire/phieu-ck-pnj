@@ -12,13 +12,18 @@ from __future__ import annotations
 import json
 import os
 import re
+import html
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import requests
+
 
 DEFAULT_LOOKBACK_DAYS = 1
 MAX_SUGGESTIONS = 10
+ERP_BASE_URL = os.environ.get("PNJ_ERP_BASE_URL", "https://erp.pnj.com.vn").rstrip("/")
+ERP_TIMEOUT_SECONDS = 30
 
 
 def normalize_customer_code(value: Any) -> str:
@@ -50,6 +55,14 @@ def parse_amount(value: Any) -> int:
     return int(cleaned)
 
 
+def parse_sap_odata_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    match = re.fullmatch(r"/Date\((-?\d+)\)/", text)
+    if match:
+        return datetime.utcfromtimestamp(int(match.group(1)) / 1000).date()
+    return parse_date(text)
+
+
 def is_cancelled_value(value: Any) -> bool:
     return str(value or "").strip().lower() in {"yes", "y", "true", "1", "x"}
 
@@ -59,21 +72,25 @@ def has_cancelled_bill_doc(value: Any) -> bool:
 
 
 def public_billing_record(record: dict[str, Any]) -> dict[str, Any] | None:
-    document = re.sub(r"\D+", "", str(record.get("billing_document") or record.get("document") or ""))
+    document = re.sub(
+        r"\D+",
+        "",
+        str(record.get("billing_document") or record.get("BillingDocument") or record.get("document") or ""),
+    )
     if not re.fullmatch(r"90\d{8}", document):
         return None
-    amount = parse_amount(record.get("net_value", record.get("amount")))
-    billing_date = parse_date(record.get("billing_date") or record.get("date"))
+    amount = parse_amount(record.get("net_value", record.get("TotalNetAmount", record.get("amount"))))
+    billing_date = parse_sap_odata_date(record.get("billing_date") or record.get("BillingDocumentDate") or record.get("date"))
     customer_code = normalize_customer_code(
-        record.get("customer_code") or record.get("sold_to_party_code") or record.get("sold_to")
+        record.get("customer_code") or record.get("SoldToParty") or record.get("sold_to_party_code") or record.get("sold_to")
     )
     if not billing_date or not customer_code:
         return None
     canceled_bill_doc = re.sub(
         r"\D+", "",
-        str(record.get("canceled_bill_doc") or record.get("canceled_billing_document") or ""),
+        str(record.get("canceled_bill_doc") or record.get("CancelledBillingDocument") or record.get("canceled_billing_document") or ""),
     )
-    cancelled = str(record.get("cancelled") or record.get("canceled") or "").strip()
+    cancelled = str(record.get("cancelled") if "cancelled" in record else record.get("BillingDocumentIsCancelled", record.get("canceled", ""))).strip()
     return {
         "billing_document": document,
         "amount": amount,
@@ -84,6 +101,73 @@ def public_billing_record(record: dict[str, Any]) -> dict[str, Any] | None:
         "cancelled": cancelled,
         "source": str(record.get("source") or "fixture").strip() or "fixture",
     }
+
+
+def erp_credentials() -> tuple[str, str] | None:
+    user = os.environ.get("PNJ_ERP_USER", "").strip()
+    password = os.environ.get("PNJ_ERP_PASSWORD", "")
+    if not user or not password:
+        return None
+    return user, password
+
+
+def login_erp_session() -> requests.Session:
+    credentials = erp_credentials()
+    if not credentials:
+        raise RuntimeError("ERP credentials are not configured.")
+    user, password = credentials
+    session = requests.Session()
+    response = session.get(f"{ERP_BASE_URL}/fiori", timeout=ERP_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    fields = {}
+    for match in re.finditer(r"<input([^>]+)>", response.text):
+        attrs = dict(re.findall(r'(name|value|type)="([^"]*)"', match.group(1)))
+        if "name" in attrs:
+            name = html.unescape(attrs["name"])
+            value = html.unescape(attrs.get("value", ""))
+            if name not in fields or (not fields[name] and value):
+                fields[name] = value
+    fields.update({"sap-user": user, "sap-password": password, "sap-language": "EN"})
+    login_response = session.post(
+        f"{ERP_BASE_URL}/fiori",
+        data=fields,
+        timeout=ERP_TIMEOUT_SECONDS,
+        allow_redirects=True,
+    )
+    login_response.raise_for_status()
+    if "sap-password" in login_response.text and "Log On" in login_response.text:
+        raise RuntimeError("ERP login was not accepted.")
+    return session
+
+
+def load_erp_billing_documents(customer_code: Any, top: int = 80) -> list[dict[str, Any]]:
+    canonical = normalize_customer_code(customer_code)
+    if not canonical:
+        return []
+    session = login_erp_session()
+    url = f"{ERP_BASE_URL}/sap/opu/odata/sap/SD_CUSTOMER_INVOICES_MANAGE/C_BillingDocument_F0797"
+    params = {
+        "$format": "json",
+        "$top": str(max(10, min(int(top or 80), 200))),
+        "$orderby": "BillingDocumentDate desc,BillingDocument desc",
+        "$select": (
+            "BillingDocument,BillingDocumentType,SoldToParty,BillingDocumentDate,"
+            "TotalNetAmount,TransactionCurrency,BillingDocumentIsCancelled,"
+            "CancelledBillingDocument,OverallBillingStatus"
+        ),
+        "$filter": (
+            f"SoldToParty eq '{canonical}' "
+            "and BillingDocument ge '9000000000' "
+            "and BillingDocument lt '9100000000'"
+        ),
+    }
+    response = session.get(url, params=params, timeout=ERP_TIMEOUT_SECONDS, headers={"Accept": "application/json"})
+    response.raise_for_status()
+    rows = response.json().get("d", {}).get("results", [])
+    for row in rows:
+        if isinstance(row, dict):
+            row["source"] = "erp"
+    return rows
 
 
 def load_billing_documents() -> list[dict[str, Any]]:
@@ -135,7 +219,16 @@ def billing_suggestions(
 
     matches = []
     seen_documents = set()
-    for record in load_billing_documents():
+    source_records = (
+        load_erp_billing_documents(canonical_customer)
+        if erp_credentials()
+        else load_billing_documents()
+    )
+    for record in source_records:
+        public_record = public_billing_record(record)
+        if public_record is None:
+            continue
+        record = public_record
         if record["customer_code"] != canonical_customer:
             continue
         if has_cancelled_bill_doc(record.get("canceled_bill_doc")) or is_cancelled_value(record.get("cancelled")):
