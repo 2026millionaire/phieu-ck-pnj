@@ -24,6 +24,7 @@ DEFAULT_LOOKBACK_DAYS = 1
 MAX_SUGGESTIONS = 10
 ERP_BASE_URL = os.environ.get("PNJ_ERP_BASE_URL", "https://erp.pnj.com.vn").rstrip("/")
 ERP_TIMEOUT_SECONDS = 30
+VAT_INCLUDED_BILLING_TYPES = {"ZWA", "ZPTG"}
 
 
 def normalize_customer_code(value: Any) -> str:
@@ -55,6 +56,24 @@ def parse_amount(value: Any) -> int:
     return int(cleaned)
 
 
+def billing_document_type(record: dict[str, Any]) -> str:
+    return str(
+        record.get("billing_type")
+        or record.get("BillingDocumentType")
+        or record.get("document_type")
+        or record.get("DocumentType")
+        or ""
+    ).strip().upper()
+
+
+def display_billing_amount(amount: int, billing_type: str, already_adjusted: Any = False) -> int:
+    if already_adjusted:
+        return int(round(amount))
+    if billing_type in VAT_INCLUDED_BILLING_TYPES:
+        return int(round(amount * 1.1))
+    return int(round(amount))
+
+
 def parse_sap_odata_date(value: Any) -> date | None:
     text = str(value or "").strip()
     match = re.fullmatch(r"/Date\((-?\d+)\)/", text)
@@ -79,7 +98,9 @@ def public_billing_record(record: dict[str, Any]) -> dict[str, Any] | None:
     )
     if not re.fullmatch(r"90\d{8}", document):
         return None
+    billing_type = billing_document_type(record)
     amount = parse_amount(record.get("net_value", record.get("TotalNetAmount", record.get("amount"))))
+    amount = display_billing_amount(amount, billing_type, record.get("amount_includes_vat"))
     billing_date = parse_sap_odata_date(record.get("billing_date") or record.get("BillingDocumentDate") or record.get("date"))
     customer_code = normalize_customer_code(
         record.get("customer_code") or record.get("SoldToParty") or record.get("sold_to_party_code") or record.get("sold_to")
@@ -94,6 +115,8 @@ def public_billing_record(record: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "billing_document": document,
         "amount": amount,
+        "billing_type": billing_type,
+        "amount_includes_vat": billing_type in VAT_INCLUDED_BILLING_TYPES or bool(record.get("amount_includes_vat")),
         "billing_date": billing_date.isoformat(),
         "customer_code": customer_code,
         "customer_name": str(record.get("customer_name") or record.get("sold_to_party_name") or "").strip(),

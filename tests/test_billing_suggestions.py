@@ -103,6 +103,40 @@ class BillingSuggestionTests(unittest.TestCase):
 
         self.assertEqual([item["billing_document"] for item in suggestions], ["9010000003"])
 
+    def test_zwa_and_zptg_amounts_include_vat_for_display(self):
+        self.write_fixture(
+            [
+                {
+                    "billing_document": "9014590215",
+                    "BillingDocumentType": "ZWA",
+                    "customer_code": "100000000",
+                    "billing_date": "2026-07-21",
+                    "TotalNetAmount": "63.636",
+                },
+                {
+                    "billing_document": "9014590216",
+                    "BillingDocumentType": "ZPTG",
+                    "customer_code": "100000000",
+                    "billing_date": "2026-07-21",
+                    "TotalNetAmount": "100,000",
+                },
+                {
+                    "billing_document": "9014590217",
+                    "BillingDocumentType": "ZF2",
+                    "customer_code": "100000000",
+                    "billing_date": "2026-07-21",
+                    "TotalNetAmount": "100,000",
+                },
+            ]
+        )
+
+        suggestions = erp_billing.billing_suggestions("100000000", "2026-07-21")
+        amounts = {item["billing_document"]: item["amount"] for item in suggestions}
+
+        self.assertEqual(amounts["9014590215"], 70000)
+        self.assertEqual(amounts["9014590216"], 110000)
+        self.assertEqual(amounts["9014590217"], 100000)
+
     def test_api_caps_at_ten_suggestions(self):
         self.write_fixture(
             [
