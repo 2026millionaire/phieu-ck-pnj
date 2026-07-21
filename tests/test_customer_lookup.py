@@ -120,6 +120,23 @@ class CustomerLookupTests(unittest.TestCase):
         self.assertEqual(validation["source_rows"], 1)
         self.assertEqual(validation["max_customer"], 105573549)
 
+    def test_accepts_vendor_export_without_delf_column(self):
+        source = self.root / "105573987.txt"
+        source.write_text(
+            "\tCty\tCity\tSearchTerm\tName 1\tVendor\tCoCd\n"
+            "\tVN\tBÌNH DƯƠNG\t0327990071\tHẢI NAM\t105574101\t1000\n",
+            encoding="utf-8-sig",
+        )
+        records = list(iter_sap_records(source))
+        self.assertEqual(records[0]["customer"], "105574101")
+        self.assertEqual(records[0]["search_term"], "0327990071")
+        self.assertEqual(records[0]["name_1"], "HẢI NAM")
+        self.assertEqual(records[0]["delf"], "")
+
+        validation = self.store.validate_import_files([source])
+        self.assertEqual(validation["source_rows"], 1)
+        self.assertEqual(validation["max_customer"], 105574101)
+
     def test_sixth_unique_code_requires_captcha(self):
         self.store.initialize()
         session_id = "test-session"

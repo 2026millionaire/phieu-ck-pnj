@@ -272,10 +272,13 @@ def iter_sap_records(path: Path) -> Iterable[dict[str, str]]:
         for row in reader:
             if indexes is None:
                 normalized = [_normalize_header(cell) for cell in row]
-                required = ("searchterm", "cty", "name1", "customer", "delf")
+                required = ("searchterm", "cty", "name1", "customer")
                 found = {name: _header_index(normalized, name) for name in required}
                 if all(index is not None for index in found.values()):
                     indexes = {name: int(index) for name, index in found.items()}
+                    delf_index = _header_index(normalized, "delf")
+                    if delf_index is not None:
+                        indexes["delf"] = int(delf_index)
                 continue
 
             if not row or not any(cell for cell in row):
@@ -290,9 +293,10 @@ def iter_sap_records(path: Path) -> Iterable[dict[str, str]]:
                 recovered = _recover_shifted_sap_fields(path, row, indexes)
 
             # SAP xuất DelF lệch sau một cột trống ở các dòng có cờ X.
-            delf = "" if recovered else cell("delf")
-            if indexes["delf"] < len(row):
-                for candidate in row[indexes["delf"] :]:
+            delf_index = indexes.get("delf")
+            delf = "" if recovered or delf_index is None else cell("delf")
+            if delf_index is not None and delf_index < len(row):
+                for candidate in row[delf_index:]:
                     if candidate.strip().upper() == "X":
                         delf = candidate
                         break
