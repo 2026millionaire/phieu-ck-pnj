@@ -349,6 +349,7 @@ def init_db():
             ten_kh          TEXT,
             sdt             TEXT,
             cccd            TEXT,
+            dia_chi         TEXT DEFAULT '',
             so_tk           TEXT,
             ten_tk          TEXT,
             ngan_hang       TEXT,
@@ -374,6 +375,7 @@ def init_db():
         ("da_trinh", "INTEGER", "0"),
         ("user_id", "INTEGER", "1"),
         ("sap_document_override", "TEXT", "''"),
+        ("dia_chi", "TEXT", "''"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -1457,6 +1459,7 @@ def prepare_phieu_for_output(row, settings=None):
     d["ma_kh"] = remove_all_whitespace(d.get("ma_kh", ""))
     d["sdt"] = remove_all_whitespace(d.get("sdt", ""))
     d["cccd"] = remove_all_whitespace(d.get("cccd", ""))
+    d["dia_chi"] = str(d.get("dia_chi", "") or "").strip()
     d["so_bk"] = remove_all_whitespace(d.get("so_bk", ""))
     d["plant"] = remove_all_whitespace(d.get("plant", ""))
 
@@ -1643,6 +1646,9 @@ def make_phieu_pdf(p):
         [Paragraph(f"Họ & Tên: <b>{p.get('ten_kh') or ''}</b>", normal), Paragraph(f"Mã KH (Vendor)*: <b>{p.get('ma_kh') or ''}</b>", normal)],
         [Paragraph(f"Số điện thoại: <b>{p.get('sdt_fmt') or ''}</b>", normal), Paragraph(f"Số CCCD: <b>{p.get('cccd_fmt') or ''}</b>", normal)],
     ], colWidths=[70 * mm, 64 * mm]))
+
+    if p.get("dia_chi"):
+        story.append(Paragraph(f"Địa chỉ: <b>{p.get('dia_chi') or ''}</b>", normal))
 
     story.append(Paragraph("<b>2. Thông tin thanh toán / Ủy Quyền chuyển khoản</b>", bold_style))
     payment_rows = [
@@ -2275,6 +2281,33 @@ def api_purchase_order_suggestions():
             {"ok": False, "error": "Không thể lấy gợi ý bảng kê lúc này."}, 503
         )
     return _customer_lookup_json({"ok": True, "suggestions": suggestions})
+
+
+@app.route("/api/purchase-order-customer-profile", methods=["POST"])
+def api_purchase_order_customer_profile():
+    """Return customer name, phone, and address from the nearest recent ERP buyback PO."""
+    if request.content_length is not None and request.content_length > 4096:
+        return _customer_lookup_json({"ok": False, "error": "YÃªu cáº§u quÃ¡ lá»›n."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "YÃªu cáº§u khÃ´ng há»£p lá»‡."}, 400)
+
+    data = request.get_json(silent=True) or {}
+    customer_code = data.get("customer_code")
+    if not erp_purchase_orders.normalize_customer_code(customer_code):
+        return _customer_lookup_json({"ok": True, "profile": {}})
+
+    try:
+        profile = erp_purchase_orders.purchase_order_customer_profile(
+            customer_code=customer_code,
+            target_date=data.get("purchase_order_date"),
+            lookback_days=data.get("lookback_days", erp_purchase_orders.DEFAULT_LOOKBACK_DAYS),
+        )
+    except Exception:
+        app.logger.exception("KhÃ´ng thá»ƒ láº¥y há»“ sÆ¡ khÃ¡ch hÃ ng tá»« báº£ng kÃª ERP.")
+        return _customer_lookup_json(
+            {"ok": False, "error": "KhÃ´ng thá»ƒ láº¥y thÃ´ng tin khÃ¡ch hÃ ng tá»« ERP lÃºc nÃ y."}, 503
+        )
+    return _customer_lookup_json({"ok": True, "profile": profile})
 
 
 @app.route("/history")
@@ -3123,6 +3156,7 @@ def api_save():
     ma_kh = remove_all_whitespace(data.get("ma_kh", ""))
     sdt = remove_all_whitespace(data.get("sdt", ""))
     cccd = remove_all_whitespace(data.get("cccd", ""))
+    dia_chi = str(data.get("dia_chi", "") or "").strip()
     so_bk = remove_all_whitespace(data.get("so_bk", ""))
 
     # Build QR URL (only BIN + account, no amount)
@@ -3155,6 +3189,7 @@ def api_save():
                 ten_kh = ?,
                 sdt = ?,
                 cccd = ?,
+                dia_chi = ?,
                 so_tk = ?,
                 ten_tk = ?,
                 ngan_hang = ?,
@@ -3177,6 +3212,7 @@ def api_save():
             ten_kh,
             sdt,
             cccd,
+            dia_chi,
             so_tk,
             str(data.get("ten_tk", "")).strip(),
             ngan_hang,
@@ -3231,18 +3267,19 @@ def api_save():
 
     cursor = db.execute("""
         INSERT INTO phieu
-            (created_at, ma_kh, ten_kh, sdt, cccd,
+            (created_at, ma_kh, ten_kh, sdt, cccd, dia_chi,
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
              chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
              user_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         ma_kh,
         ten_kh,
         sdt,
         cccd,
+        dia_chi,
         so_tk,
         str(data.get("ten_tk", "")).strip(),
         ngan_hang,

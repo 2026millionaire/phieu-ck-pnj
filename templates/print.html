@@ -107,6 +107,7 @@
 
         .info-row .left { width: 55%; }
         .info-row .right { width: 44%; }
+        .info-row .full { width: 100%; }
         .info-label { color: #000; }
         .info-value { font-weight: 700; }
         .info-value,
@@ -390,6 +391,15 @@
             <span class="info-value">{{ p.cccd_fmt | default(p.cccd) }}</span>
         </div>
     </div>
+
+    {% if p.dia_chi %}
+    <div class="info-row">
+        <div class="full">
+            <span class="info-label">Địa chỉ:</span>
+            <span class="info-value">{{ p.dia_chi }}</span>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- ===== 2. THÔNG TIN THANH TOÁN ===== -->
     <div class="section-header">2. Thông tin thanh toán / Ủy Quyền chuyển khoản</div>

@@ -78,6 +78,35 @@ def public_purchase_order_record(record: dict[str, Any]) -> dict[str, Any] | Non
     }
 
 
+def _clean_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
+
+
+def format_supplier_address(record: dict[str, Any]) -> str:
+    """Return a compact customer address from the PO supplier-address payload."""
+    parts = [
+        _clean_text(record.get("StreetName") or record.get("street_name")),
+        _clean_text(record.get("HouseNumber") or record.get("house_number")),
+        _clean_text(record.get("CityName") or record.get("city_name")),
+    ]
+    return ", ".join(part for part in parts if part)
+
+
+def public_supplier_address_record(record: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(record, dict):
+        return {}
+    return {
+        "name": _clean_text(record.get("FullName") or record.get("name")),
+        "address": format_supplier_address(record),
+        "street": _clean_text(record.get("StreetName") or record.get("street_name")),
+        "house_number": _clean_text(record.get("HouseNumber") or record.get("house_number")),
+        "city": _clean_text(record.get("CityName") or record.get("city_name")),
+        "country": _clean_text(record.get("Country") or record.get("country")),
+        "region": _clean_text(record.get("Region") or record.get("region")),
+        "phone": re.sub(r"\D+", "", str(record.get("PhoneNumber") or record.get("phone") or "")),
+    }
+
+
 def _sap_datetime_literal(day: date) -> str:
     return f"datetime'{day.isoformat()}T00:00:00'"
 
@@ -117,6 +146,25 @@ def load_erp_purchase_orders(customer_code: Any, target_date: date, lookback_day
         if isinstance(row, dict):
             row["source"] = "erp"
     return rows
+
+
+def load_erp_purchase_order_address(purchase_order: Any) -> dict[str, Any]:
+    document = re.sub(r"\D+", "", str(purchase_order or ""))
+    if not re.fullmatch(r"4403\d{6}", document):
+        return {}
+    session = login_erp_session()
+    key = (
+        f"C_PurchaseOrderTP(PurchaseOrder='{document}',"
+        f"DraftUUID=guid'{ACTIVE_DRAFT_UUID}',IsActiveEntity=true)"
+    )
+    url = f"{ERP_BASE_URL}/sap/opu/odata/sap/MM_PUR_PO_MAINT_V2_SRV/{key}/to_PurOrdSupplierAddressTP"
+    params = {
+        "$format": "json",
+        "$select": "FullName,StreetName,HouseNumber,PostalCode,CityName,Country,Region,PhoneNumber",
+    }
+    response = session.get(url, params=params, timeout=ERP_TIMEOUT_SECONDS, headers={"Accept": "application/json"})
+    response.raise_for_status()
+    return response.json().get("d", {})
 
 
 def load_purchase_orders() -> list[dict[str, Any]]:
@@ -180,3 +228,44 @@ def purchase_order_suggestions(
 
     matches.sort(key=lambda item: (not item["same_day"], -item["_sort_date"].toordinal(), item["purchase_order"]))
     return [{k: v for k, v in item.items() if not k.startswith("_")} for item in matches[:capped_limit]]
+
+
+def purchase_order_customer_profile(
+    customer_code: Any,
+    target_date: Any = None,
+    lookback_days: Any = DEFAULT_LOOKBACK_DAYS,
+) -> dict[str, Any]:
+    """Return customer name/phone/address from the nearest recent buyback PO."""
+    suggestions = purchase_order_suggestions(
+        customer_code=customer_code,
+        target_date=target_date,
+        lookback_days=lookback_days,
+        limit=1,
+    )
+    if not suggestions:
+        return {}
+    purchase_order = suggestions[0]["purchase_order"]
+    address_record: dict[str, Any] = {}
+    if erp_credentials():
+        address_record = load_erp_purchase_order_address(purchase_order)
+    else:
+        for record in load_purchase_orders():
+            public_record = public_purchase_order_record(record) if isinstance(record, dict) else None
+            if public_record and public_record["purchase_order"] == purchase_order:
+                address_record = (
+                    record.get("to_PurOrdSupplierAddressTP")
+                    or record.get("supplier_address")
+                    or record.get("address")
+                    or {}
+                )
+                break
+    profile = public_supplier_address_record(address_record)
+    profile.update({
+        "customer_code": normalize_customer_code(customer_code),
+        "purchase_order": purchase_order,
+        "creation_date": suggestions[0].get("creation_date", ""),
+        "amount": suggestions[0].get("amount", 0),
+        "currency": suggestions[0].get("currency", "VND"),
+        "source": "erp" if erp_credentials() else "fixture",
+    })
+    return {key: value for key, value in profile.items() if value not in ("", None)}

@@ -746,6 +746,15 @@ textarea#sap_data {
                                 <div class="customer-suggestion-menu" id="customerSuggestionCccd"></div>
                             </div>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label">Địa chỉ</label>
+                            <div class="customer-input-wrap">
+                                <input type="text" class="form-control form-control-sm" id="dia_chi" name="dia_chi"
+                                       value="" placeholder="Tự điền từ SAP khi có dữ liệu" autocomplete="off">
+                                <button type="button" class="customer-field-clear" data-clear-target="dia_chi"
+                                        title="Xóa địa chỉ" aria-label="Xóa địa chỉ">&times;</button>
+                            </div>
+                        </div>
                         <!-- Số BK: hidden, auto-filled from section 3 table -->
                         <input type="hidden" id="so_bk" name="so_bk" value="">
                     </div>
@@ -1018,6 +1027,7 @@ textarea#sap_data {
                                 <span>Số điện thoại: <strong class="pv-sdt">___</strong></span>
                                 <span>Số CCCD: <strong class="pv-cccd">___</strong></span>
                             </div>
+                            <div style="font-size:0.48rem;">Địa chỉ: <strong class="pv-dia_chi">___</strong></div>
                         </div>
 
                         <!-- 2. TT + QR -->
@@ -1127,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const appUrl = (path) => appBasePath + path;
     const customerLookupEnabled = {{ customer_lookup_enabled|tojson }};
     const customerLookupTurnstileSitekey = {{ customer_lookup_turnstile_sitekey|tojson }};
-    const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'so_tk', 'ngan_hang'];
+    const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'dia_chi', 'so_tk', 'ngan_hang'];
 
     const customerSuggestionTargets = {
         name: {
@@ -1145,11 +1155,14 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     const customerSuggestionCache = new Map();
     const customerSuggestionInFlight = new Set();
+    const purchaseOrderCustomerProfileCache = new Map();
     const captchaElement = document.getElementById('customerLookupCaptchaModal');
     const captchaModal = captchaElement ? new bootstrap.Modal(captchaElement) : null;
     const captchaError = document.getElementById('customerLookupCaptchaError');
     let pendingCaptchaLookup = null;
     let turnstileWidgetId = null;
+    let purchaseOrderCustomerProfileTimer = null;
+    let purchaseOrderCustomerProfileInFlight = '';
 
     function validLookupCustomerCode(value) {
         const code = (value || '').trim();
@@ -1196,6 +1209,71 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function customerSuggestionCacheKey(code, field) {
         return code.trim() + '|' + field;
+    }
+
+    function purchaseOrderCustomerProfileCacheKey(code) {
+        return code.trim().replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingLookbackDays() + 'd';
+    }
+
+    function applyPurchaseOrderCustomerProfile(profile, requestedCode) {
+        if (!profile || typeof profile !== 'object') return;
+        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
+        const nameInput = document.getElementById('ten_kh');
+        const phoneInput = document.getElementById('sdt');
+        const addressInput = document.getElementById('dia_chi');
+        if (!nameInput.value.trim() && profile.name) {
+            nameInput.value = String(profile.name).toUpperCase();
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!phoneInput.value.trim() && profile.phone) {
+            phoneInput.value = profile.phone;
+            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!addressInput.value.trim() && profile.address) {
+            addressInput.value = profile.address;
+            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    async function fetchPurchaseOrderCustomerProfile(customerCode) {
+        const key = purchaseOrderCustomerProfileCacheKey(customerCode);
+        if (purchaseOrderCustomerProfileCache.has(key)) {
+            applyPurchaseOrderCustomerProfile(purchaseOrderCustomerProfileCache.get(key), customerCode);
+            return;
+        }
+        if (purchaseOrderCustomerProfileInFlight === key) return;
+        purchaseOrderCustomerProfileInFlight = key;
+        try {
+            const response = await fetch(appUrl('/api/purchase-order-customer-profile'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                credentials: 'same-origin',
+                cache: 'no-store',
+                body: JSON.stringify({
+                    customer_code: customerCode,
+                    purchase_order_date: todayIsoDate(),
+                    lookback_days: billingLookbackDays()
+                })
+            });
+            const data = await response.json().catch(() => ({ ok: false }));
+            const profile = data && data.ok && data.profile ? data.profile : {};
+            purchaseOrderCustomerProfileCache.set(key, profile);
+            applyPurchaseOrderCustomerProfile(profile, customerCode);
+        } catch (error) {
+            purchaseOrderCustomerProfileCache.set(key, {});
+        } finally {
+            if (purchaseOrderCustomerProfileInFlight === key) purchaseOrderCustomerProfileInFlight = '';
+        }
+    }
+
+    function schedulePurchaseOrderCustomerProfile() {
+        clearTimeout(purchaseOrderCustomerProfileTimer);
+        purchaseOrderCustomerProfileTimer = setTimeout(function() {
+            const code = document.getElementById('ma_kh').value.trim();
+            if (!validLookupCustomerCode(code)) return;
+            fetchPurchaseOrderCustomerProfile(code);
+        }, 650);
     }
 
     async function fetchCustomerSuggestion(code, field, turnstileToken) {
@@ -1324,9 +1402,11 @@ document.addEventListener('DOMContentLoaded', function() {
             customerSuggestionCache.clear();
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
+            purchaseOrderCustomerProfileCache.clear();
             hideCustomerSuggestions();
             hideDocumentSuggestions();
             scheduleDocumentPrefetch();
+            schedulePurchaseOrderCustomerProfile();
         });
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.customer-suggestion-field')) hideCustomerSuggestions();
@@ -1928,6 +2008,9 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '</div></div>';
         return html;
     }
+
+    document.getElementById('ma_kh').addEventListener('blur', schedulePurchaseOrderCustomerProfile);
+    document.getElementById('ma_kh').addEventListener('change', schedulePurchaseOrderCustomerProfile);
 
     const billingSuggestionCache = new Map();
     const purchaseOrderSuggestionCache = new Map();
@@ -2706,6 +2789,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ten_kh: ten_kh,
             sdt: document.getElementById('sdt').value.trim(),
             cccd: document.getElementById('cccd').value.trim(),
+            dia_chi: document.getElementById('dia_chi').value.trim(),
             so_tk: normalizeAccountNumber(document.getElementById('so_tk').value),
             ten_tk: document.getElementById('cbUseTenKH').checked
                 ? ten_kh
@@ -2908,6 +2992,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ten_kh: ten_kh,
             sdt: document.getElementById('sdt').value.trim(),
             cccd: document.getElementById('cccd').value.trim(),
+            dia_chi: document.getElementById('dia_chi').value.trim(),
             so_tk: normalizeAccountNumber(document.getElementById('so_tk').value),
             ten_tk: document.getElementById('cbUseTenKH').checked
                 ? ten_kh
@@ -3008,6 +3093,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('ten_kh').value = p.ten_kh || '';
                 document.getElementById('sdt').value = p.sdt || '';
                 document.getElementById('cccd').value = p.cccd || '';
+                document.getElementById('dia_chi').value = p.dia_chi || '';
                 document.getElementById('so_tk').value = p.so_tk || '';
                 document.getElementById('ten_chu_tk').value = p.ten_tk || '';
                 document.getElementById('ngan_hang').value = p.ngan_hang || '';

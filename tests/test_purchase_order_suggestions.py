@@ -124,12 +124,54 @@ class PurchaseOrderSuggestionTests(unittest.TestCase):
         self.assertEqual(data["suggestions"][0]["purchase_order"], "4403909303")
         self.assertEqual(data["suggestions"][0]["amount"], 9773000)
 
+    def test_api_returns_purchase_order_customer_profile(self):
+        self.write_fixture(
+            [
+                {
+                    "PurchaseOrder": "4403909303",
+                    "Supplier": "103345952",
+                    "CompanyCode": "1000",
+                    "CreationDate": "2026-07-21",
+                    "PurchaseOrderNetAmount": "9773000",
+                    "DocumentCurrency": "VND",
+                    "PurchaseOrderType": "Z04",
+                    "IsActiveEntity": True,
+                    "supplier_address": {
+                        "FullName": "LÊ THỊ THUÝ NHI",
+                        "StreetName": "NERA 2 TỐ HỮU",
+                        "CityName": "THỪA THIÊN HUẾ",
+                        "PhoneNumber": "0935015969",
+                    },
+                }
+            ]
+        )
+
+        response = self.client.post(
+            "/api/purchase-order-customer-profile",
+            json={
+                "customer_code": "103345952",
+                "purchase_order_date": "2026-07-21",
+                "lookback_days": 1,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["profile"]["purchase_order"], "4403909303")
+        self.assertEqual(data["profile"]["name"], "LÊ THỊ THUÝ NHI")
+        self.assertEqual(data["profile"]["phone"], "0935015969")
+        self.assertEqual(data["profile"]["address"], "NERA 2 TỐ HỮU, THỪA THIÊN HUẾ")
+
     def test_index_contains_purchase_order_suggestion_flow(self):
         html = self.client.get("/").get_data(as_text=True)
 
         self.assertIn("/api/purchase-order-suggestions", html)
+        self.assertIn("/api/purchase-order-customer-profile", html)
         self.assertIn("fetchPurchaseOrderSuggestions", html)
+        self.assertIn("fetchPurchaseOrderCustomerProfile", html)
         self.assertIn("purchaseOrderSuggestionCache", html)
+        self.assertIn('id="dia_chi"', html)
 
 
 if __name__ == "__main__":
