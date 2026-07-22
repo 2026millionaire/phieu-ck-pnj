@@ -386,6 +386,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertNotIn('class="section">I. Thông tin các bên', html)
         self.assertIn("Cửa Hàng Trưởng", html)
         self.assertIn('class="signature-block"', html)
+        self.assertIn("signature-role-customer", html)
         self.assertIn('class="role-title role-title-pnj"', html)
         self.assertNotIn("<td>21/07/2026</td>", html)
         self.assertNotIn("<td>20/08/2026</td>", html)

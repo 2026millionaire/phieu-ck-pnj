@@ -4208,7 +4208,7 @@ def make_payment_planning_xlsx(p):
         54: [2, "Trường hợp có sự khác biệt giữa Thỏa thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc các nội dung được điều chỉnh tại Thỏa thuận này, Thỏa thuận này được ưu tiên áp dụng.", "", "", ""],
         55: [3, "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.", "", "", ""],
         56: [4, "Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản", "", "", ""],
-        58: [f"Khách Hàng\n(Ký, ghi rõ họ tên)\n\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN\n(Ký, ghi rõ họ tên, chức danh)\n\n\n\n{p.get('buyer_signature_name', '')}\n{p.get('buyer_signature_title', '')}", "", ""],
+        58: [f"\nKhách Hàng\n(Ký, ghi rõ họ tên)\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN\n{p.get('buyer_signature_title', '')}\n(Ký, ghi rõ họ tên, chức danh)\n\n\n{p.get('buyer_signature_name', '')}", "", ""],
         59: ['=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", '=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", ""],
     }
 
