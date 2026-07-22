@@ -379,6 +379,11 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertNotIn("Chi tiết Phương án lựa chọn", html)
         self.assertIn("Khách Hàng", html)
         self.assertIn("ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN", html)
+        self.assertIn('<div class="section-title">I. Thông tin các bên</div>', html)
+        self.assertIn('<div class="section-title">IV. Kế hoạch thanh toán</div>', html)
+        self.assertIn('<div class="page-one">', html)
+        self.assertNotIn('class="section">I. Thông tin các bên', html)
+        self.assertIn("Cửa Hàng Trưởng", html)
         self.assertIn("Ngày ký: 21 / 07 / 2026", html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
@@ -400,6 +405,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("0,01%/ngày", sheet["B39"].value)
         self.assertIn("Khách Hàng", sheet["A58"].value)
         self.assertIn("ĐẠI DIỆN PNJ", sheet["C58"].value)
+        self.assertIn("Cửa Hàng Trưởng", sheet["C58"].value)
         self.assertIn("DAY(G2)", sheet["A59"].value)
 
     def test_bk_create_and_history_have_payment_planning_actions(self):
