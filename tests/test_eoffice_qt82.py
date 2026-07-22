@@ -390,8 +390,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('class="signature-block"', html)
         self.assertIn("signature-role-customer", html)
         self.assertIn('class="role-title role-title-pnj"', html)
-        self.assertNotIn("<td>21/07/2026</td>", html)
-        self.assertNotIn("<td>20/08/2026</td>", html)
+        self.assertIn("<td>22/07/2026</td>", html)
+        self.assertIn("<td>20/08/2026</td>", html)
         self.assertIn("Ngày ký: 21 / 07 / 2026", html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
@@ -412,8 +412,9 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(sheet["B15"].value, 12000000)
         self.assertEqual(sheet["B18"].value, 6000000)
         self.assertEqual(sheet["B19"].value, "=B15-B18")
-        for row in range(28, 33):
-            self.assertIsNone(sheet.cell(row=row, column=3).value)
+        self.assertEqual(sheet["C28"].value, "22/07/2026")
+        self.assertEqual(sheet["C29"].value, "20/08/2026")
+        self.assertEqual(sheet["C32"].value, "18/11/2026")
         self.assertIn("0,01%/ngày", sheet["B39"].value)
         self.assertIn("Khách Hàng", sheet["A58"].value)
         self.assertIn("ĐẠI DIỆN PNJ", sheet["C58"].value)
@@ -456,12 +457,14 @@ class EofficeQt82Tests(unittest.TestCase):
         self.login(role="admin")
         index_html = self.client.get("/").get_data(as_text=True)
         self.assertIn('id="btnCopyPhieu"', index_html)
-        self.assertIn('id="useBkRef"', index_html)
-        self.assertIn('id="showPaymentDates"', index_html)
+        self.assertNotIn('id="useBkRef"', index_html)
+        self.assertNotIn('id="showPaymentDates"', index_html)
         self.assertIn('id="sapTable"', index_html)
         self.assertIn("sap-bk-ref-cell", index_html)
         self.assertIn("use_bk_ref: useBkRefEnabled()", index_html)
         self.assertIn("show_payment_dates: showPaymentDatesEnabled()", index_html)
+        self.assertIn("use_bk_ref_default", index_html)
+        self.assertIn("show_payment_dates_default", index_html)
         self.assertIn("classList.toggle('use-bk-ref'", index_html)
         self.assertIn("download-planning-pdf", index_html)
         self.assertIn("download-planning-xlsx", index_html)
@@ -486,6 +489,17 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('id="s_invoice_prefix"', settings_html)
         self.assertIn('id="s_deposit_prefix"', settings_html)
         self.assertIn('id="s_hbtl_prefix"', settings_html)
+        self.assertIn('id="s_use_bk_ref_default"', settings_html)
+        self.assertIn('id="s_show_payment_dates_default"', settings_html)
+        saved_settings = self.client.post(
+            "/api/settings",
+            json={"use_bk_ref_default": "0", "show_payment_dates_default": "1"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(saved_settings.status_code, 200)
+        settings_json = self.client.get("/api/settings").get_json()["data"]
+        self.assertEqual(settings_json["use_bk_ref_default"], "0")
+        self.assertEqual(settings_json["show_payment_dates_default"], "1")
 
     def test_bank_eoffice_code_is_admin_only_on_create_forms(self):
         self.login(role="user", user_id=2)

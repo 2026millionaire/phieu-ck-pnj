@@ -554,6 +554,8 @@ def init_db():
         "hbtl_prefix": "990",
         "tvv_button_color_mode": "0",
         "billing_invoice_days": "2",
+        "use_bk_ref_default": "0",
+        "show_payment_dates_default": "1",
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
@@ -566,6 +568,12 @@ def get_settings():
     db = get_db()
     rows = db.execute("SELECT key, value FROM settings").fetchall()
     return {r["key"]: r["value"] for r in rows}
+
+
+def settings_flag(settings, key, default="0"):
+    """Return a boolean-like integer for settings/data flags."""
+    value = settings.get(key, default) if isinstance(settings, dict) else default
+    return 1 if str(value).strip().lower() in {"1", "true", "yes", "on"} else 0
 
 
 def row_to_dict(row):
@@ -3185,6 +3193,9 @@ def api_save_settings():
         except (TypeError, ValueError):
             return _customer_lookup_json({"ok": False, "error": "Sá»‘ ngÃ y Ä‘á»c hoÃ¡ Ä‘Æ¡n khÃ´ng há»£p lá»‡."}, 400)
         data["billing_invoice_days"] = str(max(1, min(billing_invoice_days, 31)))
+    for flag_key in ("use_bk_ref_default", "show_payment_dates_default"):
+        if flag_key in data:
+            data[flag_key] = str(settings_flag(data, flag_key, "0"))
     db = get_db()
     for k, v in data.items():
         db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, str(v)))
@@ -3286,8 +3297,12 @@ def api_save():
     cccd = remove_all_whitespace(data.get("cccd", ""))
     dia_chi = str(data.get("dia_chi", "") or "").strip()
     so_bk = remove_all_whitespace(data.get("so_bk", ""))
-    use_bk_ref = 1 if data.get("use_bk_ref") else 0
-    show_payment_dates = 1 if data.get("show_payment_dates") else 0
+    use_bk_ref = settings_flag(
+        data, "use_bk_ref", settings.get("use_bk_ref_default", "0")
+    )
+    show_payment_dates = settings_flag(
+        data, "show_payment_dates", settings.get("show_payment_dates_default", "1")
+    )
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
