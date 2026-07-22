@@ -748,18 +748,11 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_pnj_contact"] = PAYMENT_PLANNING_PNJ_CONTACT
     p["planning_bk_numbers"] = ",".join(bk_numbers) or p.get("so_bk") or "__________"
     p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
-    try:
-        base_date = datetime.strptime(
-            f"{p.get('nam')}-{p.get('thang')}-{p.get('ngay')}", "%Y-%m-%d"
-        )
-    except (TypeError, ValueError):
-        base_date = None
     planning_schedule = []
-    for index, item in enumerate(build_payment_schedule(amounts["cash_amount"])):
-        due_date = base_date + timedelta(days=0 if index == 0 else index * 30) if base_date else None
+    for item in build_payment_schedule(amounts["cash_amount"]):
         planning_schedule.append({
             **item,
-            "date": due_date.strftime("%d/%m/%Y") if due_date else "",
+            "date": "",
         })
     p["planning_schedule"] = planning_schedule
     p["payment_method_label"] = "☐ Chuyển khoản    ☐ Khác"
@@ -4153,11 +4146,11 @@ def make_payment_planning_xlsx(p):
         24: ["Cách tính T+n", "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.", "", "", ""],
         25: ["Hoàn tất thanh toán", "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là hoàn tất khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản nhận tiền của Khách Hàng ở phần đầu Thoả Thuận này; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.", "", "", ""],
         27: ["Đợt", "Thời điểm dự kiến", "Ngày dự kiến", "Tỷ lệ", "Số tiền (VNĐ)"],
-        28: [1, "T/T+1", "=G2", 0.1, "=ROUND($B$19*D28,0)"],
-        29: [2, "T+30", "=$C$28+30", 0.2, "=ROUND($B$19*D29,0)"],
-        30: [3, "T+60", "=$C$28+60", 0.25, "=ROUND($B$19*D30,0)"],
-        31: [4, "T+90", "=$C$28+90", 0.25, "=ROUND($B$19*D31,0)"],
-        32: [5, "T+120", "=$C$28+120", 0.2, "=B19-SUM(E28:E31)"],
+        28: [1, "T/T+1", "", 0.1, "=ROUND($B$19*D28,0)"],
+        29: [2, "T+30", "", 0.2, "=ROUND($B$19*D29,0)"],
+        30: [3, "T+60", "", 0.25, "=ROUND($B$19*D30,0)"],
+        31: [4, "T+90", "", 0.25, "=ROUND($B$19*D31,0)"],
+        32: [5, "T+120", "", 0.2, "=B19-SUM(E28:E31)"],
         33: ["Tổng", "", "", 1, "=SUM(E28:E32)"],
         35: ["Hình thức", "☐ Chuyển khoản    ☐ Khác", "", "", ""],
         36: ["Nội dung chuyển khoản", "", "", "", ""],

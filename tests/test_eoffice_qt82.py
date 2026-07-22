@@ -384,6 +384,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('<div class="page-one">', html)
         self.assertNotIn('class="section">I. Thông tin các bên', html)
         self.assertIn("Cửa Hàng Trưởng", html)
+        self.assertNotIn("<td>21/07/2026</td>", html)
+        self.assertNotIn("<td>20/08/2026</td>", html)
         self.assertIn("Ngày ký: 21 / 07 / 2026", html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
@@ -402,6 +404,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(sheet["B15"].value, 12000000)
         self.assertEqual(sheet["B18"].value, 6000000)
         self.assertEqual(sheet["B19"].value, "=B15-B18")
+        for row in range(28, 33):
+            self.assertIsNone(sheet.cell(row=row, column=3).value)
         self.assertIn("0,01%/ngày", sheet["B39"].value)
         self.assertIn("Khách Hàng", sheet["A58"].value)
         self.assertIn("ĐẠI DIỆN PNJ", sheet["C58"].value)
