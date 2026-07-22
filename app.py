@@ -675,7 +675,7 @@ def so_thanh_chu(n):
 
 
 PAYMENT_SCHEDULE_RATES = (
-    ("T+0/1", 10),
+    ("T/T+1", 10),
     ("T+30", 20),
     ("T+60", 25),
     ("T+90", 25),
@@ -744,6 +744,20 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_pnj_address"] = PAYMENT_PLANNING_PNJ_ADDRESS
     p["planning_bk_numbers"] = ",".join(bk_numbers) or p.get("so_bk") or "__________"
     p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
+    try:
+        base_date = datetime.strptime(
+            f"{p.get('nam')}-{p.get('thang')}-{p.get('ngay')}", "%Y-%m-%d"
+        )
+    except (TypeError, ValueError):
+        base_date = None
+    planning_schedule = []
+    for index, item in enumerate(build_payment_schedule(amounts["cash_amount"])):
+        due_date = base_date + timedelta(days=0 if index == 0 else index * 30) if base_date else None
+        planning_schedule.append({
+            **item,
+            "date": due_date.strftime("%d/%m/%Y") if due_date else "",
+        })
+    p["planning_schedule"] = planning_schedule
     p["payment_method_label"] = "☐ Chuyển khoản    ☐ Khác"
     p["planning_file_title"] = f"Payment Planning {ascii_filename_part(p.get('ten_kh'), 30)} {p.get('id')}"
     return p
@@ -3902,7 +3916,7 @@ def make_payment_planning_xlsx(p):
     ws.title = "Payment Planning"
     ws.sheet_view.showGridLines = False
 
-    widths = {"A": 22, "B": 46, "C": 22, "D": 36}
+    widths = {"A": 20, "B": 42, "C": 18, "D": 14, "E": 24, "F": 12, "G": 14}
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
 
@@ -3930,6 +3944,8 @@ def make_payment_planning_xlsx(p):
 
     def set_row(row, values, fills=None):
         fills = fills or {}
+        values = list(values)
+        values = (values + [""] * 5)[:5]
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=row, column=col, value=value)
             cell.font = normal
@@ -3938,122 +3954,136 @@ def make_payment_planning_xlsx(p):
             if fills.get(col):
                 cell.fill = fills[col]
 
-    merge(1, 1, 4, "PHỤ LỤC SỐ 01: KẾ HOẠCH THANH TOÁN GIÁ TRỊ THU ĐỔI", title_fill, title_font, center)
-    merge(2, 1, 4, f"Kèm theo Bảng kê mua lại tài sản số: {p.get('planning_bk_numbers') or '__________'} ngày {p.get('planning_sign_date')}", None, normal, center)
+    try:
+        transaction_date = datetime.strptime(
+            f"{p.get('nam')}-{p.get('thang')}-{p.get('ngay')}", "%Y-%m-%d"
+        )
+    except (TypeError, ValueError):
+        transaction_date = None
+    ws["G1"] = p.get("planning_bk_numbers") or ""
+    ws["G2"] = transaction_date
+    ws["G2"].number_format = "dd/mm/yyyy"
+    ws.column_dimensions["F"].hidden = True
+    ws.column_dimensions["G"].hidden = True
+
+    merge(1, 1, 5, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM", title_fill, title_font, center)
+    merge(2, 1, 5, '="Kèm theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', None, normal, center)
 
     section_rows = {
         3: "I. THÔNG TIN CÁC BÊN",
         10: "Thông tin tài khoản nhận tiền",
-        13: "II. GIÁ TRỊ THU ĐỔI VÀ PHƯƠNG ÁN NHẬN GIÁ TRỊ",
-        20: "III. ĐỊNH NGHĨA VÀ CÁCH XÁC ĐỊNH THỜI HẠN",
-        25: "IV. KẾ HOẠCH THANH TOÁN",
-        33: "V. HÌNH THỨC VÀ THÔNG TIN THANH TOÁN",
-        36: "VI. NGUYÊN TẮC THANH TOÁN",
-        43: "VII. XÁC NHẬN VÀ CAM KẾT CỦA BÊN BÁN",
+        13: "II. SẢN PHẨM THU ĐỔI, GIÁ TRỊ THU ĐỔI VÀ PHƯƠNG ÁN NHẬN GIÁ TRỊ",
+        21: "III. ĐỊNH NGHĨA VÀ CÁCH XÁC ĐỊNH THỜI HẠN",
+        26: "IV. KẾ HOẠCH THANH TOÁN",
+        34: "V. HÌNH THỨC VÀ THÔNG TIN THANH TOÁN",
+        37: "VI. NGUYÊN TẮC THANH TOÁN",
+        43: "VII. XÁC NHẬN VÀ CAM KẾT CỦA KHÁCH HÀNG",
         48: "VIII. CAM KẾT CỦA PNJ",
         52: "IX. HIỆU LỰC, THỨ TỰ ƯU TIÊN VÀ GIẢI QUYẾT PHÁT SINH",
-        58: "X. XÁC NHẬN CỦA CÁC BÊN",
+        57: "X. XÁC NHẬN CỦA CÁC BÊN",
     }
     for row, text in section_rows.items():
-        merge(row, 1, 4, text, section_fill, bold, left)
+        merge(row, 1, 5, text, section_fill, bold, left)
 
     rows = {
-        4: ["BÊN MUA", "CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (PNJ)", "BÊN BÁN", ""],
-        5: ["Địa chỉ", PAYMENT_PLANNING_PNJ_ADDRESS, "Họ và tên", p.get("ten_kh", "")],
-        6: ["Mã số doanh nghiệp", PAYMENT_PLANNING_TAX_CODE, "Số CCCD/Hộ chiếu", p.get("cccd", "")],
-        7: ["Đại diện/Người tiếp nhận", p.get("nguoi_ki_name", ""), "Ngày cấp/Nơi cấp", ""],
-        8: ["Cửa hàng/Đơn vị", PAYMENT_PLANNING_STORE_NAME, "Địa chỉ liên hệ", ""],
-        9: ["Điện thoại/Email PNJ", "", "", ""],
-        11: ["Chủ tài khoản", p.get("ten_tk") or p.get("ten_kh", ""), "Số tài khoản", p.get("so_tk", "")],
-        12: ["Ngân hàng", p.get("ngan_hang", ""), "Chi nhánh (nếu có)", ""],
-        14: ["Tổng giá trị thu đổi(VNĐ)", p.get("total_trade", 0), "", ""],
-        15: ["Bằng chữ", p.get("total_trade_words", ""), "", ""],
-        16: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3", "", ""],
-        17: ["Giá trị quy đổi sang sản phẩm PNJ (VNĐ)", p.get("product_conversion", 0), "", ""],
-        18: ["Giá trị nhận bằng tiền (VNĐ)", "=B14-B17", "", ""],
-        19: ["Nguyên tắc cấn trừ", "Giá trị quy đổi sang sản phẩm PNJ được cấn trừ trực tiếp vào giá mua sản phẩm PNJ thể hiện trên hóa đơn bán hàng tương ứng. Phần chênh lệch còn lại (nếu có) do Bên Bán thanh toán thêm hoặc được PNJ thanh toán theo thỏa thuận và chứng từ giao dịch.", "", ""],
-        21: ["Ngày T", "Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Phụ lục này; trường hợp các thời điểm trên khác nhau, Ngày T là ngày hoàn tất ký xác nhận sau cùng.\nVD: BKML ký ngày 1/7. Kế hoạch thanh toán ký ngày 2/7. Như vậy T là ngày 2/7", "", ""],
-        22: ["Ngày làm việc", "Là ngày từ thứ Hai đến thứ Sáu, không bao gồm ngày nghỉ hằng tuần, ngày nghỉ lễ, tết và ngày PNJ/ngân hàng phục vụ thanh toán không làm việc theo quy định hoặc thông báo hợp lệ.", "", ""],
-        23: ["Cách tính T+n", "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.", "", ""],
-        24: ["Hoàn tất thanh toán", "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là thực hiện khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản do Bên Bán xác nhận; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.", "", ""],
-        26: ["Đợt", "Thời điểm dự kiến", "Tỷ lệ", "Số tiền (VNĐ)"],
-        27: [1, "T+0/1", 0.1, "=ROUND($B$18*C27,0)"],
-        28: [2, "T+30", 0.2, "=ROUND($B$18*C28,0)"],
-        29: [3, "T+60", 0.25, "=ROUND($B$18*C29,0)"],
-        30: [4, "T+90", 0.25, "=ROUND($B$18*C30,0)"],
-        31: [5, "T+120", 0.2, "=$B$18-SUM(D27:D30)"],
-        32: ["Tổng", "", 1, "=SUM(D27:D31)"],
-        34: ["Hình thức", "☐ Chuyển khoản    ☐ Khác", "", ""],
-        35: ["Nội dung chuyển khoản", "", "", ""],
-        37: [1, "Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.", "", ""],
-        38: [2, "PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp chậm thanh toán do lỗi của PNJ, quyền và nghĩa vụ của các bên được xử lý theo thỏa thuận và quy định pháp luật áp dụng.", "", ""],
-        39: [3, "Bên Bán chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Bên Bán điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ. PNJ không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Bên Bán cung cấp, trừ phần lỗi thuộc PNJ.", "", ""],
-        40: [4, "Mọi sửa đổi, bổ sung kế hoạch thanh toán phải được lập thành văn bản hoặc thông điệp dữ liệu có thể truy cập, lưu trữ và xác định được sự chấp thuận của cả hai bên; nội dung sửa đổi là bộ phận của Phụ lục này.", "", ""],
-        41: [5, "Khi phát sinh sự kiện bất khả kháng hoặc trở ngại khách quan ảnh hưởng trực tiếp đến việc thanh toán, bên bị ảnh hưởng phải thông báo cho bên còn lại trong thời gian hợp lý, cung cấp thông tin cần thiết và phối hợp thống nhất phương án xử lý phù hợp pháp luật.", "", ""],
-        42: [6, "Các khoản phí do ngân hàng của Bên Bán thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.", "", ""],
-        44: [1, "Bên Bán xác nhận đã được PNJ giải thích đầy đủ về giá trị thu đổi, phương án nhận giá trị, nguyên tắc cấn trừ, lịch thanh toán, phương thức thanh toán và các thông tin cần thiết trước khi lựa chọn.", "", ""],
-        45: [2, "Bên Bán tự nguyện lựa chọn phương án nêu tại Phụ lục này; đã đọc, hiểu, có cơ hội đặt câu hỏi và nhận một bản Phụ lục sau khi ký.", "", ""],
-        46: [3, "Bên Bán cam kết thông tin nhận diện, liên hệ và tài khoản thanh toán cung cấp cho PNJ là chính xác, hợp pháp; thông báo kịp thời khi phát hiện sai sót hoặc thay đổi.", "", ""],
-        47: [4, "Bên Bán có trách nhiệm bảo mật thông tin giao dịch và dữ liệu cá nhân của bên khác mà mình tiếp cận; quy định này không hạn chế quyền cung cấp thông tin cho cơ quan nhà nước có thẩm quyền, luật sư, cố vấn, ngân hàng hoặc chủ thể khác theo yêu cầu pháp luật hoặc để bảo vệ quyền, lợi ích hợp pháp.", "", ""],
-        49: [1, "PNJ cam kết thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán theo quy trình áp dụng.", "", ""],
-        50: [2, "PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Bên Bán đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.", "", ""],
-        51: [3, "PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin và phản ánh liên quan đến việc thực hiện kế hoạch thanh toán.", "", ""],
-        53: [1, "Phụ lục này là bộ phận không tách rời của Bảng kê mua lại tài sản nêu tại phần đầu Phụ lục và có hiệu lực kể từ thời điểm đại diện hợp lệ của hai bên ký/xác nhận.", "", ""],
-        54: [2, "PNJ thực hiện nghĩa vụ thanh toán trên cơ sở hồ sơ giao dịch gồm Bảng kê mua lại tài sản, Phụ lục này và thông tin thanh toán hợp lệ. Việc thiếu bản giấy do Bên Bán lưu giữ không làm mất quyền yêu cầu thanh toán nếu PNJ có thể đối chiếu giao dịch trên hệ thống hoặc bằng chứng hợp pháp khác.", "", ""],
-        55: [3, "Nếu có khác biệt giữa Phụ lục này và Bảng kê mua lại tài sản về lịch, phương thức thanh toán thì nội dung cụ thể tại Phụ lục này được ưu tiên áp dụng; các nội dung khác thực hiện theo Bảng kê mua lại tài sản và pháp luật.", "", ""],
-        56: [4, "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.", "", ""],
-        57: [5, "Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản", "", ""],
-        59: [f"BÊN BÁN\nKhách Hàng\n(Ký, ghi rõ họ tên)\n\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN BÊN MUA/NGƯỜI ĐƯỢC ỦY QUYỀN\n{p.get('buyer_signature_title', '')}\n(Ký, ghi rõ họ tên, chức danh)\n\n\n\n{p.get('buyer_signature_name', '')}", ""],
-        60: [f"Ngày ký: {p.get('planning_sign_date')}", "", f"Ngày ký: {p.get('planning_sign_date')}", ""],
+        4: ["DOANH NGHIỆP", "CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (Sau đây gọi tắt là \"PNJ\")", "", "KHÁCH HÀNG", p.get("ma_kh", "")],
+        5: ["Địa chỉ", PAYMENT_PLANNING_PNJ_ADDRESS, "", "Họ và tên", p.get("ten_kh", "")],
+        6: ["Mã số doanh nghiệp", PAYMENT_PLANNING_TAX_CODE, "", "Số CCCD/Hộ chiếu", p.get("cccd", "")],
+        7: ["Đại diện/Người tiếp nhận", p.get("nguoi_ki_name", ""), "", "Ngày cấp/Nơi cấp", ""],
+        8: ["Cửa hàng/Đơn vị", PAYMENT_PLANNING_STORE_NAME, "", "Địa chỉ liên hệ", ""],
+        9: ["Điện thoại/Email PNJ", "", "", "Điện thoại/Email", ""],
+        11: ["Chủ tài khoản", p.get("ten_tk") or p.get("ten_kh", ""), "", "Số tài khoản", p.get("so_tk", "")],
+        12: ["Ngân hàng", p.get("ngan_hang", ""), "", "", ""],
+        14: ["Sản phẩm thu đổi", '="Khách Hàng đồng ý cho PNJ thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)&" theo phương án lựa chọn được ghi nhận tại Thoả Thuận này."', "", "", ""],
+        15: ["Tổng giá trị thu đổi (VNĐ)", p.get("total_trade", 0), "", "", ""],
+        16: ["Bằng chữ", p.get("total_trade_words", ""), "", "", ""],
+        17: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3\n(Chi tiết Phương án lựa chọn được đính kèm Thoả Thuận này)", "", "", ""],
+        18: ["Giá trị quy đổi sang sản phẩm PNJ (VNĐ)", p.get("product_conversion", 0), "", "", ""],
+        19: ["Giá trị nhận bằng tiền (VNĐ)", "=B15-B18", "", "", ""],
+        20: ["Nguyên tắc cấn trừ", "Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:\n1. Phần Giá trị quy đổi sang sản phẩm PNJ (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm PNJ theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;\n2. Phần Giá trị nhận bằng tiền (nếu có) được PNJ thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;\n3. Trường hợp sau khi cấn trừ, Giá trị quy đổi sang sản phẩm PNJ thấp hơn giá thanh toán của sản phẩm PNJ, Khách Hàng có trách nhiệm thanh toán cho PNJ phần chênh lệch còn thiếu.", "", "", ""],
+        22: ["Ngày T", "Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Thoả Thuận này; Trường hợp các sự kiện này phát sinh vào các thời điểm khác nhau, Ngày T được xác định là ngày hoàn thành sự kiện cuối cùng.\nVD: BKML ký ngày 1/7, Thoả thuận thu đổi sản phẩm ký ngày 2/7, Tiếp nhận tài sản ngày 3/7. Như vậy T là ngày 3/7", "", "", ""],
+        23: ["Ngày làm việc", "Là ngày từ thứ Hai đến thứ Sáu, không bao gồm ngày nghỉ hằng tuần, ngày nghỉ lễ, tết và ngày PNJ/ngân hàng phục vụ thanh toán không làm việc theo quy định hoặc thông báo hợp lệ.", "", "", ""],
+        24: ["Cách tính T+n", "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.", "", "", ""],
+        25: ["Hoàn tất thanh toán", "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là hoàn tất khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản nhận tiền của Khách Hàng ở phần đầu Thoả Thuận này; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.", "", "", ""],
+        27: ["Đợt", "Thời điểm dự kiến", "Ngày dự kiến", "Tỷ lệ", "Số tiền (VNĐ)"],
+        28: [1, "T/T+1", "=G2", 0.1, "=ROUND($B$19*D28,0)"],
+        29: [2, "T+30", "=$C$28+30", 0.2, "=ROUND($B$19*D29,0)"],
+        30: [3, "T+60", "=$C$28+60", 0.25, "=ROUND($B$19*D30,0)"],
+        31: [4, "T+90", "=$C$28+90", 0.25, "=ROUND($B$19*D31,0)"],
+        32: [5, "T+120", "=$C$28+120", 0.2, "=B19-SUM(E28:E31)"],
+        33: ["Tổng", "", "", 1, "=SUM(E28:E32)"],
+        35: ["Hình thức", "☐ Chuyển khoản    ☐ Khác", "", "", ""],
+        36: ["Nội dung chuyển khoản", "", "", "", ""],
+        38: [1, "Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.", "", "", ""],
+        39: [2, "PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp PNJ chậm thanh toán do lỗi của mình, trong trường hợp Khách Hàng yêu cầu lãi chậm thanh toán, PNJ phải thanh toán cho Khách Hàng khoản lãi chậm thanh toán bằng 0,01%/ngày, tính trên số tiền chậm thanh toán và tương ứng với thời gian chậm thanh toán thực tế.", "", "", ""],
+        40: [3, "Khách Hàng chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Khách Hàng điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ.\nPNJ không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Khách Hàng cung cấp.", "", "", ""],
+        41: [4, "Mọi sửa đổi, bổ sung của Thoả Thuận này phải được lập thành văn bản.", "", "", ""],
+        42: [5, "Các khoản phí do ngân hàng của Khách Hàng thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.", "", "", ""],
+        44: [1, "Khách Hàng xác nhận đã được PNJ giải thích đầy đủ về phương án lựa chọn, giá trị thu đổi, nguyên tắc cấn trừ, kế hoạch thanh toán, phương thức thanh toán và các thông tin khác liên quan tới Thoả Thuận này trước khi ký kết.", "", "", ""],
+        45: [2, "Khách Hàng tự nguyện lựa chọn phương án nêu tại Thoả Thuận này; đã đọc, hiểu rõ và nhận một bản Thoả Thuận sau khi ký.", "", "", ""],
+        46: [3, "Khách Hàng cam kết thông tin cá nhân, liên hệ và tài khoản nhận thanh toán cung cấp cho PNJ là chính xác, hợp pháp.", "", "", ""],
+        47: [4, "Bảo mật các thông tin liên quan tới Thoả Thuận này.", "", "", ""],
+        49: [1, "PNJ cam kết bàn giao sản phẩm quy đổi của PNJ, thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán nếu Khách Hàng yêu cầu.", "", "", ""],
+        50: [2, "PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Khách Hàng đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.", "", "", ""],
+        51: [3, "PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin phản ánh liên quan việc thực hiện kế hoạch thanh toán.", "", "", ""],
+        53: [1, "Thoả thuận này có hiệu lực từ ngày ký.", "", "", ""],
+        54: [2, "Trường hợp có sự khác biệt giữa Thỏa thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc các nội dung được điều chỉnh tại Thỏa thuận này, Thỏa thuận này được ưu tiên áp dụng.", "", "", ""],
+        55: [3, "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.", "", "", ""],
+        56: [4, "Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản", "", "", ""],
+        58: [f"Khách Hàng\n(Ký, ghi rõ họ tên)\n\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN\n(Ký, ghi rõ họ tên, chức danh)\n\n\n\n{p.get('buyer_signature_name', '')}", "", ""],
+        59: ['=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", '=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", ""],
     }
 
-    merge_rows = {19, 21, 22, 23, 24, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56, 57}
-    for row in range(4, 61):
+    merge_rows = {14, 16, 17, 20, 22, 23, 24, 25, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56}
+    for row in range(4, 60):
         if row in section_rows:
             continue
-        values = rows.get(row, ["", "", "", ""])
-        set_row(row, values, {2: input_fill if row in {7, 8, 12, 16, 35} else None, 4: input_fill if row in {7, 8, 12} else None})
+        values = rows.get(row, ["", "", "", "", ""])
+        set_row(row, values, {2: input_fill if row in {7, 8, 12, 17, 35} else None, 5: input_fill if row in {7, 8} else None})
         if row in merge_rows:
-            ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=4)
-            for col in range(2, 5):
+            ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=5)
+            for col in range(2, 6):
                 ws.cell(row=row, column=col).border = border
 
-    for row in (26, 32):
-        for col in range(1, 5):
+    for row in (27, 33):
+        for col in range(1, 6):
             ws.cell(row=row, column=col).fill = header_fill
             ws.cell(row=row, column=col).font = bold
             ws.cell(row=row, column=col).alignment = center
 
-    for row in range(27, 32):
+    for row in range(28, 33):
         ws.cell(row=row, column=1).alignment = center
         ws.cell(row=row, column=2).alignment = center
         ws.cell(row=row, column=3).alignment = center
-        ws.cell(row=row, column=4).alignment = right
+        ws.cell(row=row, column=4).alignment = center
+        ws.cell(row=row, column=5).alignment = right
 
-    for row in list(range(37, 43)) + list(range(44, 48)) + list(range(49, 52)) + list(range(53, 58)):
+    for row in list(range(38, 43)) + list(range(44, 48)) + list(range(49, 52)) + list(range(53, 57)):
         ws.cell(row=row, column=1).alignment = center
 
-    for row in (14, 17, 18, 27, 28, 29, 30, 31, 32):
-        ws.cell(row=row, column=4 if row >= 27 else 2).number_format = '#,##0'
-    for row in (27, 28, 29, 30, 31, 32):
-        ws.cell(row=row, column=3).number_format = '0%'
-    for row in (59, 60):
+    for row in (15, 18, 19, 28, 29, 30, 31, 32, 33):
+        ws.cell(row=row, column=5 if row >= 28 else 2).number_format = '#,##0'
+    for row in (28, 29, 30, 31, 32, 33):
+        ws.cell(row=row, column=4).number_format = '0%'
+    for row in (28, 29, 30, 31, 32):
+        ws.cell(row=row, column=3).number_format = 'dd/mm/yyyy'
+    for row in (58, 59):
         ws.cell(row=row, column=1).alignment = center
         ws.cell(row=row, column=3).alignment = center
         ws.cell(row=row, column=1).font = bold
         ws.cell(row=row, column=3).font = bold
+    ws.merge_cells("A58:B58")
+    ws.merge_cells("C58:E58")
     ws.merge_cells("A59:B59")
-    ws.merge_cells("C59:D59")
-    ws.merge_cells("A60:B60")
-    ws.merge_cells("C60:D60")
+    ws.merge_cells("C59:E59")
 
-    for row in range(1, 61):
+    for row in range(1, 60):
         ws.row_dimensions[row].height = 18
-    for row in (19, 21, 22, 23, 24, 37, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56):
+    for row in (14, 20, 22, 23, 24, 25, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56):
         ws.row_dimensions[row].height = 42
-    ws.row_dimensions[59].height = 104
+    ws.row_dimensions[58].height = 104
 
-    ws.print_area = "A1:D60"
+    ws.print_area = "A1:E59"
     ws.page_setup.orientation = "portrait"
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0

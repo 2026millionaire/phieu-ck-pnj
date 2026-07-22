@@ -160,7 +160,7 @@
     </div>
 
     <div class="doc">
-        <div class="title">Phụ lục số 01: Kế hoạch thanh toán giá trị thu đổi</div>
+        <div class="title">Phụ lục số 01: Thoả thuận thu đổi sản phẩm</div>
         <div class="subtitle">Kèm theo Bảng kê mua lại tài sản số: <strong>{{ p.planning_bk_numbers }}</strong> ngày {{ p.planning_sign_date }}</div>
 
         <table>
@@ -172,9 +172,9 @@
             </colgroup>
             <tr><td colspan="4" class="section">I. Thông tin các bên</td></tr>
             <tr>
-                <td class="label">BÊN MUA</td>
-                <td class="value">CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (PNJ)</td>
-                <td class="label">BÊN BÁN</td>
+                <td class="label">DOANH NGHIỆP</td>
+                <td class="value">CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (Sau đây gọi tắt là "PNJ")</td>
+                <td class="label">KHÁCH HÀNG</td>
                 <td></td>
             </tr>
             <tr>
@@ -205,7 +205,7 @@
                 <td class="label">Điện thoại/Email PNJ</td>
                 <td colspan="3"></td>
             </tr>
-            <tr><td colspan="4" class="subsection">Thông tin tài khoản nhận tiền</td></tr>
+            <tr><td colspan="4" class="subsection">Thông tin tài khoản nhận tiền của Khách Hàng</td></tr>
             <tr>
                 <td class="label">Chủ tài khoản</td>
                 <td>{{ p.ten_tk or p.ten_kh }}</td>
@@ -214,12 +214,14 @@
             </tr>
             <tr>
                 <td class="label">Ngân hàng</td>
-                <td>{{ p.ngan_hang }}</td>
-                <td class="label">Chi nhánh (nếu có)</td>
-                <td></td>
+                <td colspan="3">{{ p.ngan_hang }}</td>
             </tr>
 
-            <tr><td colspan="4" class="section">II. Giá trị thu đổi và phương án nhận giá trị</td></tr>
+            <tr><td colspan="4" class="section">II. Sản phẩm thu đổi, giá trị thu đổi và phương án nhận giá trị</td></tr>
+            <tr>
+                <td class="label">Sản phẩm thu đổi</td>
+                <td colspan="3">Khách Hàng đồng ý cho PNJ thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: {{ p.planning_bk_numbers }} ngày {{ p.planning_sign_date }} theo phương án lựa chọn được ghi nhận tại Thoả Thuận này.</td>
+            </tr>
             <tr>
                 <td class="label">Tổng giá trị thu đổi(VNĐ)</td>
                 <td class="money">{{ "{:,.0f}".format(p.total_trade | float) }}</td>
@@ -231,7 +233,7 @@
             </tr>
             <tr>
                 <td class="label">Phương án lựa chọn</td>
-                <td colspan="3">☐ Phương án 1 &nbsp;&nbsp; ☐ Phương án 2 &nbsp;&nbsp; ☐ Phương án 3</td>
+                <td colspan="3">☐ Phương án 1 &nbsp;&nbsp; ☐ Phương án 2 &nbsp;&nbsp; ☐ Phương án 3<br>(Chi tiết Phương án lựa chọn được đính kèm Thoả Thuận này)</td>
             </tr>
             <tr>
                 <td class="label">Giá trị quy đổi sang sản phẩm PNJ (VNĐ)</td>
@@ -245,13 +247,13 @@
             </tr>
             <tr>
                 <td class="label">Nguyên tắc cấn trừ</td>
-                <td colspan="3">Giá trị quy đổi sang sản phẩm PNJ được cấn trừ trực tiếp vào giá mua sản phẩm PNJ thể hiện trên hóa đơn bán hàng tương ứng. Phần chênh lệch còn lại (nếu có) do Bên Bán thanh toán thêm hoặc được PNJ thanh toán theo thỏa thuận và chứng từ giao dịch.</td>
+                <td colspan="3">Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:<br>1. Phần Giá trị quy đổi sang sản phẩm PNJ (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm PNJ theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;<br>2. Phần Giá trị nhận bằng tiền (nếu có) được PNJ thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;<br>3. Trường hợp sau khi cấn trừ, Giá trị quy đổi sang sản phẩm PNJ thấp hơn giá thanh toán của sản phẩm PNJ, Khách Hàng có trách nhiệm thanh toán cho PNJ phần chênh lệch còn thiếu.</td>
             </tr>
 
             <tr><td colspan="4" class="section">III. Định nghĩa và cách xác định thời hạn</td></tr>
             <tr>
                 <td class="label">Ngày T</td>
-                <td colspan="3">Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Phụ lục này; trường hợp các thời điểm trên khác nhau, Ngày T là ngày hoàn tất ký xác nhận sau cùng.<br>VD: BKML ký ngày 1/7. Kế hoạch thanh toán ký ngày 2/7. Như vậy T là ngày 2/7</td>
+                <td colspan="3">Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Thoả Thuận này; Trường hợp các sự kiện này phát sinh vào các thời điểm khác nhau, Ngày T được xác định là ngày hoàn thành sự kiện cuối cùng.<br>VD: BKML ký ngày 1/7, Thoả thuận thu đổi sản phẩm ký ngày 2/7, Tiếp nhận tài sản ngày 3/7. Như vậy T là ngày 3/7</td>
             </tr>
             <tr>
                 <td class="label">Ngày làm việc</td>
@@ -263,34 +265,38 @@
             </tr>
             <tr>
                 <td class="label">Hoàn tất thanh toán</td>
-                <td colspan="3">Đối với chuyển khoản, nghĩa vụ thanh toán được xem là thực hiện khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản do Bên Bán xác nhận; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.</td>
+                <td colspan="3">Đối với chuyển khoản, nghĩa vụ thanh toán được xem là hoàn tất khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản nhận tiền của Khách Hàng ở phần đầu Thoả Thuận này; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.</td>
             </tr>
         </table>
 
         <table class="schedule">
             <colgroup>
-                <col style="width: 19%;">
-                <col style="width: 31%;">
-                <col style="width: 18%;">
-                <col style="width: 32%;">
+                <col style="width: 12%;">
+                <col style="width: 24%;">
+                <col style="width: 22%;">
+                <col style="width: 14%;">
+                <col style="width: 28%;">
             </colgroup>
-            <tr><td colspan="4" class="section">IV. Kế hoạch thanh toán</td></tr>
+            <tr><td colspan="5" class="section">IV. Kế hoạch thanh toán</td></tr>
             <tr>
                 <th>Đợt</th>
                 <th>Thời điểm dự kiến</th>
+                <th>Ngày dự kiến</th>
                 <th>Tỷ lệ</th>
                 <th>Số tiền (VNĐ)</th>
             </tr>
-            {% for item in p.payment_schedule %}
+            {% for item in p.planning_schedule %}
             <tr>
                 <td>{{ loop.index }}</td>
                 <td>{{ item.label }}</td>
+                <td>{{ item.date }}</td>
                 <td>{{ item.percent }}%</td>
                 <td class="money">{{ "{:,.0f}".format(item.amount | float) }}</td>
             </tr>
             {% endfor %}
             <tr>
                 <td><strong>Tổng</strong></td>
+                <td></td>
                 <td></td>
                 <td><strong>100%</strong></td>
                 <td class="money"><strong>{{ "{:,.0f}".format(p.cash_amount | float) }}</strong></td>
@@ -316,42 +322,38 @@
 
             <tr><td colspan="4" class="section">VI. Nguyên tắc thanh toán</td></tr>
             <tr><td class="stt">1</td><td colspan="3">Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.</td></tr>
-            <tr><td class="stt">2</td><td colspan="3">PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp chậm thanh toán do lỗi của PNJ, quyền và nghĩa vụ của các bên được xử lý theo thỏa thuận và quy định pháp luật áp dụng.</td></tr>
-            <tr><td class="stt">3</td><td colspan="3">Bên Bán chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Bên Bán điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ. PNJ không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Bên Bán cung cấp, trừ phần lỗi thuộc PNJ.</td></tr>
-            <tr><td class="stt">4</td><td colspan="3">Mọi sửa đổi, bổ sung kế hoạch thanh toán phải được lập thành văn bản hoặc thông điệp dữ liệu có thể truy cập, lưu trữ và xác định được sự chấp thuận của cả hai bên; nội dung sửa đổi là bộ phận của Phụ lục này.</td></tr>
-            <tr><td class="stt">5</td><td colspan="3">Khi phát sinh sự kiện bất khả kháng hoặc trở ngại khách quan ảnh hưởng trực tiếp đến việc thanh toán, bên bị ảnh hưởng phải thông báo cho bên còn lại trong thời gian hợp lý, cung cấp thông tin cần thiết và phối hợp thống nhất phương án xử lý phù hợp pháp luật.</td></tr>
-            <tr><td class="stt">6</td><td colspan="3">Các khoản phí do ngân hàng của Bên Bán thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp PNJ chậm thanh toán do lỗi của mình, trong trường hợp Khách Hàng yêu cầu lãi chậm thanh toán, PNJ phải thanh toán cho Khách Hàng khoản lãi chậm thanh toán bằng 0,01%/ngày, tính trên số tiền chậm thanh toán và tương ứng với thời gian chậm thanh toán thực tế.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">Khách Hàng chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Khách Hàng điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ.<br>PNJ không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Khách Hàng cung cấp.</td></tr>
+            <tr><td class="stt">4</td><td colspan="3">Mọi sửa đổi, bổ sung của Thoả Thuận này phải được lập thành văn bản.</td></tr>
+            <tr><td class="stt">5</td><td colspan="3">Các khoản phí do ngân hàng của Khách Hàng thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.</td></tr>
 
-            <tr><td colspan="4" class="section">VII. Xác nhận và cam kết của Bên Bán</td></tr>
-            <tr><td class="stt">1</td><td colspan="3">Bên Bán xác nhận đã được PNJ giải thích đầy đủ về giá trị thu đổi, phương án nhận giá trị, nguyên tắc cấn trừ, lịch thanh toán, phương thức thanh toán và các thông tin cần thiết trước khi lựa chọn.</td></tr>
-            <tr><td class="stt">2</td><td colspan="3">Bên Bán tự nguyện lựa chọn phương án nêu tại Phụ lục này; đã đọc, hiểu, có cơ hội đặt câu hỏi và nhận một bản Phụ lục sau khi ký.</td></tr>
-            <tr><td class="stt">3</td><td colspan="3">Bên Bán cam kết thông tin nhận diện, liên hệ và tài khoản thanh toán cung cấp cho PNJ là chính xác, hợp pháp; thông báo kịp thời khi phát hiện sai sót hoặc thay đổi.</td></tr>
-            <tr><td class="stt">4</td><td colspan="3">Bên Bán có trách nhiệm bảo mật thông tin giao dịch và dữ liệu cá nhân của bên khác mà mình tiếp cận; quy định này không hạn chế quyền cung cấp thông tin cho cơ quan nhà nước có thẩm quyền, luật sư, cố vấn, ngân hàng hoặc chủ thể khác theo yêu cầu pháp luật hoặc để bảo vệ quyền, lợi ích hợp pháp.</td></tr>
+            <tr><td colspan="4" class="section">VII. Xác nhận và cam kết của Khách Hàng</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">Khách Hàng xác nhận đã được PNJ giải thích đầy đủ về phương án lựa chọn, giá trị thu đổi, nguyên tắc cấn trừ, kế hoạch thanh toán, phương thức thanh toán và các thông tin khác liên quan tới Thoả Thuận này trước khi ký kết.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">Khách Hàng tự nguyện lựa chọn phương án nêu tại Thoả Thuận này; đã đọc, hiểu rõ và nhận một bản Thoả Thuận sau khi ký.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">Khách Hàng cam kết thông tin cá nhân, liên hệ và tài khoản nhận thanh toán cung cấp cho PNJ là chính xác, hợp pháp.</td></tr>
+            <tr><td class="stt">4</td><td colspan="3">Bảo mật các thông tin liên quan tới Thoả Thuận này.</td></tr>
 
             <tr><td colspan="4" class="section">VIII. Cam kết của PNJ</td></tr>
-            <tr><td class="stt">1</td><td colspan="3">PNJ cam kết thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán theo quy trình áp dụng.</td></tr>
-            <tr><td class="stt">2</td><td colspan="3">PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Bên Bán đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.</td></tr>
-            <tr><td class="stt">3</td><td colspan="3">PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin và phản ánh liên quan đến việc thực hiện kế hoạch thanh toán.</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">PNJ cam kết bàn giao sản phẩm quy đổi của PNJ, thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán nếu Khách Hàng yêu cầu.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Khách Hàng đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin phản ánh liên quan việc thực hiện kế hoạch thanh toán.</td></tr>
 
             <tr><td colspan="4" class="section">IX. Hiệu lực, thứ tự ưu tiên và giải quyết phát sinh</td></tr>
-            <tr><td class="stt">1</td><td colspan="3">Phụ lục này là bộ phận không tách rời của Bảng kê mua lại tài sản nêu tại phần đầu Phụ lục và có hiệu lực kể từ thời điểm đại diện hợp lệ của hai bên ký/xác nhận.</td></tr>
-            <tr><td class="stt">2</td><td colspan="3">PNJ thực hiện nghĩa vụ thanh toán trên cơ sở hồ sơ giao dịch gồm Bảng kê mua lại tài sản, Phụ lục này và thông tin thanh toán hợp lệ. Việc thiếu bản giấy do Bên Bán lưu giữ không làm mất quyền yêu cầu thanh toán nếu PNJ có thể đối chiếu giao dịch trên hệ thống hoặc bằng chứng hợp pháp khác.</td></tr>
-            <tr><td class="stt">3</td><td colspan="3">Nếu có khác biệt giữa Phụ lục này và Bảng kê mua lại tài sản về lịch, phương thức thanh toán thì nội dung cụ thể tại Phụ lục này được ưu tiên áp dụng; các nội dung khác thực hiện theo Bảng kê mua lại tài sản và pháp luật.</td></tr>
-            <tr><td class="stt">4</td><td colspan="3">Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.</td></tr>
-            <tr><td class="stt">5</td><td colspan="3">Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản</td></tr>
+            <tr><td class="stt">1</td><td colspan="3">Thoả thuận này có hiệu lực từ ngày ký.</td></tr>
+            <tr><td class="stt">2</td><td colspan="3">Trường hợp có sự khác biệt giữa Thỏa thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc các nội dung được điều chỉnh tại Thỏa thuận này, Thỏa thuận này được ưu tiên áp dụng.</td></tr>
+            <tr><td class="stt">3</td><td colspan="3">Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.</td></tr>
+            <tr><td class="stt">4</td><td colspan="3">Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản</td></tr>
 
             <tr><td colspan="4" class="section">X. Xác nhận của các bên</td></tr>
             <tr class="signature">
                 <td colspan="2">
-                    BÊN BÁN<br>
-                    <span>Khách Hàng</span><br>
+                    Khách Hàng<br>
                     <span>(Ký, ghi rõ họ tên)</span>
                     <div class="sign-space"><br><br><br></div>
                     <div class="sign-name">{{ p.seller_signature_name }}</div>
                 </td>
                 <td colspan="2">
-                    ĐẠI DIỆN BÊN MUA/NGƯỜI ĐƯỢC ỦY QUYỀN<br>
-                    <div class="sign-title">{{ p.buyer_signature_title }}</div>
+                    ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN<br>
                     <span>(Ký, ghi rõ họ tên, chức danh)</span>
                     <div class="sign-space"><br><br><br></div>
                     <div class="sign-name">{{ p.buyer_signature_name }}</div>
