@@ -368,7 +368,8 @@ def init_db():
             nguoi_ki        TEXT DEFAULT 'tvv',
             da_trinh        INTEGER DEFAULT 0,
             sap_document_override TEXT DEFAULT '',
-            use_bk_ref      INTEGER DEFAULT 0
+            use_bk_ref      INTEGER DEFAULT 0,
+            show_payment_dates INTEGER DEFAULT 0
         )
     """)
     # Add columns if missing (for existing DBs)
@@ -379,6 +380,7 @@ def init_db():
         ("sap_document_override", "TEXT", "''"),
         ("dia_chi", "TEXT", "''"),
         ("use_bk_ref", "INTEGER", "0"),
+        ("show_payment_dates", "INTEGER", "0"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -686,6 +688,7 @@ PAYMENT_SCHEDULE_RATES = (
     ("T+90", 25),
     ("T+120", 20),
 )
+PAYMENT_SCHEDULE_DATE_OFFSETS = (1, 30, 60, 90, 120)
 
 
 def build_payment_schedule(total_amount):
@@ -703,6 +706,19 @@ def build_payment_schedule(total_amount):
             "amount": amount,
         })
     return schedule
+
+
+def payment_planning_base_date(p):
+    """Return the date used as T for Payment Planning, based on the phieu date."""
+    try:
+        return datetime.strptime(
+            f"{p.get('nam')}-{p.get('thang')}-{p.get('ngay')}", "%Y-%m-%d"
+        ).date()
+    except (TypeError, ValueError):
+        try:
+            return datetime.strptime(str(p.get("created_at") or "")[:10], "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
 
 
 def payment_planning_amounts(chung_tu_list, cash_amount):
@@ -751,11 +767,16 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_pnj_contact"] = PAYMENT_PLANNING_PNJ_CONTACT
     p["planning_bk_numbers"] = ",".join(bk_numbers) or p.get("so_bk") or "__________"
     p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
+    p["show_payment_dates"] = 1 if int(p.get("show_payment_dates") or 0) else 0
+    base_date = payment_planning_base_date(p) if p["show_payment_dates"] else None
     planning_schedule = []
-    for item in build_payment_schedule(amounts["cash_amount"]):
+    for index, item in enumerate(build_payment_schedule(amounts["cash_amount"])):
+        due_date = ""
+        if base_date and index < len(PAYMENT_SCHEDULE_DATE_OFFSETS):
+            due_date = (base_date + timedelta(days=PAYMENT_SCHEDULE_DATE_OFFSETS[index])).strftime("%d/%m/%Y")
         planning_schedule.append({
             **item,
-            "date": "",
+            "date": due_date,
         })
     p["planning_schedule"] = planning_schedule
     p["payment_method_label"] = "☐ Chuyển khoản    ☐ Khác"
@@ -3266,6 +3287,7 @@ def api_save():
     dia_chi = str(data.get("dia_chi", "") or "").strip()
     so_bk = remove_all_whitespace(data.get("so_bk", ""))
     use_bk_ref = 1 if data.get("use_bk_ref") else 0
+    show_payment_dates = 1 if data.get("show_payment_dates") else 0
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
@@ -3313,7 +3335,8 @@ def api_save():
                 qr_url = ?,
                 noi_dung = ?,
                 nguoi_ki = ?,
-                use_bk_ref = ?
+                use_bk_ref = ?,
+                show_payment_dates = ?
             WHERE id = ?
         """, (
             created_at,
@@ -3338,6 +3361,7 @@ def api_save():
             noi_dung,
             nguoi_ki,
             use_bk_ref,
+            show_payment_dates,
             target_phieu_id,
         ))
         db.commit()
@@ -3381,8 +3405,8 @@ def api_save():
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
              chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
-             user_id, use_bk_ref)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             user_id, use_bk_ref, show_payment_dates)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         ma_kh,
@@ -3407,6 +3431,7 @@ def api_save():
         nguoi_ki,
         user_id,
         use_bk_ref,
+        show_payment_dates,
     ))
     db.commit()
     new_id = cursor.lastrowid
@@ -4133,6 +4158,11 @@ def make_payment_planning_xlsx(p):
     for row, text in section_rows.items():
         merge(row, 1, 5, text, section_fill, bold, left)
 
+    schedule = p.get("planning_schedule") or []
+    schedule_dates = [
+        schedule[index].get("date", "") if index < len(schedule) else ""
+        for index in range(5)
+    ]
     rows = {
         4: ["DOANH NGHIỆP", "CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (Sau đây gọi tắt là \"PNJ\")", "", "KHÁCH HÀNG", p.get("ma_kh", "")],
         5: ["Địa chỉ", PAYMENT_PLANNING_PNJ_ADDRESS, "", "Họ và tên", p.get("ten_kh", "")],
@@ -4154,11 +4184,11 @@ def make_payment_planning_xlsx(p):
         24: ["Cách tính T+n", "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.", "", "", ""],
         25: ["Hoàn tất thanh toán", "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là hoàn tất khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản nhận tiền của Khách Hàng ở phần đầu Thoả Thuận này; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.", "", "", ""],
         27: ["Đợt", "Thời điểm dự kiến", "Ngày dự kiến", "Tỷ lệ", "Số tiền (VNĐ)"],
-        28: [1, "T/T+1", "", 0.1, "=ROUND($B$19*D28,0)"],
-        29: [2, "T+30", "", 0.2, "=ROUND($B$19*D29,0)"],
-        30: [3, "T+60", "", 0.25, "=ROUND($B$19*D30,0)"],
-        31: [4, "T+90", "", 0.25, "=ROUND($B$19*D31,0)"],
-        32: [5, "T+120", "", 0.2, "=B19-SUM(E28:E31)"],
+        28: [1, "T/T+1", schedule_dates[0], 0.1, "=ROUND($B$19*D28,0)"],
+        29: [2, "T+30", schedule_dates[1], 0.2, "=ROUND($B$19*D29,0)"],
+        30: [3, "T+60", schedule_dates[2], 0.25, "=ROUND($B$19*D30,0)"],
+        31: [4, "T+90", schedule_dates[3], 0.25, "=ROUND($B$19*D31,0)"],
+        32: [5, "T+120", schedule_dates[4], 0.2, "=B19-SUM(E28:E31)"],
         33: ["Tổng", "", "", 1, "=SUM(E28:E32)"],
         35: ["Hình thức", "☐ Chuyển khoản    ☐ Khác", "", "", ""],
         36: ["Nội dung chuyển khoản", "", "", "", ""],

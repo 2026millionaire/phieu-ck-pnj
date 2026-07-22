@@ -431,14 +431,33 @@ class EofficeQt82Tests(unittest.TestCase):
         manual_sheet = manual_workbook["Payment Planning"]
         self.assertEqual(manual_sheet["G1"].value, "000551/07_1305,000552/07_1305")
 
+        dated_payload = {**payload, "force_create": True, "show_payment_dates": True, "so_bk": "4403000888"}
+        dated = self.client.post("/api/save", json=dated_payload).get_json()
+        dated_id = dated["id"]
+        self.assertEqual(self.client.get(f"/api/phieu/{dated_id}").get_json()["phieu"]["show_payment_dates"], 1)
+
+        dated_html = self.client.get(f"/api/payment-planning/{dated_id}").get_data(as_text=True)
+        for expected_date in ("22/07/2026", "20/08/2026", "19/09/2026", "19/10/2026", "18/11/2026"):
+            self.assertIn(f"<td>{expected_date}</td>", dated_html)
+
+        dated_xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{dated_id}")
+        self.assertEqual(dated_xlsx_response.status_code, 200)
+        dated_workbook = load_workbook(io.BytesIO(dated_xlsx_response.data), data_only=False)
+        dated_sheet = dated_workbook["Payment Planning"]
+        self.assertEqual(dated_sheet["C28"].value, "22/07/2026")
+        self.assertEqual(dated_sheet["C29"].value, "20/08/2026")
+        self.assertEqual(dated_sheet["C32"].value, "18/11/2026")
+
     def test_bk_create_and_history_have_payment_planning_actions(self):
         self.login(role="admin")
         index_html = self.client.get("/").get_data(as_text=True)
         self.assertIn('id="btnCopyPhieu"', index_html)
         self.assertIn('id="useBkRef"', index_html)
+        self.assertIn('id="showPaymentDates"', index_html)
         self.assertIn('id="sapTable"', index_html)
         self.assertIn("sap-bk-ref-cell", index_html)
         self.assertIn("use_bk_ref: useBkRefEnabled()", index_html)
+        self.assertIn("show_payment_dates: showPaymentDatesEnabled()", index_html)
         self.assertIn("classList.toggle('use-bk-ref'", index_html)
         self.assertIn("download-planning-pdf", index_html)
         self.assertIn("download-planning-xlsx", index_html)

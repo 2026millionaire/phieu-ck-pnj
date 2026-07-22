@@ -874,11 +874,17 @@ textarea#sap_data {
 
             <!-- 3. Thông tin giao dịch -->
             <div class="card mb-3">
-                <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2">
+                <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2 flex-wrap">
                     <span><i class="bi bi-receipt"></i> 3. Thông tin giao dịch</span>
-                    <div class="form-check form-switch m-0 small">
-                        <input class="form-check-input" type="checkbox" id="useBkRef">
-                        <label class="form-check-label" for="useBkRef">Dùng Số hiệu BK</label>
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <div class="form-check form-switch m-0 small">
+                            <input class="form-check-input" type="checkbox" id="useBkRef">
+                            <label class="form-check-label" for="useBkRef">Dùng Số hiệu BK</label>
+                        </div>
+                        <div class="form-check form-switch m-0 small">
+                            <input class="form-check-input" type="checkbox" id="showPaymentDates">
+                            <label class="form-check-label" for="showPaymentDates">Hiển thị ngày dự kiến TT</label>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -2330,6 +2336,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return Boolean(checkbox && checkbox.checked);
     }
 
+    function showPaymentDatesEnabled() {
+        const checkbox = document.getElementById('showPaymentDates');
+        return Boolean(checkbox && checkbox.checked);
+    }
+
     function applyBkRefTableClass() {
         const table = document.getElementById('sapTable');
         if (table) table.classList.toggle('use-bk-ref', useBkRefEnabled());
@@ -2948,6 +2959,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: soBkValue,
             use_bk_ref: useBkRefEnabled(),
+            show_payment_dates: showPaymentDatesEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -3152,6 +3164,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: document.getElementById('so_bk').value.trim(),
             use_bk_ref: useBkRefEnabled(),
+            show_payment_dates: showPaymentDatesEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -3253,6 +3266,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('bank_search').value = p.ngan_hang || '';
                 document.getElementById('so_bk').value = p.so_bk || '';
                 document.getElementById('useBkRef').checked = Boolean(Number(p.use_bk_ref || 0));
+                document.getElementById('showPaymentDates').checked = Boolean(Number(p.show_payment_dates || 0));
                 document.getElementById('tvv_code').value = p.tvv_code || '';
                 document.getElementById('tvv_name').value = p.tvv_name || '';
                 document.getElementById('tvv_search').value = p.tvv_code ? (p.tvv_code + ' - ' + (p.tvv_name || '')) : (p.tvv_name || '');
@@ -3285,6 +3299,7 @@ document.addEventListener('DOMContentLoaded', function() {
             clearBank();
             clearTvv(false);
             document.getElementById('useBkRef').checked = false;
+            document.getElementById('showPaymentDates').checked = false;
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
             sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
