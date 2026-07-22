@@ -185,8 +185,8 @@
 <body>
     <div class="no-print">
         <button onclick="window.print()">In phụ lục</button>
-        <a href="{{ url_for('api_payment_planning_pdf', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải PDF</a>
-        <a class="xlsx" href="{{ url_for('api_payment_planning_xlsx', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải Excel</a>
+        <a href="{{ url_for('api_payment_planning_pdf', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải thoả thuận PDF</a>
+        <a class="xlsx" href="{{ url_for('api_payment_planning_xlsx', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải thoả thuận Excel</a>
     </div>
 
     <div class="doc">

@@ -1002,8 +1002,8 @@ textarea#sap_data {
                         <i class="bi bi-download"></i> Tải xuống
                     </button>
                     <ul class="dropdown-menu">
-                        <li><button type="button" class="dropdown-item final-action" data-action="download-planning-pdf"><i class="bi bi-file-earmark-pdf"></i> Kế hoạch thanh toán (pdf)</button></li>
-                        <li><button type="button" class="dropdown-item final-action" data-action="download-planning-xlsx"><i class="bi bi-file-earmark-spreadsheet"></i> Kế hoạch thanh toán (excel)</button></li>
+                        <li><button type="button" class="dropdown-item final-action" data-action="download-planning-pdf"><i class="bi bi-file-earmark-pdf"></i> Thoả thuận thu đổi (pdf)</button></li>
+                        <li><button type="button" class="dropdown-item final-action" data-action="download-planning-xlsx"><i class="bi bi-file-earmark-spreadsheet"></i> Thoả thuận thu đổi (excel)</button></li>
                         <li><button type="button" class="dropdown-item final-action" data-action="download-xnck-pdf"><i class="bi bi-file-earmark-pdf"></i> Phiếu XNTTTTCK (pdf)</button></li>
                     </ul>
                 </div>
@@ -1012,7 +1012,7 @@ textarea#sap_data {
                         <i class="bi bi-printer"></i> In phiếu
                     </button>
                     <ul class="dropdown-menu">
-                        <li><button type="button" class="dropdown-item final-action" data-action="print-planning"><i class="bi bi-file-earmark-pdf"></i> Kế hoạch thanh toán (pdf)</button></li>
+                        <li><button type="button" class="dropdown-item final-action" data-action="print-planning"><i class="bi bi-file-earmark-pdf"></i> Thoả thuận thu đổi (pdf)</button></li>
                         <li><button type="button" class="dropdown-item final-action" data-action="print-xnck"><i class="bi bi-file-earmark-pdf"></i> Phiếu XNTTTTCK (pdf)</button></li>
                     </ul>
                 </div>
@@ -3054,10 +3054,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function finalActionLabel(action) {
-        if (action === 'download-planning-pdf') return 'Tải kế hoạch PDF';
-        if (action === 'download-planning-xlsx') return 'Tải kế hoạch Excel';
+        if (action === 'download-planning-pdf') return 'Tải thoả thuận PDF';
+        if (action === 'download-planning-xlsx') return 'Tải thoả thuận Excel';
         if (action === 'download-xnck-pdf') return 'Tải phiếu PDF';
-        if (action === 'print-planning') return 'In kế hoạch';
+        if (action === 'print-planning') return 'In thoả thuận';
         return 'In phiếu';
     }
 

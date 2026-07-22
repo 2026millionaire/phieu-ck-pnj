@@ -501,7 +501,7 @@ function renderTable(data) {
             '<div class="dropdown action-menu">' +
                 '<button type="button" class="action-btn print dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="In"><i class="bi bi-printer"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
-                    '<li><a class="dropdown-item" href="api/payment-planning/' + p.id + tokenPrintParam + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Kế hoạch thanh toán (pdf)</a></li>' +
+                    '<li><a class="dropdown-item" href="api/payment-planning/' + p.id + tokenPrintParam + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Thoả thuận thu đổi (pdf)</a></li>' +
                     '<li><a class="dropdown-item" href="' + xnttPrintUrl + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Phiếu XNTTTTCK (pdf)</a></li>' +
                 '</ul>' +
             '</div>';
@@ -509,8 +509,8 @@ function renderTable(data) {
             '<div class="dropdown action-menu">' +
                 '<button type="button" class="action-btn view dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Tải xuống"><i class="bi bi-download"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
-                    '<li><a class="dropdown-item" href="api/payment-planning-pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Kế hoạch thanh toán (pdf)</a></li>' +
-                    '<li><a class="dropdown-item" href="api/payment-planning-xlsx/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-spreadsheet"></i>Kế hoạch thanh toán (excel)</a></li>' +
+                    '<li><a class="dropdown-item" href="api/payment-planning-pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Thoả thuận thu đổi (pdf)</a></li>' +
+                    '<li><a class="dropdown-item" href="api/payment-planning-xlsx/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-spreadsheet"></i>Thoả thuận thu đổi (excel)</a></li>' +
                     '<li><a class="dropdown-item" href="api/pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Phiếu XNTTTTCK (pdf)</a></li>' +
                     adminDownloadItem +
                 '</ul>' +

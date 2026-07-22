@@ -780,7 +780,7 @@ def prepare_payment_planning_for_output(row, settings=None):
         })
     p["planning_schedule"] = planning_schedule
     p["payment_method_label"] = "☐ Chuyển khoản    ☐ Khác"
-    p["planning_file_title"] = f"Payment Planning {ascii_filename_part(p.get('ten_kh'), 30)} {p.get('id')}"
+    p["planning_file_title"] = f"Thoa thuan thu doi {ascii_filename_part(p.get('ten_kh'), 30)} {p.get('id')}"
     return p
 
 

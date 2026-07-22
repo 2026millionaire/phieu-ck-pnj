@@ -366,6 +366,8 @@ class EofficeQt82Tests(unittest.TestCase):
 
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Thoả thuận thu đổi sản phẩm", html)
+        self.assertIn("Tải thoả thuận PDF", html)
+        self.assertIn("Tải thoả thuận Excel", html)
         self.assertIn("0,01%/ngày", html)
         self.assertIn("4403000002,4403000003", html)
         self.assertNotIn("000551/07_1305,000552/07_1305", html)
@@ -394,6 +396,7 @@ class EofficeQt82Tests(unittest.TestCase):
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
         self.assertEqual(xlsx_response.status_code, 200)
+        self.assertIn("Thoa thuan thu doi", xlsx_response.headers.get("Content-Disposition", ""))
         workbook = load_workbook(io.BytesIO(xlsx_response.data), data_only=False)
         sheet = workbook["Payment Planning"]
         self.assertEqual(sheet["A1"].value, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM")
@@ -463,6 +466,10 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("download-planning-pdf", index_html)
         self.assertIn("download-planning-xlsx", index_html)
         self.assertIn("print-planning", index_html)
+        self.assertIn("Thoả thuận thu đổi (pdf)", index_html)
+        self.assertIn("Thoả thuận thu đổi (excel)", index_html)
+        self.assertIn("Tải thoả thuận PDF", index_html)
+        self.assertIn("In thoả thuận", index_html)
         self.assertIn("attachCurrentPhieuId", index_html)
         self.assertIn("'Hóa đơn': '901'", index_html)
         self.assertIn("'Biên nhận cọc': '16'", index_html)
@@ -471,6 +478,8 @@ class EofficeQt82Tests(unittest.TestCase):
         history_html = self.client.get("/history").get_data(as_text=True)
         self.assertIn("api/payment-planning-pdf/", history_html)
         self.assertIn("api/payment-planning-xlsx/", history_html)
+        self.assertIn("Thoả thuận thu đổi (pdf)", history_html)
+        self.assertIn("Thoả thuận thu đổi (excel)", history_html)
         self.assertIn("Template TT (excel)", history_html)
         settings_html = self.client.get("/settings").get_data(as_text=True)
         self.assertIn("Tiền tố chứng từ", settings_html)
