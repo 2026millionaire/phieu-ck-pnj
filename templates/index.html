@@ -1155,12 +1155,15 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     const customerSuggestionCache = new Map();
     const customerSuggestionInFlight = new Set();
+    const customerLocalProfileCache = new Map();
     const purchaseOrderCustomerProfileCache = new Map();
     const captchaElement = document.getElementById('customerLookupCaptchaModal');
     const captchaModal = captchaElement ? new bootstrap.Modal(captchaElement) : null;
     const captchaError = document.getElementById('customerLookupCaptchaError');
     let pendingCaptchaLookup = null;
     let turnstileWidgetId = null;
+    let customerLocalProfileTimer = null;
+    let customerLocalProfileInFlight = '';
     let purchaseOrderCustomerProfileTimer = null;
     let purchaseOrderCustomerProfileInFlight = '';
 
@@ -1211,8 +1214,33 @@ document.addEventListener('DOMContentLoaded', function() {
         return code.trim() + '|' + field;
     }
 
+    function customerLocalProfileCacheKey(code) {
+        return code.trim().replace(/^0+/, '');
+    }
+
     function purchaseOrderCustomerProfileCacheKey(code) {
         return code.trim().replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingLookbackDays() + 'd';
+    }
+
+    function applyCustomerLocalProfile(profile, requestedCode) {
+        if (!profile || typeof profile !== 'object') return;
+        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
+        const nameInput = document.getElementById('ten_kh');
+        const phoneInput = document.getElementById('sdt');
+        const cccdInput = document.getElementById('cccd');
+        if (!nameInput.value.trim() && profile.name) {
+            nameInput.value = String(profile.name).toUpperCase();
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!phoneInput.value.trim() && profile.phone) {
+            phoneInput.value = profile.phone;
+            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!cccdInput.value.trim() && profile.cccd) {
+            cccdInput.value = profile.cccd;
+            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
     }
 
     function applyPurchaseOrderCustomerProfile(profile, requestedCode) {
@@ -1233,6 +1261,47 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!addressInput.value.trim() && profile.address) {
             addressInput.value = profile.address;
             addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    async function fetchCustomerLocalProfile(customerCode, turnstileToken) {
+        const key = customerLocalProfileCacheKey(customerCode);
+        if (!turnstileToken && customerLocalProfileCache.has(key)) {
+            applyCustomerLocalProfile(customerLocalProfileCache.get(key), customerCode);
+            schedulePurchaseOrderCustomerProfile();
+            return;
+        }
+        if (customerLocalProfileInFlight === key) return;
+        customerLocalProfileInFlight = key;
+        let shouldSchedulePurchaseOrder = true;
+        try {
+            const response = await fetch(appUrl('/api/customer-local-profile'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                credentials: 'same-origin',
+                cache: 'no-store',
+                body: JSON.stringify({
+                    customer_code: customerCode,
+                    turnstile_token: turnstileToken || ''
+                })
+            });
+            const data = await response.json().catch(() => ({ ok: false }));
+            if (response.status === 403 && data.captcha_required) {
+                shouldSchedulePurchaseOrder = false;
+                openCustomerLookupCaptcha(customerCode, 'profile');
+                return;
+            }
+            const profile = data && data.ok && data.profile ? data.profile : {};
+            customerLocalProfileCache.set(key, profile);
+            applyCustomerLocalProfile(profile, customerCode);
+        } catch (error) {
+            customerLocalProfileCache.set(key, {});
+        } finally {
+            if (customerLocalProfileInFlight === key) customerLocalProfileInFlight = '';
+            const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+            if (shouldSchedulePurchaseOrder && currentCode === customerCode.replace(/^0+/, '')) {
+                schedulePurchaseOrderCustomerProfile();
+            }
         }
     }
 
@@ -1265,6 +1334,20 @@ document.addEventListener('DOMContentLoaded', function() {
         } finally {
             if (purchaseOrderCustomerProfileInFlight === key) purchaseOrderCustomerProfileInFlight = '';
         }
+    }
+
+    function scheduleCustomerLocalProfile() {
+        clearTimeout(customerLocalProfileTimer);
+        clearTimeout(purchaseOrderCustomerProfileTimer);
+        customerLocalProfileTimer = setTimeout(function() {
+            const code = document.getElementById('ma_kh').value.trim();
+            if (!validLookupCustomerCode(code)) return;
+            if (!customerLookupEnabled) {
+                schedulePurchaseOrderCustomerProfile();
+                return;
+            }
+            fetchCustomerLocalProfile(code);
+        }, 350);
     }
 
     function schedulePurchaseOrderCustomerProfile() {
@@ -1308,6 +1391,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const pending = pendingCaptchaLookup;
         if (!pending) return;
         if (captchaError) captchaError.textContent = '';
+        if (pending.field === 'profile') {
+            try {
+                await fetchCustomerLocalProfile(pending.code, token);
+                captchaModal.hide();
+                pendingCaptchaLookup = null;
+            } catch (error) {
+                if (captchaError) captchaError.textContent = 'Không thể xác minh lúc này.';
+            }
+            return;
+        }
         try {
             const { data } = await fetchCustomerSuggestion(pending.code, pending.field, token);
             if (!data.ok) {
@@ -1406,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', function() {
             hideCustomerSuggestions();
             hideDocumentSuggestions();
             scheduleDocumentPrefetch();
-            schedulePurchaseOrderCustomerProfile();
+            scheduleCustomerLocalProfile();
         });
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.customer-suggestion-field')) hideCustomerSuggestions();
@@ -1416,7 +1509,11 @@ document.addEventListener('DOMContentLoaded', function() {
             captchaElement.addEventListener('shown.bs.modal', () => renderCustomerLookupCaptcha(0));
             captchaElement.addEventListener('hidden.bs.modal', function() {
                 clearTurnstileWidget();
-                if (pendingCaptchaLookup && !customerSuggestionCache.has(
+                if (pendingCaptchaLookup && pendingCaptchaLookup.field === 'profile') {
+                    if (!customerLocalProfileCache.has(customerLocalProfileCacheKey(pendingCaptchaLookup.code))) {
+                        pendingCaptchaLookup = null;
+                    }
+                } else if (pendingCaptchaLookup && !customerSuggestionCache.has(
                     customerSuggestionCacheKey(pendingCaptchaLookup.code, pendingCaptchaLookup.field)
                 )) pendingCaptchaLookup = null;
             });
@@ -2009,8 +2106,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
-    document.getElementById('ma_kh').addEventListener('blur', schedulePurchaseOrderCustomerProfile);
-    document.getElementById('ma_kh').addEventListener('change', schedulePurchaseOrderCustomerProfile);
+    document.getElementById('ma_kh').addEventListener('blur', scheduleCustomerLocalProfile);
+    document.getElementById('ma_kh').addEventListener('change', scheduleCustomerLocalProfile);
 
     const billingSuggestionCache = new Map();
     const purchaseOrderSuggestionCache = new Map();

@@ -2229,6 +2229,114 @@ def api_customer_suggestion():
         )
 
 
+@app.route("/api/customer-local-profile", methods=["POST"])
+def api_customer_local_profile():
+    """Trả nhanh Tên KH, SĐT và CCCD từ CSDL local trước khi gọi SAP."""
+    if request.content_length is not None and request.content_length > 4096:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+
+    store = get_customer_lookup_store()
+    if store is None or normalize_customer_code is None:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Tính năng tra cứu khách hàng chưa sẵn sàng."}, 503
+        )
+
+    data = request.get_json(silent=True) or {}
+    canonical = normalize_customer_code(data.get("customer_code"))
+    employee_code = normalize_employee_code(data.get("customer_code")) if normalize_employee_code else None
+    is_employee_code = canonical is None and employee_code is not None
+    canonical = canonical or employee_code
+    if canonical is None:
+        return _customer_lookup_json({"ok": True, "profile": {}})
+
+    lookup_session_id = session.get("customer_lookup_session_id")
+    if not lookup_session_id:
+        lookup_session_id = secrets.token_urlsafe(24)
+        session["customer_lookup_session_id"] = lookup_session_id
+    principal_id = f"user:{current_user_id()}|ip:{request.remote_addr or ''}"
+    key = store.lookup_key(canonical)
+
+    try:
+        assessment = store.assess_risk(lookup_session_id, principal_id, key)
+        captcha_passed = False
+        if assessment.requires_captcha:
+            token = str(data.get("turnstile_token") or "")
+            if not CUSTOMER_LOOKUP_TURNSTILE_SITEKEY or not CUSTOMER_LOOKUP_TURNSTILE_SECRET:
+                store.record_event(
+                    session_id=lookup_session_id,
+                    principal_id=principal_id,
+                    lookup_key=key,
+                    requested_field="profile",
+                    outcome="captcha_unavailable",
+                    lookup_performed=False,
+                )
+                return _customer_lookup_json(
+                    {"ok": False, "error": "CAPTCHA local chưa được cấu hình."}, 503
+                )
+            if not token or not _verify_customer_lookup_turnstile(token):
+                store.record_event(
+                    session_id=lookup_session_id,
+                    principal_id=principal_id,
+                    lookup_key=key,
+                    requested_field="profile",
+                    outcome="captcha_required" if not token else "captcha_failed",
+                    lookup_performed=False,
+                )
+                return _customer_lookup_json(
+                    {"ok": False, "captcha_required": True}, 403
+                )
+            captcha_passed = True
+
+        profile = {"name": "", "phone": "", "cccd": ""}
+        record = store.get_record(canonical) if not is_employee_code else None
+        employee_store = get_employee_lookup_store(create=False) if is_employee_code else None
+        employee_record = employee_store.get_record(canonical) if employee_store else None
+        identity_record = None
+        identity_store = get_customer_identity_store(create=False)
+        if not is_employee_code and identity_store is not None:
+            identity_record = identity_store.get_record(canonical)
+
+        for field, public_key in (("name", "name"), ("phone", "phone"), ("cccd", "cccd")):
+            if is_employee_code:
+                suggestions = employee_store.get_suggestions(canonical, field) if employee_store else []
+            else:
+                suggestions = store.get_suggestions(canonical, field)
+            identity_value = ""
+            if identity_record and field == "cccd":
+                raw_identity = str(identity_record.get("identity_value") or "").strip()
+                if re.fullmatch(r"[0-9]{12}", raw_identity):
+                    identity_value = raw_identity
+            elif identity_record and field == "name":
+                identity_value = str(identity_record.get("verified_name") or "").strip()
+                if not identity_value and record is None:
+                    identity_value = str(identity_record.get("source_name") or "").strip()
+            if identity_value:
+                profile[public_key] = identity_value
+            elif suggestions:
+                profile[public_key] = suggestions[0]["value"]
+
+        found = record is not None or identity_record is not None or employee_record is not None
+        shown = any(bool(value) for value in profile.values())
+        store.record_event(
+            session_id=lookup_session_id,
+            principal_id=principal_id,
+            lookup_key=key,
+            requested_field="profile",
+            outcome="suggestion" if shown else "no_suggestion",
+            lookup_performed=True,
+            record_found=found,
+            suggestion_shown=shown,
+            captcha_passed=captcha_passed,
+        )
+        return _customer_lookup_json({"ok": True, "profile": profile})
+    except CustomerLookupError:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể tra cứu dữ liệu khách hàng lúc này."}, 503
+        )
+
+
 @app.route("/api/billing-suggestions", methods=["POST"])
 def api_billing_suggestions():
     """Return recent ERP billing suggestions for one customer code."""

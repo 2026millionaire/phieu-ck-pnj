@@ -197,6 +197,34 @@ class CustomerUpdateApiTests(unittest.TestCase):
             [{"value": "012345678901"}],
         )
 
+    def test_customer_local_profile_returns_name_phone_and_identity(self):
+        self.insert_identity_record(identity_value="046183000623", name="")
+        self.login()
+
+        response = self.client.post(
+            "/api/customer-local-profile",
+            json={"customer_code": "100000000"},
+        )
+
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(
+            response.get_json()["profile"],
+            {
+                "name": "TEN HE THONG",
+                "phone": "0900000000",
+                "cccd": "046183000623",
+            },
+        )
+        with closing(self.store.connect()) as connection:
+            event = connection.execute(
+                "SELECT requested_field, outcome, lookup_performed, record_found, suggestion_shown FROM lookup_events"
+            ).fetchone()
+        self.assertEqual(event["requested_field"], "profile")
+        self.assertEqual(event["outcome"], "suggestion")
+        self.assertEqual(event["lookup_performed"], 1)
+        self.assertEqual(event["record_found"], 1)
+        self.assertEqual(event["suggestion_shown"], 1)
+
     def test_verified_identity_cccd_is_not_reported_as_tvv_update(self):
         self.insert_identity_record(identity_value="012345678901")
         self.login(role="admin", user_id=1)
