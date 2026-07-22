@@ -386,12 +386,21 @@ textarea#sap_data {
 
 /* Table: fixed layout to enforce column widths */
 .sap-table { table-layout: fixed; }
-.sap-table .col-loai { width: 10%; }
-.sap-table .col-soct { width: 23%; }
-.sap-table .col-bkref { width: 23%; }
-.sap-table .col-gt   { width: 26%; }
-.sap-table .col-gio  { width: 11%; }
-.sap-table .col-del  { width: 7%; }
+.sap-table .col-loai { width: 12%; }
+.sap-table .col-soct { width: 32%; }
+.sap-table .col-gt   { width: 32%; }
+.sap-table .col-gio  { width: 15%; }
+.sap-table .col-del  { width: 9%; }
+.sap-table.use-bk-ref .col-loai { width: 10%; }
+.sap-table.use-bk-ref .col-soct { width: 23%; }
+.sap-table.use-bk-ref .col-bkref { width: 23%; }
+.sap-table.use-bk-ref .col-gt   { width: 26%; }
+.sap-table.use-bk-ref .col-gio  { width: 11%; }
+.sap-table.use-bk-ref .col-del  { width: 7%; }
+.sap-table:not(.use-bk-ref) .col-bkref,
+.sap-table:not(.use-bk-ref) .sap-bk-ref-cell {
+    display: none;
+}
 .sap-table td input { width: 100%; box-sizing: border-box; }
 .sap-table td {
     padding: 0.25rem;
@@ -620,9 +629,14 @@ textarea#sap_data {
     .sap-mobile-field-labels,
     .sap-mobile-inputs {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
         column-gap: 0.5rem;
         align-items: center;
+    }
+
+    .sap-table.use-bk-ref .sap-mobile-field-labels,
+    .sap-table.use-bk-ref .sap-mobile-inputs {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     }
 
     .sap-mobile-top-row > :first-child {
@@ -860,11 +874,15 @@ textarea#sap_data {
 
             <!-- 3. Thông tin giao dịch -->
             <div class="card mb-3">
-                <div class="card-header py-2">
+                <div class="card-header py-2 d-flex align-items-center justify-content-between gap-2">
                     <span><i class="bi bi-receipt"></i> 3. Thông tin giao dịch</span>
+                    <div class="form-check form-switch m-0 small">
+                        <input class="form-check-input" type="checkbox" id="useBkRef">
+                        <label class="form-check-label" for="useBkRef">Dùng Số hiệu BK</label>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <table class="table table-bordered table-sm sap-table mb-0">
+                    <table class="table table-bordered table-sm sap-table mb-0" id="sapTable">
                         <thead>
                             <tr>
                                 <th class="col-loai">CT</th>
@@ -2179,7 +2197,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderBkRefInput(item, idx) {
-        const enabled = item.loai === 'Bảng kê';
+        const enabled = useBkRefEnabled() && item.loai === 'Bảng kê';
         return '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-bk-ref-input" '
             + 'data-idx="' + idx + '" data-field="bk_ref" value="' + escapeHtml(item.bk_ref || '') + '" '
             + 'placeholder="' + (enabled ? '000551/07_1305' : '') + '" maxlength="20" autocomplete="off" '
@@ -2307,6 +2325,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function useBkRefEnabled() {
+        const checkbox = document.getElementById('useBkRef');
+        return Boolean(checkbox && checkbox.checked);
+    }
+
+    function applyBkRefTableClass() {
+        const table = document.getElementById('sapTable');
+        if (table) table.classList.toggle('use-bk-ref', useBkRefEnabled());
+    }
+
     async function fetchPurchaseOrderSuggestions(idx) {
         const item = sapItems[idx];
         const customerCode = document.getElementById('ma_kh').value.trim();
@@ -2416,6 +2444,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderSapTable(items) {
         sapItems = items;
+        const showBkRef = useBkRefEnabled();
+        applyBkRefTableClass();
         const tbody = document.getElementById('sapTableBody');
         tbody.innerHTML = '';
 
@@ -2436,7 +2466,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isMobile = window.matchMedia('(max-width: 360px)').matches;
             if (isMobile) {
                 tr.innerHTML =
-                    '<td colspan="6">' +
+                    '<td colspan="' + (showBkRef ? '6' : '5') + '">' +
                     '<div class="sap-mobile-row">' +
                     '<div class="sap-mobile-top-row">' +
                     '<div>' + renderLoaiButton(item, idx) + '</div>' +
@@ -2446,10 +2476,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<button type="button" class="sap-mobile-remove sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button>' +
                     '</div>' +
                     '</div>' +
-                    '<div class="sap-mobile-field-labels"><span>Số CT</span><span>Số hiệu BK</span><span>Số tiền</span></div>' +
+                    '<div class="sap-mobile-field-labels"><span>Số CT</span>' + (showBkRef ? '<span>Số hiệu BK</span>' : '') + '<span>Số tiền</span></div>' +
                     '<div class="sap-mobile-inputs">' +
                     renderDocumentDocInput(item, idx) +
-                    renderBkRefInput(item, idx) +
+                    (showBkRef ? renderBkRefInput(item, idx) : '') +
                     '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
                     '</div>' +
                     '</div>' +
@@ -2458,7 +2488,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 tr.innerHTML =
                     '<td>' + renderLoaiButton(item, idx) + '</td>' +
                     '<td>' + renderDocumentDocInput(item, idx) + '</td>' +
-                    '<td>' + renderBkRefInput(item, idx) + '</td>' +
+                    '<td class="sap-bk-ref-cell">' + renderBkRefInput(item, idx) + '</td>' +
                     '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
                     '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
                     '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
@@ -2731,6 +2761,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    document.getElementById('useBkRef').addEventListener('change', function() {
+        renderSapTable(sapItems);
+        updateSummary();
+    });
+
     // ===== Pre-fill ngày hôm nay =====
     (function() {
         const today = new Date();
@@ -2912,6 +2947,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : (splitLookupAccountName(document.getElementById('ten_chu_tk').value).displayName || ten_kh),
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: soBkValue,
+            use_bk_ref: useBkRefEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -3115,6 +3151,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : (splitLookupAccountName(document.getElementById('ten_chu_tk').value).displayName || ten_kh),
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: document.getElementById('so_bk').value.trim(),
+            use_bk_ref: useBkRefEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -3215,6 +3252,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('ngan_hang').value = p.ngan_hang || '';
                 document.getElementById('bank_search').value = p.ngan_hang || '';
                 document.getElementById('so_bk').value = p.so_bk || '';
+                document.getElementById('useBkRef').checked = Boolean(Number(p.use_bk_ref || 0));
                 document.getElementById('tvv_code').value = p.tvv_code || '';
                 document.getElementById('tvv_name').value = p.tvv_name || '';
                 document.getElementById('tvv_search').value = p.tvv_code ? (p.tvv_code + ' - ' + (p.tvv_name || '')) : (p.tvv_name || '');
@@ -3246,6 +3284,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('previewQR').innerHTML = '<div style="width:56px;height:56px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:0.4rem;color:#999;">QR Code</div>';
             clearBank();
             clearTvv(false);
+            document.getElementById('useBkRef').checked = false;
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
             sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];

@@ -367,7 +367,8 @@ def init_db():
             noi_dung        TEXT,
             nguoi_ki        TEXT DEFAULT 'tvv',
             da_trinh        INTEGER DEFAULT 0,
-            sap_document_override TEXT DEFAULT ''
+            sap_document_override TEXT DEFAULT '',
+            use_bk_ref      INTEGER DEFAULT 0
         )
     """)
     # Add columns if missing (for existing DBs)
@@ -377,6 +378,7 @@ def init_db():
         ("user_id", "INTEGER", "1"),
         ("sap_document_override", "TEXT", "''"),
         ("dia_chi", "TEXT", "''"),
+        ("use_bk_ref", "INTEGER", "0"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -722,11 +724,12 @@ def prepare_payment_planning_for_output(row, settings=None):
     """Return display data for Payment Planning HTML/PDF/XLSX."""
     p = prepare_phieu_for_output(row, settings)
     amounts = payment_planning_amounts(p.get("chung_tu", []), p.get("tong_ck", 0))
+    use_bk_ref = bool(int(p.get("use_bk_ref") or 0))
     bk_numbers = []
     for item in p.get("chung_tu", []):
         if item.get("loai") != "Bảng kê":
             continue
-        so_ct = remove_all_whitespace(item.get("bk_ref") or item.get("so_ct", ""))
+        so_ct = remove_all_whitespace((item.get("bk_ref") if use_bk_ref else "") or item.get("so_ct", ""))
         if so_ct and so_ct not in bk_numbers:
             bk_numbers.append(so_ct)
     signer_title_map = {
@@ -3262,6 +3265,7 @@ def api_save():
     cccd = remove_all_whitespace(data.get("cccd", ""))
     dia_chi = str(data.get("dia_chi", "") or "").strip()
     so_bk = remove_all_whitespace(data.get("so_bk", ""))
+    use_bk_ref = 1 if data.get("use_bk_ref") else 0
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
@@ -3308,7 +3312,8 @@ def api_save():
                 status = ?,
                 qr_url = ?,
                 noi_dung = ?,
-                nguoi_ki = ?
+                nguoi_ki = ?,
+                use_bk_ref = ?
             WHERE id = ?
         """, (
             created_at,
@@ -3332,6 +3337,7 @@ def api_save():
             qr_url,
             noi_dung,
             nguoi_ki,
+            use_bk_ref,
             target_phieu_id,
         ))
         db.commit()
@@ -3375,8 +3381,8 @@ def api_save():
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
              chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
-             user_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             user_id, use_bk_ref)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         ma_kh,
@@ -3400,6 +3406,7 @@ def api_save():
         noi_dung,
         nguoi_ki,
         user_id,
+        use_bk_ref,
     ))
     db.commit()
     new_id = cursor.lastrowid

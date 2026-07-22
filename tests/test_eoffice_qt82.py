@@ -367,8 +367,8 @@ class EofficeQt82Tests(unittest.TestCase):
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Thoả thuận thu đổi sản phẩm", html)
         self.assertIn("0,01%/ngày", html)
-        self.assertIn("000551/07_1305,000552/07_1305", html)
-        self.assertNotIn("4403000002,4403000003", html)
+        self.assertIn("4403000002,4403000003", html)
+        self.assertNotIn("000551/07_1305,000552/07_1305", html)
         self.assertIn("ngày 21 / 07 / 2026", html)
         self.assertIn("0300521758", html)
         self.assertNotIn("0300521758-023", html)
@@ -397,7 +397,7 @@ class EofficeQt82Tests(unittest.TestCase):
         sheet = workbook["Payment Planning"]
         self.assertEqual(sheet["A1"].value, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM")
         self.assertIn("Bảng kê mua lại tài sản", sheet["A2"].value)
-        self.assertEqual(sheet["G1"].value, "000551/07_1305,000552/07_1305")
+        self.assertEqual(sheet["G1"].value, "4403000002,4403000003")
         self.assertEqual(sheet["B6"].value, "0300521758")
         self.assertIn("Việt Nam", sheet["B5"].value)
         self.assertEqual(sheet["B8"].value, "TTKH 27 Hà Nội,Huế")
@@ -416,10 +416,30 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("Cửa Hàng Trưởng", sheet["C58"].value)
         self.assertIn("DAY(G2)", sheet["A59"].value)
 
+        manual_payload = {**payload, "force_create": True, "use_bk_ref": True, "so_bk": "4403000999"}
+        manual = self.client.post("/api/save", json=manual_payload).get_json()
+        manual_id = manual["id"]
+        self.assertEqual(self.client.get(f"/api/phieu/{manual_id}").get_json()["phieu"]["use_bk_ref"], 1)
+
+        manual_html = self.client.get(f"/api/payment-planning/{manual_id}").get_data(as_text=True)
+        self.assertIn("000551/07_1305,000552/07_1305", manual_html)
+        self.assertNotIn("4403000002,4403000003", manual_html)
+
+        manual_xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{manual_id}")
+        self.assertEqual(manual_xlsx_response.status_code, 200)
+        manual_workbook = load_workbook(io.BytesIO(manual_xlsx_response.data), data_only=False)
+        manual_sheet = manual_workbook["Payment Planning"]
+        self.assertEqual(manual_sheet["G1"].value, "000551/07_1305,000552/07_1305")
+
     def test_bk_create_and_history_have_payment_planning_actions(self):
         self.login(role="admin")
         index_html = self.client.get("/").get_data(as_text=True)
         self.assertIn('id="btnCopyPhieu"', index_html)
+        self.assertIn('id="useBkRef"', index_html)
+        self.assertIn('id="sapTable"', index_html)
+        self.assertIn("sap-bk-ref-cell", index_html)
+        self.assertIn("use_bk_ref: useBkRefEnabled()", index_html)
+        self.assertIn("classList.toggle('use-bk-ref'", index_html)
         self.assertIn("download-planning-pdf", index_html)
         self.assertIn("download-planning-xlsx", index_html)
         self.assertIn("print-planning", index_html)
