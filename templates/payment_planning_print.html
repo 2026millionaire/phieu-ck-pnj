@@ -119,26 +119,44 @@
             padding-top: 0;
         }
         .signature td {
-            height: 104px;
+            height: 126px;
             text-align: center;
             font-weight: 700;
             vertical-align: top;
+            padding: 8px 5px 6px;
         }
-        .signature .sign-space {
-            height: 42px;
-            line-height: 14px;
+        .signature-block {
+            display: grid;
+            grid-template-rows: 42px 48px 20px;
+            height: 100%;
+            align-items: start;
+        }
+        .signature-role {
+            line-height: 1.35;
+        }
+        .signature-role .role-title {
+            font-size: 12px;
+            text-transform: none;
+        }
+        .signature-role .role-title-pnj {
+            text-transform: uppercase;
+        }
+        .signature-note {
+            font-size: 11px;
+            font-weight: 700;
         }
         .signature .sign-title {
-            margin-top: 2px;
             text-transform: none;
             font-weight: 700;
         }
         .signature .sign-name {
+            align-self: end;
             text-transform: uppercase;
         }
         .date-row td {
-            height: 28px;
+            height: 30px;
             text-align: center;
+            vertical-align: middle;
         }
         @media print {
             body {
@@ -407,17 +425,25 @@
             </colgroup>
             <tr class="signature">
                 <td>
-                    Khách Hàng<br>
-                    <span>(Ký, ghi rõ họ tên)</span>
-                    <div class="sign-space"><br><br><br></div>
-                    <div class="sign-name">{{ p.seller_signature_name }}</div>
+                    <div class="signature-block">
+                        <div class="signature-role">
+                            <div class="role-title">Khách Hàng</div>
+                            <div class="signature-note">(Ký, ghi rõ họ tên)</div>
+                        </div>
+                        <div></div>
+                        <div class="sign-name">{{ p.seller_signature_name }}</div>
+                    </div>
                 </td>
                 <td>
-                    ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN<br>
-                    <span>(Ký, ghi rõ họ tên, chức danh)</span>
-                    <div class="sign-space"><br><br><br></div>
-                    <div class="sign-name">{{ p.buyer_signature_name }}</div>
-                    <div class="sign-title">{{ p.buyer_signature_title }}</div>
+                    <div class="signature-block">
+                        <div class="signature-role">
+                            <div class="role-title role-title-pnj">ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN</div>
+                            <div class="sign-title">{{ p.buyer_signature_title }}</div>
+                            <div class="signature-note">(Ký, ghi rõ họ tên, chức danh)</div>
+                        </div>
+                        <div></div>
+                        <div class="sign-name">{{ p.buyer_signature_name }}</div>
+                    </div>
                 </td>
             </tr>
             <tr class="date-row">
