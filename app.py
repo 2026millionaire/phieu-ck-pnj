@@ -261,9 +261,10 @@ STAFF = {
     "cua_hang_truong": "HỒ THỊ HÀ MY",
     "tvv": "NGUYỄN THỊ MỸ UYÊN",
 }
-PAYMENT_PLANNING_STORE_NAME = "CỬA HÀNG PNJ NEXT 27 HÀ NỘI - HUẾ"
+PAYMENT_PLANNING_STORE_NAME = "TTKH 27 Hà Nội,Huế"
 PAYMENT_PLANNING_TAX_CODE = "0300521758"
-PAYMENT_PLANNING_PNJ_ADDRESS = "170E Phan Đăng Lưu, Phường Đức Nhuận, Thành phố Hồ Chí Minh"
+PAYMENT_PLANNING_PNJ_ADDRESS = "170E Phan Đăng Lưu, Phường Đức Nhuận, Thành phố Hồ Chí Minh, Việt Nam"
+PAYMENT_PLANNING_PNJ_CONTACT = "+ 84 (028) 39951703"
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -744,6 +745,7 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_store_name"] = PAYMENT_PLANNING_STORE_NAME
     p["planning_tax_code"] = PAYMENT_PLANNING_TAX_CODE
     p["planning_pnj_address"] = PAYMENT_PLANNING_PNJ_ADDRESS
+    p["planning_pnj_contact"] = PAYMENT_PLANNING_PNJ_CONTACT
     p["planning_bk_numbers"] = ",".join(bk_numbers) or p.get("so_bk") or "__________"
     p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
     try:
@@ -4027,14 +4029,14 @@ def make_payment_planning_xlsx(p):
         5: ["Địa chỉ", PAYMENT_PLANNING_PNJ_ADDRESS, "", "Họ và tên", p.get("ten_kh", "")],
         6: ["Mã số doanh nghiệp", PAYMENT_PLANNING_TAX_CODE, "", "Số CCCD/Hộ chiếu", p.get("cccd", "")],
         7: ["Đại diện/Người tiếp nhận", p.get("nguoi_ki_name", ""), "", "Ngày cấp/Nơi cấp", ""],
-        8: ["Cửa hàng/Đơn vị", PAYMENT_PLANNING_STORE_NAME, "", "Địa chỉ liên hệ", ""],
-        9: ["Điện thoại/Email PNJ", "", "", "Điện thoại/Email", ""],
+        8: ["Cửa hàng/Đơn vị", PAYMENT_PLANNING_STORE_NAME, "", "Địa chỉ liên hệ", p.get("dia_chi", "")],
+        9: ["Điện thoại/Email PNJ", PAYMENT_PLANNING_PNJ_CONTACT, "", "Điện thoại/Email", p.get("sdt", "")],
         11: ["Chủ tài khoản", p.get("ten_tk") or p.get("ten_kh", ""), "", "Số tài khoản", p.get("so_tk", "")],
         12: ["Ngân hàng", p.get("ngan_hang", ""), "", "", ""],
         14: ["Sản phẩm thu đổi", '="Khách Hàng đồng ý cho PNJ thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)&" theo phương án lựa chọn được ghi nhận tại Thoả Thuận này."', "", "", ""],
         15: ["Tổng giá trị thu đổi (VNĐ)", p.get("total_trade", 0), "", "", ""],
         16: ["Bằng chữ", p.get("total_trade_words", ""), "", "", ""],
-        17: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3\n(Chi tiết Phương án lựa chọn được đính kèm Thoả Thuận này)", "", "", ""],
+        17: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3", "", "", ""],
         18: ["Giá trị quy đổi sang sản phẩm PNJ (VNĐ)", p.get("product_conversion", 0), "", "", ""],
         19: ["Giá trị nhận bằng tiền (VNĐ)", "=B15-B18", "", "", ""],
         20: ["Nguyên tắc cấn trừ", "Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:\n1. Phần Giá trị quy đổi sang sản phẩm PNJ (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm PNJ theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;\n2. Phần Giá trị nhận bằng tiền (nếu có) được PNJ thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;\n3. Trường hợp sau khi cấn trừ, Giá trị quy đổi sang sản phẩm PNJ thấp hơn giá thanh toán của sản phẩm PNJ, Khách Hàng có trách nhiệm thanh toán cho PNJ phần chênh lệch còn thiếu.", "", "", ""],

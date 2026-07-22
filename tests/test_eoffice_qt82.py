@@ -335,6 +335,7 @@ class EofficeQt82Tests(unittest.TestCase):
             "ngay_lap": "2026-07-21",
             "ma_kh": "100000001",
             "ten_kh": "NGUYEN VAN TEST",
+            "dia_chi": "18A TRAN BINH TRONG, HUE",
             "sdt": "0900000001",
             "cccd": "012345678902",
             "so_tk": "123456789",
@@ -370,7 +371,12 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("ngày 21 / 07 / 2026", html)
         self.assertIn("0300521758", html)
         self.assertNotIn("0300521758-023", html)
-        self.assertIn("CỬA HÀNG PNJ NEXT 27 HÀ NỘI - HUẾ", html)
+        self.assertIn("Thành phố Hồ Chí Minh, Việt Nam", html)
+        self.assertIn("TTKH 27 Hà Nội,Huế", html)
+        self.assertIn("18A TRAN BINH TRONG, HUE", html)
+        self.assertIn("+ 84 (028) 39951703", html)
+        self.assertIn("0900000001", html)
+        self.assertNotIn("Chi tiết Phương án lựa chọn", html)
         self.assertIn("Khách Hàng", html)
         self.assertIn("ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN", html)
         self.assertIn("Ngày ký: 21 / 07 / 2026", html)
@@ -382,6 +388,12 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(sheet["A1"].value, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM")
         self.assertIn("Bảng kê mua lại tài sản", sheet["A2"].value)
         self.assertEqual(sheet["B6"].value, "0300521758")
+        self.assertIn("Việt Nam", sheet["B5"].value)
+        self.assertEqual(sheet["B8"].value, "TTKH 27 Hà Nội,Huế")
+        self.assertEqual(sheet["E8"].value, "18A TRAN BINH TRONG, HUE")
+        self.assertEqual(sheet["B9"].value, "+ 84 (028) 39951703")
+        self.assertEqual(sheet["E9"].value, "0900000001")
+        self.assertNotIn("Chi tiết Phương án lựa chọn", sheet["B17"].value)
         self.assertEqual(sheet["B15"].value, 12000000)
         self.assertEqual(sheet["B18"].value, 6000000)
         self.assertEqual(sheet["B19"].value, "=B15-B18")

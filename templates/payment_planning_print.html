@@ -199,11 +199,13 @@
                 <td class="label">Cửa hàng/Đơn vị</td>
                 <td>{{ p.planning_store_name }}</td>
                 <td class="label">Địa chỉ liên hệ</td>
-                <td></td>
+                <td>{{ p.dia_chi }}</td>
             </tr>
             <tr>
                 <td class="label">Điện thoại/Email PNJ</td>
-                <td colspan="3"></td>
+                <td>{{ p.planning_pnj_contact }}</td>
+                <td class="label">Điện thoại/Email</td>
+                <td>{{ p.sdt }}</td>
             </tr>
             <tr><td colspan="4" class="subsection">Thông tin tài khoản nhận tiền của Khách Hàng</td></tr>
             <tr>
@@ -223,7 +225,7 @@
                 <td colspan="3">Khách Hàng đồng ý cho PNJ thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: {{ p.planning_bk_numbers }} ngày {{ p.planning_sign_date }} theo phương án lựa chọn được ghi nhận tại Thoả Thuận này.</td>
             </tr>
             <tr>
-                <td class="label">Tổng giá trị thu đổi(VNĐ)</td>
+                <td class="label">Tổng giá trị thu đổi (VNĐ)</td>
                 <td class="money">{{ "{:,.0f}".format(p.total_trade | float) }}</td>
                 <td colspan="2"></td>
             </tr>
@@ -233,7 +235,7 @@
             </tr>
             <tr>
                 <td class="label">Phương án lựa chọn</td>
-                <td colspan="3">☐ Phương án 1 &nbsp;&nbsp; ☐ Phương án 2 &nbsp;&nbsp; ☐ Phương án 3<br>(Chi tiết Phương án lựa chọn được đính kèm Thoả Thuận này)</td>
+                <td colspan="3">☐ Phương án 1 &nbsp;&nbsp; ☐ Phương án 2 &nbsp;&nbsp; ☐ Phương án 3</td>
             </tr>
             <tr>
                 <td class="label">Giá trị quy đổi sang sản phẩm PNJ (VNĐ)</td>
