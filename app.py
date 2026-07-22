@@ -726,7 +726,7 @@ def prepare_payment_planning_for_output(row, settings=None):
     for item in p.get("chung_tu", []):
         if item.get("loai") != "Bảng kê":
             continue
-        so_ct = remove_all_whitespace(item.get("so_ct", ""))
+        so_ct = remove_all_whitespace(item.get("bk_ref") or item.get("so_ct", ""))
         if so_ct and so_ct not in bk_numbers:
             bk_numbers.append(so_ct)
     signer_title_map = {
@@ -905,6 +905,7 @@ def sanitize_chung_tu_list(chung_tu_list):
         row["loai"] = str(row.get("loai", "")).strip()
         row["doc_num"] = remove_all_whitespace(row.get("doc_num", ""))
         row["so_ct"] = remove_all_whitespace(row.get("so_ct", ""))
+        row["bk_ref"] = remove_all_whitespace(row.get("bk_ref", ""))
         row["gio"] = str(row.get("gio", "")).strip()
         cleaned.append(row)
     return cleaned

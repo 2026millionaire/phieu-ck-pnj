@@ -348,8 +348,8 @@ class EofficeQt82Tests(unittest.TestCase):
             "tong_ck": 6000000,
             "nguoi_ki": "cht",
             "chung_tu": [
-                {"loai": "Bảng kê", "so_ct": "4403000002", "gia_tri": 10000000, "gio": "21/07/2026 10:00"},
-                {"loai": "Bảng kê", "so_ct": "4403000003", "gia_tri": 2000000, "gio": "21/07/2026 10:01"},
+                {"loai": "Bảng kê", "so_ct": "4403000002", "bk_ref": "000551/07_1305", "gia_tri": 10000000, "gio": "21/07/2026 10:00"},
+                {"loai": "Bảng kê", "so_ct": "4403000003", "bk_ref": "000552/07_1305", "gia_tri": 2000000, "gio": "21/07/2026 10:01"},
                 {"loai": "Hóa đơn", "so_ct": "1400000001", "gia_tri": 4000000, "gio": "21/07/2026 10:05"},
             ],
         }
@@ -367,7 +367,8 @@ class EofficeQt82Tests(unittest.TestCase):
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Thoả thuận thu đổi sản phẩm", html)
         self.assertIn("0,01%/ngày", html)
-        self.assertIn("4403000002,4403000003", html)
+        self.assertIn("000551/07_1305,000552/07_1305", html)
+        self.assertNotIn("4403000002,4403000003", html)
         self.assertIn("ngày 21 / 07 / 2026", html)
         self.assertIn("0300521758", html)
         self.assertNotIn("0300521758-023", html)
@@ -394,6 +395,7 @@ class EofficeQt82Tests(unittest.TestCase):
         sheet = workbook["Payment Planning"]
         self.assertEqual(sheet["A1"].value, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM")
         self.assertIn("Bảng kê mua lại tài sản", sheet["A2"].value)
+        self.assertEqual(sheet["G1"].value, "000551/07_1305,000552/07_1305")
         self.assertEqual(sheet["B6"].value, "0300521758")
         self.assertIn("Việt Nam", sheet["B5"].value)
         self.assertEqual(sheet["B8"].value, "TTKH 27 Hà Nội,Huế")

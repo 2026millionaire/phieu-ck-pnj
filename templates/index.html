@@ -386,11 +386,12 @@ textarea#sap_data {
 
 /* Table: fixed layout to enforce column widths */
 .sap-table { table-layout: fixed; }
-.sap-table .col-loai { width: 12%; }
-.sap-table .col-soct { width: 32%; }
-.sap-table .col-gt   { width: 32%; }
-.sap-table .col-gio  { width: 15%; }
-.sap-table .col-del  { width: 9%; }
+.sap-table .col-loai { width: 10%; }
+.sap-table .col-soct { width: 23%; }
+.sap-table .col-bkref { width: 23%; }
+.sap-table .col-gt   { width: 26%; }
+.sap-table .col-gio  { width: 11%; }
+.sap-table .col-del  { width: 7%; }
 .sap-table td input { width: 100%; box-sizing: border-box; }
 .sap-table td {
     padding: 0.25rem;
@@ -407,10 +408,12 @@ textarea#sap_data {
     font-size: 0.62rem !important;
 }
 .sap-table .sap-doc-number-input,
+.sap-table .sap-bk-ref-input,
 .sap-table .sap-amount-input {
     font-size: 0.64rem !important;
 }
-.sap-table .sap-doc-number-input {
+.sap-table .sap-doc-number-input,
+.sap-table .sap-bk-ref-input {
     letter-spacing: -0.02em;
 }
 .sap-table .sap-amount-input {
@@ -617,7 +620,7 @@ textarea#sap_data {
     .sap-mobile-field-labels,
     .sap-mobile-inputs {
         display: grid;
-        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
         column-gap: 0.5rem;
         align-items: center;
     }
@@ -661,6 +664,10 @@ textarea#sap_data {
     }
 
     .sap-mobile-inputs .sap-doc-number-input {
+        text-align: center;
+    }
+
+    .sap-mobile-inputs .sap-bk-ref-input {
         text-align: center;
     }
 
@@ -862,6 +869,7 @@ textarea#sap_data {
                             <tr>
                                 <th class="col-loai">CT</th>
                                 <th class="col-soct">Số CT</th>
+                                <th class="col-bkref">Số hiệu BK</th>
                                 <th class="col-gt">Giá trị</th>
                                 <th class="col-gio">Giờ</th>
                                 <th class="col-del"></th>
@@ -2036,6 +2044,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     function applyLoaiDefaults(item, previousLoai) {
+        if (item.loai !== 'Bảng kê') item.bk_ref = '';
         const currentSoCt = (item.so_ct || '').trim();
         const previousPrefix = previousLoai ? docTypePrefixes[previousLoai] : '';
         const knownPrefixes = Object.values(docTypePrefixes).filter(Boolean);
@@ -2167,6 +2176,14 @@ document.addEventListener('DOMContentLoaded', function() {
             + inputHtml
             + '<div class="sap-invoice-suggestion-menu" id="' + menuId + '"></div>'
             + '</div>';
+    }
+
+    function renderBkRefInput(item, idx) {
+        const enabled = item.loai === 'Bảng kê';
+        return '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-bk-ref-input" '
+            + 'data-idx="' + idx + '" data-field="bk_ref" value="' + escapeHtml(item.bk_ref || '') + '" '
+            + 'placeholder="' + (enabled ? '000551/07_1305' : '') + '" maxlength="20" autocomplete="off" '
+            + (enabled ? '' : 'disabled') + '>';
     }
 
     function hideDocumentSuggestions() {
@@ -2419,7 +2436,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isMobile = window.matchMedia('(max-width: 360px)').matches;
             if (isMobile) {
                 tr.innerHTML =
-                    '<td colspan="5">' +
+                    '<td colspan="6">' +
                     '<div class="sap-mobile-row">' +
                     '<div class="sap-mobile-top-row">' +
                     '<div>' + renderLoaiButton(item, idx) + '</div>' +
@@ -2429,9 +2446,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<button type="button" class="sap-mobile-remove sap-del" data-idx="' + idx + '" title="Xóa dòng">X</button>' +
                     '</div>' +
                     '</div>' +
-                    '<div class="sap-mobile-field-labels"><span>Số CT</span><span>Số tiền</span></div>' +
+                    '<div class="sap-mobile-field-labels"><span>Số CT</span><span>Số hiệu BK</span><span>Số tiền</span></div>' +
                     '<div class="sap-mobile-inputs">' +
                     renderDocumentDocInput(item, idx) +
+                    renderBkRefInput(item, idx) +
                     '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
                     '</div>' +
                     '</div>' +
@@ -2440,6 +2458,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 tr.innerHTML =
                     '<td>' + renderLoaiButton(item, idx) + '</td>' +
                     '<td>' + renderDocumentDocInput(item, idx) + '</td>' +
+                    '<td>' + renderBkRefInput(item, idx) + '</td>' +
                     '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
                     '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
                     '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
@@ -2702,7 +2721,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ===== THÊM DÒNG THỦ CÔNG =====
     document.getElementById('btnAddRow').addEventListener('click', function() {
-        sapItems.push({ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' });
+        sapItems.push({ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' });
         renderSapTable(sapItems);
         if (window.matchMedia('(max-width: 360px)').matches) {
             requestAnimationFrame(function() {
@@ -2722,7 +2741,7 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
 
     // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
-    sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' }];
+    sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
     renderSapTable(sapItems);
 
     // ===== KIỂM TRA TÀI KHOẢN (MBBank Lookup) =====
@@ -3208,7 +3227,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (p.created_at && p.created_at.length >= 10) {
                     document.getElementById('ngayLap').value = p.created_at.slice(0, 10);
                 }
-                sapItems = Array.isArray(p.chung_tu) && p.chung_tu.length ? p.chung_tu : [{ loai: 'B\u1ea3ng k\u00ea', so_ct: p.so_bk || '{{ bk_prefix }}', gia_tri: p.tong_ck || 0, gio: '', sign: '-' }];
+                sapItems = Array.isArray(p.chung_tu) && p.chung_tu.length ? p.chung_tu : [{ loai: 'B\u1ea3ng k\u00ea', so_ct: p.so_bk || '{{ bk_prefix }}', bk_ref: '', gia_tri: p.tong_ck || 0, gio: '', sign: '-' }];
                 renderSapTable(sapItems);
                 updatePreview();
             })
@@ -3229,7 +3248,7 @@ document.addEventListener('DOMContentLoaded', function() {
             clearTvv(false);
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
-            sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', gia_tri: 0, gio: '', sign: '-' }];
+            sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
             renderSapTable(sapItems);
         }
     });
