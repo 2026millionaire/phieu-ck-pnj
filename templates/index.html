@@ -1287,33 +1287,72 @@ document.addEventListener('DOMContentLoaded', function() {
         return code.trim() + '|' + field;
     }
 
-    function cacheProfileSuggestion(customerCode, field, value) {
+    function profileSuggestionPriority(source) {
+        if (source === 'bp') return 0;
+        if (source === 'local') return 1;
+        if (source === 'po') return 2;
+        return 3;
+    }
+
+    function normalizeProfileSuggestionValue(field, value) {
+        const text = String(value || '').trim().replace(/\s+/g, ' ');
+        if (field === 'phone' || field === 'cccd') return text.replace(/\D+/g, '');
+        if (field === 'name') return text.toUpperCase();
+        return text;
+    }
+
+    function mergeCustomerSuggestions(existingSuggestions, incomingSuggestions) {
+        const byKey = new Map();
+        [...(existingSuggestions || []), ...(incomingSuggestions || [])].forEach(function(item, index) {
+            if (!item || typeof item.value !== 'string' || !item.value.trim()) return;
+            const source = item.source || '';
+            const key = item.compare_key || item.value.trim().toUpperCase();
+            const normalized = {
+                value: item.value.trim(),
+                source: source,
+                compare_key: key,
+                priority: profileSuggestionPriority(source),
+                original_index: index
+            };
+            const current = byKey.get(key);
+            if (!current || normalized.priority < current.priority) byKey.set(key, normalized);
+        });
+        return Array.from(byKey.values())
+            .sort((a, b) => a.priority - b.priority || a.original_index - b.original_index)
+            .slice(0, 10)
+            .map(({ original_index, priority, ...item }) => item);
+    }
+
+    function cacheProfileSuggestion(customerCode, field, value, source) {
         const cleanValue = String(value || '').trim();
         if (!cleanValue) return;
         const key = customerSuggestionCacheKey(customerCode, field);
-        const suggestions = Array.isArray(customerSuggestionCache.get(key))
-            ? customerSuggestionCache.get(key).slice()
+        const compareKey = normalizeProfileSuggestionValue(field, cleanValue);
+        const existing = Array.isArray(customerSuggestionCache.get(key))
+            ? customerSuggestionCache.get(key)
             : [];
-        if (!suggestions.some(item => item && item.value === cleanValue)) {
-            suggestions.unshift({ value: cleanValue });
-            customerSuggestionCache.set(key, suggestions.slice(0, 10));
-        }
+        const merged = mergeCustomerSuggestions(existing, [{
+            value: normalizeProfileSuggestionValue(field, cleanValue),
+            source,
+            compare_key: compareKey
+        }]);
+        customerSuggestionCache.set(key, merged);
         const target = customerSuggestionTargets[field];
         if (target && document.activeElement === target.input && !target.input.value.trim()) {
             showCustomerSuggestions(field, customerSuggestionCache.get(key));
         }
     }
 
-    function cacheCustomerProfileSuggestions(profile, requestedCode) {
+    function cacheCustomerProfileSuggestions(profile, requestedCode, source) {
         if (!profile || typeof profile !== 'object') return;
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         const normalizedCode = String(requestedCode || '').trim().replace(/^0+/, '');
         if (normalizedCode && currentCode !== normalizedCode) return;
         const cacheCode = document.getElementById('ma_kh').value.trim();
         const profileName = profile.name || profile.full_name || '';
-        cacheProfileSuggestion(cacheCode, 'name', profileName ? String(profileName).toUpperCase() : '');
-        cacheProfileSuggestion(cacheCode, 'phone', profile.phone || '');
-        cacheProfileSuggestion(cacheCode, 'cccd', profile.cccd || '');
+        cacheProfileSuggestion(cacheCode, 'name', profileName, source);
+        cacheProfileSuggestion(cacheCode, 'phone', profile.phone || '', source);
+        cacheProfileSuggestion(cacheCode, 'cccd', profile.cccd || '', source);
     }
 
     function customerLocalProfileCacheKey(code) {
@@ -1329,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function applyCustomerLocalProfile(profile, requestedCode) {
-        cacheCustomerProfileSuggestions(profile, requestedCode);
+        cacheCustomerProfileSuggestions(profile, requestedCode, 'local');
     }
 
     function applyErpBusinessPartnerProfile(profile, requestedCode) {
@@ -1337,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
         const addressInput = document.getElementById('dia_chi');
-        cacheCustomerProfileSuggestions(profile, requestedCode);
+        cacheCustomerProfileSuggestions(profile, requestedCode, 'bp');
         if (!addressInput.value.trim() && profile.address) {
             addressInput.value = profile.address;
             addressInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1349,7 +1388,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
         const addressInput = document.getElementById('dia_chi');
-        cacheCustomerProfileSuggestions(profile, requestedCode);
+        cacheCustomerProfileSuggestions(profile, requestedCode, 'po');
         if (!addressInput.value.trim() && profile.address) {
             addressInput.value = profile.address;
             addressInput.dispatchEvent(new Event('input', { bubbles: true }));
