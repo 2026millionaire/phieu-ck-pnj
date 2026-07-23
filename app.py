@@ -293,10 +293,10 @@ PAYMENT_PLANNING_PROFILES = {
         "abbr": "CAF",
         "representative_abbr": "CAF",
         "company_name": 'CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (CAF)',
-        "store_name": "",
+        "store_name": PAYMENT_PLANNING_STORE_NAME,
         "tax_code": "0309279212",
         "address": "170E Phan Đăng Lưu, Phường Đức Nhuận, Thành phố Hồ Chí Minh",
-        "contact": "",
+        "contact": PAYMENT_PLANNING_PNJ_CONTACT,
         "has_working_day_definition": False,
         "definition_rows": {
             "ngay_t": "Là ngày CAF hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Thoả Thuận này; Trường hợp các sự kiện này phát sinh vào các thời điểm khác nhau, Ngày T được xác định là ngày hoàn thành sự kiện cuối cùng.\nVD: BKML ký ngày 1/7, Thoả thuận thu đổi sản phẩm ký ngày 2/7, Tiếp nhận tài sản ngày 3/7. Như vậy T là ngày 3/7",
