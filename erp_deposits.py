@@ -28,6 +28,37 @@ RESTGUI_TRANSACTION = "ZFIE0029"
 RESTGUI_GRID_ID = "C102"
 RESTGUI_DEPOSIT_SPECIAL_GL = "A"
 RESTGUI_DEPOSIT_ACCOUNT_TYPE = "D"
+DEFAULT_RESTGUI_BASE_URL = "https://dc-ep0app01.pnj.com.vn:44300"
+RESTGUI_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/149.0.0.0 Safari/537.36"
+)
+RESTGUI_CLIENT_METRICS = {
+    "ClientWidth": "1600",
+    "ClientHeight": "950",
+    "ScreenOrientation": "landscape",
+    "ThemedTableRowHeightStandard": "33",
+    "ThemedScrollbarDimension": "0",
+    "ThemedDocumentBackgroundColor": "rgb(250, 250, 250)",
+    "ThemedRasterHeight": "32",
+    "ThemedRasterWidth": "10",
+    "ThemedAbapListRasterHeight": "27",
+    "ThemedAbapListRasterWidth": "9",
+    "sapthemecat": "3",
+    "ThemeID": "sap_belize",
+    "SapThemeID": "sap_belize",
+    "DeviceType": "DESKTOP",
+    "Platform": "Windows",
+    "ThemedTableRowHeight": "25",
+    "sapurisfioritheme": "1",
+    "theme": "sap_belize",
+    "sapbasetheme": "sap_belize",
+    "~webguiScreenWidth": "1600",
+    "~webguiScreenHeight": "950",
+    "~webguiUserAreaWidth": "1568",
+    "~webguiUserAreaHeight": "789",
+}
 
 
 def normalize_customer_code(value: Any) -> str:
@@ -323,9 +354,17 @@ def _login_direct_restgui_session(base_url: str) -> requests.Session:
 
 
 def _start_restgui_transaction(session: requests.Session, base_url: str) -> tuple[str, str]:
+    browser_headers = {
+        "User-Agent": RESTGUI_USER_AGENT,
+        "sec-ch-ua": '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+    }
+    session.headers.update({"User-Agent": RESTGUI_USER_AGENT})
     response = session.get(
         f"{base_url}/sap/bc/gui/sap/its/webgui",
         params={"~transaction": RESTGUI_TRANSACTION, "sap-client": "300", "sap-language": "EN"},
+        headers=browser_headers,
         timeout=ERP_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
@@ -338,18 +377,61 @@ def _start_restgui_transaction(session: requests.Session, base_url: str) -> tupl
             "~webguiScreenHeight": "1000",
             "~webguiScreenWidth": "1600",
             "~webguiDynproMetric": "1",
+            "SAPURIsFioriTheme": "1",
+            "SAPURIsSAPBaseTheme": "sap_belize",
             "~tx": RESTGUI_TRANSACTION,
             "~transaction": RESTGUI_TRANSACTION,
         }
     )
-    start_response = session.post(action_url, data=fields, timeout=ERP_TIMEOUT_SECONDS)
+    start_response = session.post(
+        action_url,
+        data=fields,
+        timeout=ERP_TIMEOUT_SECONDS,
+        headers={
+            **browser_headers,
+            "Referer": response.url,
+            "Origin": base_url,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cache-Control": "max-age=0",
+            "Upgrade-Insecure-Requests": "1",
+        },
+    )
     start_response.raise_for_status()
+    script_match = re.search(r'src="([^"]*webgui_min\.js[^"]*)"', start_response.text)
+    if script_match:
+        script_url = urljoin(start_response.url, script_match.group(1))
+        session.get(script_url, headers={**browser_headers, "Referer": action_url}, timeout=ERP_TIMEOUT_SECONDS)
+    path = fields.get("~path") or re.sub(r"^https?://[^/]+", "", action_url)
+    metrics = dict(RESTGUI_CLIENT_METRICS)
+    metrics["ThemedSvgLibs"] = (
+        f"{base_url}/sap/public/icmandir/its/ls/theming/UR/ls/sap_belize/svg/libs/SAPGUI-icons.svg"
+    )
+    state_payload = {
+        "moin": str(fields.get("moin") or ""),
+        "~RG_WEBGUI": "X",
+        "sap-statistics": "true",
+        "~path": path,
+        **metrics,
+        "~ci_result": ";".join(f"{key}={value}" for key, value in metrics.items()),
+    }
+    state_response = session.post(
+        action_url.rstrip("/") + "/state/ur",
+        data=state_payload,
+        timeout=max(ERP_TIMEOUT_SECONDS, 60),
+        headers={
+            **browser_headers,
+            "Referer": action_url,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    state_response.raise_for_status()
     return action_url, str(fields.get("moin") or "")
 
 
 def load_erp_deposit_restgui(customer_code: Any, target_date: date) -> list[dict[str, Any]]:
     """Load deposit rows by posting ZFIE0029 through RESTGUI batch/json."""
-    base_url = os.environ.get("PNJ_DEPOSIT_RESTGUI_BASE_URL", ERP_BASE_URL).rstrip("/")
+    base_url = os.environ.get("PNJ_DEPOSIT_RESTGUI_BASE_URL", DEFAULT_RESTGUI_BASE_URL).rstrip("/")
     session = login_erp_session() if base_url == ERP_BASE_URL else _login_direct_restgui_session(base_url)
     action_url, moin = _start_restgui_transaction(session, base_url)
     batch_url = action_url.rstrip("/") + "/batch/json"
