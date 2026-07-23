@@ -3,6 +3,12 @@
 {% block title %}Tạo phiếu{% endblock %}
 {% block nav_home %}active{% endblock %}
 {% block page_title %}Tạo phiếu xác nhận chuyển khoản{% endblock %}
+{% block topbar_right %}
+<div class="mode-switch" role="group" aria-label="Chọn chế độ cửa hàng">
+    <button type="button" class="mode-switch-btn active" id="modePnj" data-store-mode="pnj">PNJ</button>
+    <button type="button" class="mode-switch-btn" id="modeCao" data-store-mode="cao">CAO</button>
+</div>
+{% endblock %}
 
 {% block extra_css %}
 .preview-panel {
@@ -44,6 +50,39 @@
 .preview-phieu table td {
     border: 1px solid #999;
     padding: 2px 4px;
+}
+
+.mode-switch {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.mode-switch-btn {
+    min-width: 56px;
+    border: 0;
+    border-radius: 4px;
+    padding: 0.35rem 0.75rem;
+    color: #334155;
+    background: transparent;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.mode-switch-btn.active {
+    color: #fff;
+    background: #31532a;
+}
+
+@media (max-width: 576px) {
+    .mode-switch-btn {
+        min-width: 48px;
+        padding: 0.32rem 0.55rem;
+        font-size: 0.86rem;
+    }
 }
 
 .sap-table th {
@@ -715,6 +754,8 @@ textarea#sap_data {
     <!-- LEFT: Form -->
     <div class="col-lg-7">
         <form id="phieuForm" method="POST" action="{{ url_for('api_save') }}" autocomplete="off">
+            <input type="hidden" id="store_mode" name="store_mode" value="pnj">
+            <input type="hidden" id="plant" name="plant" value="1305">
             <!-- Customer info -->
             <div class="card mb-3">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center">
@@ -1034,7 +1075,7 @@ textarea#sap_data {
                             </div>
                         </div>
                         <div style="font-size:0.42rem; color:#666; margin:1px 0;">
-                            Số: CH PNJ NEXT 27 Hà Nội, Huế - 1305_<span class="pv-date">--/--/----</span>_<span class="pv-time">--:--</span>
+                            Số: CH PNJ NEXT 27 Hà Nội, Huế - <span class="pv-plant">1305</span>_<span class="pv-date">--/--/----</span>_<span class="pv-time">--:--</span>
                         </div>
                         <div class="doc-title" style="font-size:0.58rem; margin:4px 0;">PHIẾU XÁC NHẬN THÔNG TIN THANH TOÁN CHUYỂN KHOẢN</div>
 
@@ -1162,6 +1203,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const customerLookupEnabled = {{ customer_lookup_enabled|tojson }};
     const customerLookupTurnstileSitekey = {{ customer_lookup_turnstile_sitekey|tojson }};
     const fields = ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'dia_chi', 'so_tk', 'ngan_hang'];
+    const storeModes = {
+        pnj: {plant: '1305'},
+        cao: {plant: '2122'}
+    };
 
     const customerSuggestionTargets = {
         name: {
@@ -1180,6 +1225,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const customerSuggestionCache = new Map();
     const customerSuggestionInFlight = new Set();
     const customerLocalProfileCache = new Map();
+    const erpBusinessPartnerProfileCache = new Map();
     const purchaseOrderCustomerProfileCache = new Map();
     const captchaElement = document.getElementById('customerLookupCaptchaModal');
     const captchaModal = captchaElement ? new bootstrap.Modal(captchaElement) : null;
@@ -1188,6 +1234,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let turnstileWidgetId = null;
     let customerLocalProfileTimer = null;
     let customerLocalProfileInFlight = '';
+    let erpBusinessPartnerProfileTimer = null;
+    let erpBusinessPartnerProfileInFlight = '';
     let purchaseOrderCustomerProfileTimer = null;
     let purchaseOrderCustomerProfileInFlight = '';
 
@@ -1242,6 +1290,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return code.trim().replace(/^0+/, '');
     }
 
+    function erpBusinessPartnerProfileCacheKey(code) {
+        return code.trim().replace(/^0+/, '');
+    }
+
     function purchaseOrderCustomerProfileCacheKey(code) {
         return code.trim().replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingLookbackDays() + 'd';
     }
@@ -1264,6 +1316,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!cccdInput.value.trim() && profile.cccd) {
             cccdInput.value = profile.cccd;
             cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    function applyErpBusinessPartnerProfile(profile, requestedCode) {
+        if (!profile || typeof profile !== 'object') return;
+        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
+        const nameInput = document.getElementById('ten_kh');
+        const phoneInput = document.getElementById('sdt');
+        const cccdInput = document.getElementById('cccd');
+        const addressInput = document.getElementById('dia_chi');
+        const profileName = profile.name || profile.full_name || '';
+        if (!nameInput.value.trim() && profileName) {
+            nameInput.value = String(profileName).toUpperCase();
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!phoneInput.value.trim() && profile.phone) {
+            phoneInput.value = profile.phone;
+            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!cccdInput.value.trim() && profile.cccd) {
+            cccdInput.value = profile.cccd;
+            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (!addressInput.value.trim() && profile.address) {
+            addressInput.value = profile.address;
+            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }
 
@@ -1324,6 +1403,40 @@ document.addEventListener('DOMContentLoaded', function() {
             if (customerLocalProfileInFlight === key) customerLocalProfileInFlight = '';
             const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
             if (shouldSchedulePurchaseOrder && currentCode === customerCode.replace(/^0+/, '')) {
+                scheduleErpBusinessPartnerProfile();
+            }
+        }
+    }
+
+    async function fetchErpBusinessPartnerProfile(customerCode) {
+        const key = erpBusinessPartnerProfileCacheKey(customerCode);
+        if (erpBusinessPartnerProfileCache.has(key)) {
+            applyErpBusinessPartnerProfile(erpBusinessPartnerProfileCache.get(key), customerCode);
+            schedulePurchaseOrderCustomerProfile();
+            return;
+        }
+        if (erpBusinessPartnerProfileInFlight === key) return;
+        erpBusinessPartnerProfileInFlight = key;
+        try {
+            const response = await fetch(appUrl('/api/erp-business-partner-profile'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                credentials: 'same-origin',
+                cache: 'no-store',
+                body: JSON.stringify({
+                    customer_code: customerCode
+                })
+            });
+            const data = await response.json().catch(() => ({ ok: false }));
+            const profile = data && data.ok && data.profile ? data.profile : {};
+            erpBusinessPartnerProfileCache.set(key, profile);
+            applyErpBusinessPartnerProfile(profile, customerCode);
+        } catch (error) {
+            erpBusinessPartnerProfileCache.set(key, {});
+        } finally {
+            if (erpBusinessPartnerProfileInFlight === key) erpBusinessPartnerProfileInFlight = '';
+            const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+            if (currentCode === customerCode.replace(/^0+/, '')) {
                 schedulePurchaseOrderCustomerProfile();
             }
         }
@@ -1362,16 +1475,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function scheduleCustomerLocalProfile() {
         clearTimeout(customerLocalProfileTimer);
+        clearTimeout(erpBusinessPartnerProfileTimer);
         clearTimeout(purchaseOrderCustomerProfileTimer);
         customerLocalProfileTimer = setTimeout(function() {
             const code = document.getElementById('ma_kh').value.trim();
             if (!validLookupCustomerCode(code)) return;
             if (!customerLookupEnabled) {
-                schedulePurchaseOrderCustomerProfile();
+                scheduleErpBusinessPartnerProfile();
                 return;
             }
             fetchCustomerLocalProfile(code);
         }, 350);
+    }
+
+    function scheduleErpBusinessPartnerProfile() {
+        clearTimeout(erpBusinessPartnerProfileTimer);
+        clearTimeout(purchaseOrderCustomerProfileTimer);
+        erpBusinessPartnerProfileTimer = setTimeout(function() {
+            const code = document.getElementById('ma_kh').value.trim();
+            if (!validLookupCustomerCode(code)) return;
+            fetchErpBusinessPartnerProfile(code);
+        }, 500);
     }
 
     function schedulePurchaseOrderCustomerProfile() {
@@ -1519,6 +1643,7 @@ document.addEventListener('DOMContentLoaded', function() {
             customerSuggestionCache.clear();
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
+            erpBusinessPartnerProfileCache.clear();
             purchaseOrderCustomerProfileCache.clear();
             hideCustomerSuggestions();
             hideDocumentSuggestions();
@@ -1616,6 +1741,26 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.pv-ngay').forEach(el => el.textContent = String(now.getDate()).padStart(2,'0'));
     document.querySelectorAll('.pv-thang').forEach(el => el.textContent = String(now.getMonth()+1).padStart(2,'0'));
     document.querySelectorAll('.pv-nam').forEach(el => el.textContent = now.getFullYear());
+
+    function applyStoreMode(mode) {
+        const normalizedMode = storeModes[mode] ? mode : 'pnj';
+        const plant = storeModes[normalizedMode].plant;
+        document.getElementById('store_mode').value = normalizedMode;
+        document.getElementById('plant').value = plant;
+        document.querySelectorAll('.mode-switch-btn').forEach(function(button) {
+            button.classList.toggle('active', button.dataset.storeMode === normalizedMode);
+        });
+        document.querySelectorAll('.pv-plant').forEach(function(el) {
+            el.textContent = plant;
+        });
+    }
+
+    document.querySelectorAll('.mode-switch-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            applyStoreMode(this.dataset.storeMode);
+        });
+    });
+    applyStoreMode('pnj');
 
     // Live preview binding
     fields.forEach(function(f) {
@@ -2943,6 +3088,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : (splitLookupAccountName(document.getElementById('ten_chu_tk').value).displayName || ten_kh),
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: soBkValue,
+            plant: document.getElementById('plant').value,
             use_bk_ref: useBkRefEnabled(),
             show_payment_dates: showPaymentDatesEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
@@ -3148,6 +3294,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : (splitLookupAccountName(document.getElementById('ten_chu_tk').value).displayName || ten_kh),
             ngan_hang: document.getElementById('ngan_hang').value,
             so_bk: document.getElementById('so_bk').value.trim(),
+            plant: document.getElementById('plant').value,
             use_bk_ref: useBkRefEnabled(),
             show_payment_dates: showPaymentDatesEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
@@ -3250,6 +3397,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('ngan_hang').value = p.ngan_hang || '';
                 document.getElementById('bank_search').value = p.ngan_hang || '';
                 document.getElementById('so_bk').value = p.so_bk || '';
+                applyStoreMode(String(p.plant || '') === '2122' ? 'cao' : 'pnj');
                 document.getElementById('tvv_code').value = p.tvv_code || '';
                 document.getElementById('tvv_name').value = p.tvv_name || '';
                 document.getElementById('tvv_search').value = p.tvv_code ? (p.tvv_code + ' - ' + (p.tvv_name || '')) : (p.tvv_name || '');
@@ -3281,6 +3429,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('previewQR').innerHTML = '<div style="width:56px;height:56px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:0.4rem;color:#999;">QR Code</div>';
             clearBank();
             clearTvv(false);
+            applyStoreMode('pnj');
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
             sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];

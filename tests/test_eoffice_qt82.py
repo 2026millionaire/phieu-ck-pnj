@@ -456,6 +456,10 @@ class EofficeQt82Tests(unittest.TestCase):
     def test_bk_create_and_history_have_payment_planning_actions(self):
         self.login(role="admin")
         index_html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('data-store-mode="pnj"', index_html)
+        self.assertIn('data-store-mode="cao"', index_html)
+        self.assertIn('id="plant"', index_html)
+        self.assertIn("plant: document.getElementById('plant').value", index_html)
         self.assertIn('id="btnCopyPhieu"', index_html)
         self.assertNotIn('id="useBkRef"', index_html)
         self.assertNotIn('id="showPaymentDates"', index_html)
@@ -504,6 +508,64 @@ class EofficeQt82Tests(unittest.TestCase):
         settings_json = self.client.get("/api/settings").get_json()["data"]
         self.assertEqual(settings_json["use_bk_ref_default"], "0")
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
+
+    def test_cao_mode_uses_plant_2122_and_caf_payment_planning_text(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "ngay_lap": "2026-07-22",
+            "ma_kh": "100000003",
+            "ten_kh": "KHACH HANG CAO",
+            "dia_chi": "18A TRAN BINH TRONG, HUE",
+            "sdt": "0900000003",
+            "cccd": "012345678903",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG CAO",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000003",
+            "tvv_code": "11358",
+            "tvv_name": "NGUYEN TVV",
+            "plant": "2122",
+            "tong_ck": 6000000,
+            "nguoi_ki": "tvv",
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000003", "gia_tri": 10000000, "gio": "22/07/2026 16:20"},
+                {"loai": "Hóa đơn", "so_ct": "9010000001", "gia_tri": 4000000, "gio": "22/07/2026 16:21"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        phieu_id = created["id"]
+
+        phieu_json = self.client.get(f"/api/phieu/{phieu_id}").get_json()["phieu"]
+        self.assertEqual(phieu_json["plant"], "2122")
+
+        print_html = self.client.get(f"/api/print/{phieu_id}").get_data(as_text=True)
+        self.assertIn("CH PNJ NEXT 27 Hà Nội, Huế - 2122_16:20_22/07/2026", print_html)
+
+        planning_html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
+        self.assertIn("CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (CAF)", planning_html)
+        self.assertIn("0309279212", planning_html)
+        self.assertIn("<td>HỒ THỊ HÀ MY</td>", planning_html)
+        self.assertIn("Khách Hàng đồng ý cho CAF thu đổi sản phẩm", planning_html)
+        self.assertIn("Giá trị quy đổi sang sản phẩm CAF", planning_html)
+        self.assertIn("ĐẠI DIỆN CAF/NGƯỜI ĐƯỢC ỦY QUYỀN", planning_html)
+        self.assertIn("Cửa Hàng Trưởng", planning_html)
+        self.assertNotIn("NGUYEN TVV", planning_html)
+        self.assertIn("Thỏa Thuận này chấm dứt", planning_html)
+        self.assertNotIn("Ngày làm việc</td>", planning_html)
+        self.assertNotIn("ngày làm việc thứ n", planning_html)
+
+        xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
+        self.assertEqual(xlsx_response.status_code, 200)
+        workbook = load_workbook(io.BytesIO(xlsx_response.data), data_only=False)
+        sheet = workbook["Payment Planning"]
+        self.assertEqual(sheet["B4"].value, "CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (CAF)")
+        self.assertEqual(sheet["B6"].value, "0309279212")
+        self.assertEqual(sheet["B7"].value, "HỒ THỊ HÀ MY")
+        self.assertEqual(sheet["A9"].value, "Điện thoại/Email CAF")
+        self.assertIn("CAF thu đổi sản phẩm", sheet["B14"].value)
+        self.assertIn("Cửa Hàng Trưởng", sheet["C58"].value)
+        self.assertIn("ĐẠI DIỆN CAF/NGƯỜI ĐƯỢC ỦY QUYỀN", sheet["C58"].value)
 
     def test_bank_eoffice_code_is_admin_only_on_create_forms(self):
         self.login(role="user", user_id=2)
