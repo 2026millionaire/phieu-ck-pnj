@@ -203,15 +203,18 @@ class BillingSuggestionTests(unittest.TestCase):
         self.assertIn("sap-invoice-suggestion-doc", html)
         self.assertIn("formatNum(item.amount || 0)", html)
         self.assertIn("đ</span>", html)
-        self.assertIn("billing_invoice_days", html)
-        self.assertIn("billingLookbackDays()", html)
+        self.assertIn("lookupDateIso()", html)
+        self.assertIn("lookupLookbackDays()", html)
+        self.assertIn("document.getElementById('ngayLap').addEventListener('change'", html)
+        self.assertNotIn("billing_invoice_days", html)
+        self.assertNotIn("billingLookbackDays()", html)
         self.assertNotIn("lookback_days: 1", html)
         self.assertNotIn("formatBillingDateShort", html)
         self.assertNotIn("sap-invoice-suggestion-meta", html)
         self.assertNotIn("Gần đây", html)
         self.assertNotIn("Cùng ngày", html)
 
-    def test_settings_exposes_billing_invoice_days_and_new_layout(self):
+    def test_settings_hides_billing_invoice_days_and_keeps_layout(self):
         self.login_admin()
 
         response = self.client.get("/settings")
@@ -220,7 +223,8 @@ class BillingSuggestionTests(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn("settings-shell", html)
         self.assertIn("settings-nav", html)
-        self.assertIn("s_billing_invoice_days", html)
+        self.assertNotIn("s_billing_invoice_days", html)
+        self.assertNotIn("billing_invoice_days", html)
         self.assertIn("settings-prefixes", html)
 
 

@@ -1192,7 +1192,6 @@ textarea#sap_data {
     // Initialize app settings from server
     window.__appSettings = {
         tvv_button_color_mode: '{{ settings.get("tvv_button_color_mode", "0") }}',
-        billing_invoice_days: '{{ settings.get("billing_invoice_days", "2") }}',
         use_bk_ref_default: '{{ settings.get("use_bk_ref_default", "0") }}',
         show_payment_dates_default: '{{ settings.get("show_payment_dates_default", "1") }}'
     };
@@ -1364,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function purchaseOrderCustomerProfileCacheKey(code) {
-        return code.trim().replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingLookbackDays() + 'd';
+        return code.trim().replace(/^0+/, '') + '|' + lookupDateIso();
     }
 
     function applyCustomerLocalProfile(profile, requestedCode) {
@@ -1479,8 +1478,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 cache: 'no-store',
                 body: JSON.stringify({
                     customer_code: customerCode,
-                    purchase_order_date: todayIsoDate(),
-                    lookback_days: billingLookbackDays()
+                    purchase_order_date: lookupDateIso(),
+                    lookback_days: lookupLookbackDays()
                 })
             });
             const data = await response.json().catch(() => ({ ok: false }));
@@ -2339,10 +2338,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const raw = String(item && item.gio ? item.gio : '').split(' ')[0];
         const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (match) return match[3] + '-' + match[2] + '-' + match[1];
-        const now = new Date();
-        return now.getFullYear() + '-'
-            + String(now.getMonth() + 1).padStart(2, '0') + '-'
-            + String(now.getDate()).padStart(2, '0');
+        return lookupDateIso();
     }
 
     function formatBillingDate(value) {
@@ -2353,22 +2349,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function billingSuggestionCacheKey(customerCode) {
-        return customerCode.replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingInvoiceDays() + 'd';
+        return customerCode.replace(/^0+/, '') + '|' + lookupDateIso();
     }
 
     function purchaseOrderReferenceCacheKey(customerCode) {
         return billingSuggestionCacheKey(customerCode);
     }
 
-    function billingInvoiceDays() {
-        const raw = window.__appSettings && window.__appSettings.billing_invoice_days;
-        const parsed = parseInt(raw, 10);
-        if (!Number.isFinite(parsed)) return 2;
-        return Math.max(1, Math.min(parsed, 31));
-    }
-
-    function billingLookbackDays() {
-        return Math.max(0, billingInvoiceDays() - 1);
+    function lookupLookbackDays() {
+        return 0;
     }
 
     function todayIsoDate() {
@@ -2376,6 +2365,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return now.getFullYear() + '-'
             + String(now.getMonth() + 1).padStart(2, '0') + '-'
             + String(now.getDate()).padStart(2, '0');
+    }
+
+    function lookupDateIso() {
+        const input = document.getElementById('ngayLap');
+        const value = input ? input.value.trim() : '';
+        return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : todayIsoDate();
     }
 
     function renderDocumentDocInput(item, idx) {
@@ -2459,7 +2454,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return suggestions
                 .map(item => ({
                     purchase_order: normalizeDocNumber(item.purchase_order || ''),
-                    creation_date: item.creation_date || todayIsoDate()
+                    creation_date: item.creation_date || lookupDateIso()
                 }))
                 .filter(item => item.purchase_order);
         }
@@ -2505,8 +2500,8 @@ document.addEventListener('DOMContentLoaded', function() {
             credentials: 'same-origin',
             body: JSON.stringify({
                 customer_code: customerCode,
-                purchase_order_date: todayIsoDate(),
-                lookback_days: billingLookbackDays(),
+                purchase_order_date: lookupDateIso(),
+                lookback_days: lookupLookbackDays(),
                 purchase_orders: rows
             })
         })
@@ -2583,8 +2578,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     customer_code: customerCode,
-                    billing_date: todayIsoDate(),
-                    lookback_days: billingLookbackDays(),
+                    billing_date: lookupDateIso(),
+                    lookback_days: lookupLookbackDays(),
                     limit: 10
                 })
             });
@@ -2632,8 +2627,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     customer_code: customerCode,
-                    purchase_order_date: todayIsoDate(),
-                    lookback_days: billingLookbackDays(),
+                    purchase_order_date: lookupDateIso(),
+                    lookback_days: lookupLookbackDays(),
                     limit: 10
                 })
             });
@@ -2661,8 +2656,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     customer_code: customerCode,
-                    billing_date: todayIsoDate(),
-                    lookback_days: billingLookbackDays(),
+                    billing_date: lookupDateIso(),
+                    lookback_days: lookupLookbackDays(),
                     limit: 10
                 })
             });
@@ -2692,8 +2687,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     customer_code: customerCode,
-                    purchase_order_date: todayIsoDate(),
-                    lookback_days: billingLookbackDays(),
+                    purchase_order_date: lookupDateIso(),
+                    lookback_days: lookupLookbackDays(),
                     limit: 10
                 })
             });
@@ -3052,6 +3047,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const dd = String(today.getDate()).padStart(2, '0');
         document.getElementById('ngayLap').value = yyyy + '-' + mm + '-' + dd;
     })();
+
+    document.getElementById('ngayLap').addEventListener('change', function() {
+        billingSuggestionCache.clear();
+        purchaseOrderSuggestionCache.clear();
+        purchaseOrderReferenceCache.clear();
+        purchaseOrderCustomerProfileCache.clear();
+        purchaseOrderReferenceInFlight = '';
+        purchaseOrderReferencePromise = null;
+        hideDocumentSuggestions();
+        schedulePurchaseOrderCustomerProfile();
+        scheduleDocumentPrefetch();
+    });
 
     // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
     sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
