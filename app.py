@@ -33,6 +33,7 @@ import shared_auth
 import erp_billing
 import erp_business_partner
 import erp_purchase_orders
+import erp_supplier_line_items
 
 try:
     from customer_lookup import (
@@ -800,12 +801,11 @@ def prepare_payment_planning_for_output(row, settings=None):
     p = prepare_phieu_for_output(row, settings)
     profile = payment_planning_profile_for_plant(p.get("plant"))
     amounts = payment_planning_amounts(p.get("chung_tu", []), p.get("tong_ck", 0))
-    use_bk_ref = bool(int(p.get("use_bk_ref") or 0))
     bk_numbers = []
     for item in p.get("chung_tu", []):
         if item.get("loai") != "Bảng kê":
             continue
-        so_ct = remove_all_whitespace((item.get("bk_ref") if use_bk_ref else "") or item.get("so_ct", ""))
+        so_ct = remove_all_whitespace(item.get("bk_ref") or item.get("so_ct", ""))
         if so_ct and so_ct not in bk_numbers:
             bk_numbers.append(so_ct)
     signer_title_map = {
@@ -2489,6 +2489,37 @@ def api_purchase_order_suggestions():
             {"ok": False, "error": "Không thể lấy gợi ý bảng kê lúc này."}, 503
         )
     return _customer_lookup_json({"ok": True, "suggestions": suggestions})
+
+
+@app.route("/api/purchase-order-references", methods=["POST"])
+def api_purchase_order_references():
+    """Return legal buyback references from supplier line items for matched POs."""
+    if request.content_length is not None and request.content_length > 8192:
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu quá lớn."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "Yêu cầu không hợp lệ."}, 400)
+
+    data = request.get_json(silent=True) or {}
+    customer_code = data.get("customer_code")
+    if not erp_supplier_line_items.normalize_customer_code(customer_code):
+        return _customer_lookup_json({"ok": True, "mapping": {}, "references": []})
+    purchase_orders = data.get("purchase_orders")
+    if not isinstance(purchase_orders, list):
+        purchase_orders = []
+
+    try:
+        result = erp_supplier_line_items.purchase_order_reference_mapping(
+            customer_code=customer_code,
+            purchase_orders=purchase_orders,
+            target_date=data.get("purchase_order_date"),
+            lookback_days=data.get("lookback_days", erp_purchase_orders.DEFAULT_LOOKBACK_DAYS),
+        )
+    except Exception:
+        app.logger.exception("Không thể lấy số hiệu bảng kê từ Supplier Line Items ERP.")
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không thể lấy số hiệu bảng kê lúc này."}, 503
+        )
+    return _customer_lookup_json({"ok": True, **result})
 
 
 @app.route("/api/purchase-order-customer-profile", methods=["POST"])

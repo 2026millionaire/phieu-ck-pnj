@@ -1660,12 +1660,15 @@ document.addEventListener('DOMContentLoaded', function() {
             customerSuggestionCache.clear();
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
+            purchaseOrderReferenceCache.clear();
             erpBusinessPartnerProfileCache.clear();
             purchaseOrderCustomerProfileCache.clear();
             clearTimeout(customerLocalProfileTimer);
             clearTimeout(erpBusinessPartnerProfileTimer);
             clearTimeout(purchaseOrderCustomerProfileTimer);
             clearTimeout(billingPrefetchTimer);
+            purchaseOrderReferenceInFlight = '';
+            purchaseOrderReferencePromise = null;
             hideCustomerSuggestions();
             hideDocumentSuggestions();
         }
@@ -1714,12 +1717,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 customerSuggestionCache.clear();
                 billingSuggestionCache.clear();
                 purchaseOrderSuggestionCache.clear();
+                purchaseOrderReferenceCache.clear();
                 erpBusinessPartnerProfileCache.clear();
                 purchaseOrderCustomerProfileCache.clear();
                 clearTimeout(customerLocalProfileTimer);
                 clearTimeout(erpBusinessPartnerProfileTimer);
                 clearTimeout(purchaseOrderCustomerProfileTimer);
                 clearTimeout(billingPrefetchTimer);
+                purchaseOrderReferenceInFlight = '';
+                purchaseOrderReferencePromise = null;
                 hideCustomerSuggestions();
                 hideDocumentSuggestions();
             } else if (target.id === 'ten_kh') {
@@ -2319,8 +2325,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const billingSuggestionCache = new Map();
     const purchaseOrderSuggestionCache = new Map();
+    const purchaseOrderReferenceCache = new Map();
     let billingSuggestionTimer = null;
     let billingPrefetchTimer = null;
+    let purchaseOrderReferenceInFlight = '';
+    let purchaseOrderReferencePromise = null;
 
     function normalizeDocNumber(value) {
         return String(value || '').replace(/\D+/g, '');
@@ -2345,6 +2354,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function billingSuggestionCacheKey(customerCode) {
         return customerCode.replace(/^0+/, '') + '|' + todayIsoDate() + '|' + billingInvoiceDays() + 'd';
+    }
+
+    function purchaseOrderReferenceCacheKey(customerCode) {
+        return billingSuggestionCacheKey(customerCode);
     }
 
     function billingInvoiceDays() {
@@ -2441,6 +2454,86 @@ document.addEventListener('DOMContentLoaded', function() {
         return false;
     }
 
+    function purchaseOrderRowsForReference(suggestions) {
+        if (Array.isArray(suggestions) && suggestions.length) {
+            return suggestions
+                .map(item => ({
+                    purchase_order: normalizeDocNumber(item.purchase_order || ''),
+                    creation_date: item.creation_date || todayIsoDate()
+                }))
+                .filter(item => item.purchase_order);
+        }
+        return sapItems
+            .filter(item => item.loai === 'Bảng kê' && normalizeDocNumber(item.so_ct || ''))
+            .map(item => ({
+                purchase_order: normalizeDocNumber(item.so_ct || ''),
+                creation_date: billingDateForItem(item)
+            }));
+    }
+
+    function applyPurchaseOrderReferenceMapping(mapping) {
+        if (!mapping || typeof mapping !== 'object') return false;
+        let changed = false;
+        sapItems.forEach(function(item) {
+            if (!item || item.loai !== 'Bảng kê' || item.bk_ref) return;
+            const purchaseOrder = normalizeDocNumber(item.so_ct || '');
+            if (purchaseOrder && mapping[purchaseOrder]) {
+                item.bk_ref = mapping[purchaseOrder];
+                changed = true;
+            }
+        });
+        if (changed) renderSapTable(sapItems);
+        return changed;
+    }
+
+    async function fetchPurchaseOrderReferencesForCustomer(purchaseOrderRows) {
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        if (!validLookupCustomerCode(customerCode)) return null;
+        const rows = purchaseOrderRowsForReference(purchaseOrderRows);
+        if (!rows.length) return null;
+        const key = purchaseOrderReferenceCacheKey(customerCode);
+        if (purchaseOrderReferenceCache.has(key)) {
+            const cached = purchaseOrderReferenceCache.get(key);
+            applyPurchaseOrderReferenceMapping(cached.mapping || {});
+            return cached;
+        }
+        if (purchaseOrderReferenceInFlight === key && purchaseOrderReferencePromise) return purchaseOrderReferencePromise;
+        purchaseOrderReferenceInFlight = key;
+        purchaseOrderReferencePromise = fetch(appUrl('/api/purchase-order-references'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                customer_code: customerCode,
+                purchase_order_date: todayIsoDate(),
+                lookback_days: billingLookbackDays(),
+                purchase_orders: rows
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const result = data && data.ok ? {
+                mapping: data.mapping || {},
+                references: Array.isArray(data.references) ? data.references : []
+            } : { mapping: {}, references: [] };
+            purchaseOrderReferenceCache.set(key, result);
+            applyPurchaseOrderReferenceMapping(result.mapping);
+            return result;
+        })
+        .catch(() => {
+            const result = { mapping: {}, references: [] };
+            purchaseOrderReferenceCache.set(key, result);
+            return result;
+        })
+        .finally(() => {
+            if (purchaseOrderReferenceInFlight === key) {
+                purchaseOrderReferenceInFlight = '';
+                purchaseOrderReferencePromise = null;
+            }
+        });
+        return purchaseOrderReferencePromise;
+    }
+
     function showDocumentSuggestions(idx, suggestions, loai) {
         const menu = document.getElementById('sapDocumentSuggestion' + idx);
         if (!menu) return;
@@ -2529,6 +2622,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const key = billingSuggestionCacheKey(customerCode);
         if (purchaseOrderSuggestionCache.has(key)) {
             showDocumentSuggestions(idx, purchaseOrderSuggestionCache.get(key), 'Bảng kê');
+            fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(key));
             return;
         }
         try {
@@ -2546,6 +2640,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             purchaseOrderSuggestionCache.set(key, suggestions);
+            fetchPurchaseOrderReferencesForCustomer(suggestions);
             if (sapItems[idx] && sapItems[idx].loai === 'Bảng kê') {
                 showDocumentSuggestions(idx, suggestions, 'Bảng kê');
             }
@@ -2586,7 +2681,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!validLookupCustomerCode(customerCode)) return;
         const key = billingSuggestionCacheKey(customerCode);
-        if (purchaseOrderSuggestionCache.has(key)) return;
+        if (purchaseOrderSuggestionCache.has(key)) {
+            await fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(key));
+            return;
+        }
         try {
             const response = await fetch(appUrl('/api/purchase-order-suggestions'), {
                 method: 'POST',
@@ -2602,6 +2700,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             purchaseOrderSuggestionCache.set(key, suggestions);
+            await fetchPurchaseOrderReferencesForCustomer(suggestions);
             sapItems.forEach(function(item, idx) {
                 if (item.loai === 'Bảng kê') showDocumentSuggestions(idx, suggestions, 'Bảng kê');
             });
@@ -3230,9 +3329,36 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'In phiếu';
     }
 
-    function handleSaveFinalClick() {
+    function isPlanningAction(action) {
+        return action === 'download-planning-pdf'
+            || action === 'download-planning-xlsx'
+            || action === 'print-planning';
+    }
+
+    async function waitForPurchaseOrderReferencesBeforePlanning() {
+        const missingReference = sapItems.some(item =>
+            item && item.loai === 'Bảng kê' && normalizeDocNumber(item.so_ct || '') && !item.bk_ref
+        );
+        if (!missingReference) return true;
+        const lookupPromise = purchaseOrderReferencePromise || fetchPurchaseOrderReferencesForCustomer();
+        if (!lookupPromise) return true;
+        const shouldWait = confirm(
+            'Số hiệu Bảng kê in trên chứng từ đang được tải từ ERP.\n'
+            + 'Bạn có muốn chờ thêm vài giây để Thoả thuận thu đổi dùng đúng số hiệu Bảng kê không?'
+        );
+        if (!shouldWait) return true;
+        try {
+            await lookupPromise;
+        } catch (error) {
+            console.warn('Không thể chờ số hiệu Bảng kê.', error);
+        }
+        return true;
+    }
+
+    async function handleSaveFinalClick() {
         if (savePrintInProgress) return;
         const action = this.dataset.action || 'print-xnck';
+        const planningAction = isPlanningAction(action);
         const trigger = this.closest('.dropdown')?.querySelector('.dropdown-toggle') || this;
         const originalTriggerHtml = trigger.innerHTML;
         savePrintInProgress = true;
@@ -3309,6 +3435,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirmTaxDocNumbers(chungTu)) {
             resetSaveButton();
             return;
+        }
+        if (planningAction) {
+            await waitForPurchaseOrderReferencesBeforePlanning();
+            try { chungTu = JSON.parse(document.getElementById('chung_tu_json').value); } catch(e) {}
         }
 
         // Resolve người ký
