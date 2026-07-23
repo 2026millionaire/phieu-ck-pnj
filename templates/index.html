@@ -464,6 +464,20 @@ textarea#sap_data {
 .sap-table .sap-bk-ref-input {
     letter-spacing: -0.02em;
 }
+.sap-bk-ref-status {
+    display: block;
+    min-height: 0.72rem;
+    margin-top: 0.08rem;
+    color: #64748b;
+    font-size: 0.58rem;
+    line-height: 1.05;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sap-bk-ref-status.loading {
+    color: #b45309;
+}
 .sap-table .sap-amount-input {
     letter-spacing: -0.035em;
 }
@@ -2373,14 +2387,41 @@ document.addEventListener('DOMContentLoaded', function() {
         return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : todayIsoDate();
     }
 
+    function isPurchaseOrderReferenceLoading() {
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        return !!purchaseOrderReferenceInFlight
+            && purchaseOrderReferenceInFlight === purchaseOrderReferenceCacheKey(customerCode);
+    }
+
+    function purchaseOrderReferenceHintHtml(item) {
+        if (!item || item.loai !== 'Bảng kê' || !normalizeDocNumber(item.so_ct || '')) return '';
+        if (item.bk_ref) return 'Số hiệu BK: ' + escapeHtml(item.bk_ref);
+        return isPurchaseOrderReferenceLoading() ? '&lt;Đang tải số BK&gt;' : '';
+    }
+
+    function updatePurchaseOrderReferenceHints() {
+        document.querySelectorAll('.sap-bk-ref-status').forEach(function(el) {
+            const idx = parseInt(el.dataset.idx, 10);
+            const html = purchaseOrderReferenceHintHtml(sapItems[idx]);
+            el.innerHTML = html;
+            el.classList.toggle('loading', html.indexOf('Đang tải') >= 0);
+        });
+    }
+
     function renderDocumentDocInput(item, idx) {
         const menuId = 'sapDocumentSuggestion' + idx;
         const inputHtml = '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" '
             + 'data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" '
             + 'inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">';
         if (item.loai !== 'Hóa đơn' && item.loai !== 'Bảng kê') return inputHtml;
+        const refHint = item.loai === 'Bảng kê'
+            ? '<small class="sap-bk-ref-status' + (isPurchaseOrderReferenceLoading() && !item.bk_ref ? ' loading' : '') + '" data-idx="' + idx + '">'
+                + purchaseOrderReferenceHintHtml(item)
+                + '</small>'
+            : '';
         return '<div class="sap-invoice-suggestion-field">'
             + inputHtml
+            + refHint
             + '<div class="sap-invoice-suggestion-menu" id="' + menuId + '"></div>'
             + '</div>';
     }
@@ -2494,6 +2535,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (purchaseOrderReferenceInFlight === key && purchaseOrderReferencePromise) return purchaseOrderReferencePromise;
         purchaseOrderReferenceInFlight = key;
+        updatePurchaseOrderReferenceHints();
         purchaseOrderReferencePromise = fetch(appUrl('/api/purchase-order-references'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -2525,6 +2567,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 purchaseOrderReferenceInFlight = '';
                 purchaseOrderReferencePromise = null;
             }
+            updatePurchaseOrderReferenceHints();
         });
         return purchaseOrderReferencePromise;
     }
