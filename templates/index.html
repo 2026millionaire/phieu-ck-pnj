@@ -2400,7 +2400,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function purchaseOrderReferenceHintHtml(item) {
         if (!item || item.loai !== 'Bảng kê' || !normalizeDocNumber(item.so_ct || '')) return '';
-        if (item.bk_ref) return 'Số hiệu BK: ' + escapeHtml(item.bk_ref);
+        if (item.bk_ref) return '(' + escapeHtml(item.bk_ref) + ')';
         return isPurchaseOrderReferenceLoading() ? '&lt;Đang tải số BK&gt;' : '';
     }
 
