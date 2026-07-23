@@ -224,6 +224,39 @@ textarea#sap_data {
     text-transform: none;
 }
 
+.address-transaction-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+}
+
+.address-transaction-wrap .customer-input-wrap {
+    flex: 1 1 420px;
+    min-width: min(100%, 260px);
+}
+
+.transaction-loading-status {
+    display: none;
+    flex: 0 1 auto;
+    color: #b45309;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.transaction-loading-status.show {
+    display: inline-flex;
+}
+
+@media (max-width: 640px) {
+    .transaction-loading-status {
+        flex-basis: 100%;
+        white-space: normal;
+    }
+}
+
 .customer-field-clear {
     position: absolute;
     top: 50%;
@@ -833,11 +866,14 @@ textarea#sap_data {
                         </div>
                         <div class="col-12">
                             <label class="form-label">Địa chỉ</label>
-                            <div class="customer-input-wrap">
-                                <input type="text" class="form-control form-control-sm" id="dia_chi" name="dia_chi"
-                                       value="" placeholder="Tự điền từ SAP khi có dữ liệu" autocomplete="off">
-                                <button type="button" class="customer-field-clear" data-clear-target="dia_chi"
-                                        title="Xóa địa chỉ" aria-label="Xóa địa chỉ">&times;</button>
+                            <div class="address-transaction-wrap">
+                                <div class="customer-input-wrap">
+                                    <input type="text" class="form-control form-control-sm" id="dia_chi" name="dia_chi"
+                                           value="" placeholder="" autocomplete="off">
+                                    <button type="button" class="customer-field-clear" data-clear-target="dia_chi"
+                                            title="Xóa địa chỉ" aria-label="Xóa địa chỉ">&times;</button>
+                                </div>
+                                <span class="transaction-loading-status" id="transactionLoadingStatus">&lt;Đang tải thông tin giao dịch&gt;</span>
                             </div>
                         </div>
                         <!-- Số BK: hidden, auto-filled from section 3 table -->
@@ -1205,6 +1241,28 @@ textarea#sap_data {
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="transactionAutoLoadChoiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0">Thông tin giao dịch đang tải</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                Dữ liệu Bảng kê và Hoá đơn đang được tự động tải. Bạn có muốn tự nhập không?
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-outline-primary" id="btnWaitTransactionAutoLoad">
+                    Chờ app tải
+                </button>
+                <button type="button" class="btn btn-primary" id="btnManualTransactionInput">
+                    Tôi tự nhập
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1253,8 +1311,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const captchaElement = document.getElementById('customerLookupCaptchaModal');
     const captchaModal = captchaElement ? new bootstrap.Modal(captchaElement) : null;
     const captchaError = document.getElementById('customerLookupCaptchaError');
+    const transactionAutoLoadChoiceElement = document.getElementById('transactionAutoLoadChoiceModal');
+    const transactionAutoLoadChoiceModal = transactionAutoLoadChoiceElement ? new bootstrap.Modal(transactionAutoLoadChoiceElement) : null;
     let pendingCaptchaLookup = null;
     let turnstileWidgetId = null;
+    let transactionAutoLoadChoicePromise = null;
+    let transactionAutoLoadChoiceResolve = null;
     let customerLocalProfileTimer = null;
     let customerLocalProfileInFlight = '';
     let erpBusinessPartnerProfileTimer = null;
@@ -1262,11 +1324,41 @@ document.addEventListener('DOMContentLoaded', function() {
     let purchaseOrderCustomerProfileTimer = null;
     let purchaseOrderCustomerProfileInFlight = '';
     let lastCustomerCodeLookupKey = '';
+    let transactionAutoLoadInFlight = false;
+    let transactionAutoLoadPromise = null;
+    const manualTransactionInputKeys = new Set();
 
     function validLookupCustomerCode(value) {
         const code = (value || '').trim();
         return /^1[0-9]{8}$/.test(code) || /^0[0-9]{9}$/.test(code)
             || /^E01(?:[MF][0-9]{4}|[0-9]{5})$/i.test(code);
+    }
+
+    function setAddressLoadingPlaceholder(isLoading) {
+        const addressInput = document.getElementById('dia_chi');
+        if (!addressInput || addressInput.value.trim()) return;
+        addressInput.placeholder = isLoading ? '<Đang tải địa chỉ>' : '';
+    }
+
+    function transactionAutoFillCacheKey() {
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        return validLookupCustomerCode(customerCode) ? billingSuggestionCacheKey(customerCode) : '';
+    }
+
+    function updateTransactionLoadingStatus() {
+        const status = document.getElementById('transactionLoadingStatus');
+        if (!status) return;
+        const key = transactionAutoFillCacheKey();
+        const show = !!key
+            && autoFillTransactionsEnabled()
+            && transactionAutoLoadInFlight
+            && !manualTransactionInputKeys.has(key);
+        status.classList.toggle('show', show);
+    }
+
+    function setTransactionAutoLoadInFlight(isLoading) {
+        transactionAutoLoadInFlight = !!isLoading;
+        updateTransactionLoadingStatus();
     }
 
     function hideCustomerSuggestions(exceptField) {
@@ -1461,6 +1553,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (erpBusinessPartnerProfileInFlight === key) return;
         erpBusinessPartnerProfileInFlight = key;
+        setAddressLoadingPlaceholder(true);
         try {
             const response = await fetch(appUrl('/api/erp-business-partner-profile'), {
                 method: 'POST',
@@ -1478,6 +1571,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             erpBusinessPartnerProfileCache.set(key, {});
         } finally {
+            setAddressLoadingPlaceholder(false);
             if (erpBusinessPartnerProfileInFlight === key) erpBusinessPartnerProfileInFlight = '';
             const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
             if (currentCode === customerCode.replace(/^0+/, '')) {
@@ -1494,6 +1588,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (purchaseOrderCustomerProfileInFlight === key) return;
         purchaseOrderCustomerProfileInFlight = key;
+        setAddressLoadingPlaceholder(true);
         try {
             const response = await fetch(appUrl('/api/purchase-order-customer-profile'), {
                 method: 'POST',
@@ -1513,6 +1608,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             purchaseOrderCustomerProfileCache.set(key, {});
         } finally {
+            setAddressLoadingPlaceholder(false);
             if (purchaseOrderCustomerProfileInFlight === key) purchaseOrderCustomerProfileInFlight = '';
         }
     }
@@ -1685,6 +1781,7 @@ document.addEventListener('DOMContentLoaded', function() {
             purchaseOrderSuggestionCache.clear();
             purchaseOrderReferenceCache.clear();
             autoFilledTransactionCacheKeys.clear();
+            manualTransactionInputKeys.clear();
             erpBusinessPartnerProfileCache.clear();
             purchaseOrderCustomerProfileCache.clear();
             clearTimeout(customerLocalProfileTimer);
@@ -1693,6 +1790,8 @@ document.addEventListener('DOMContentLoaded', function() {
             clearTimeout(billingPrefetchTimer);
             purchaseOrderReferenceInFlight = '';
             purchaseOrderReferencePromise = null;
+            setAddressLoadingPlaceholder(false);
+            setTransactionAutoLoadInFlight(false);
             hideCustomerSuggestions();
             hideDocumentSuggestions();
         }
@@ -1743,6 +1842,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 purchaseOrderSuggestionCache.clear();
                 purchaseOrderReferenceCache.clear();
                 autoFilledTransactionCacheKeys.clear();
+                manualTransactionInputKeys.clear();
                 erpBusinessPartnerProfileCache.clear();
                 purchaseOrderCustomerProfileCache.clear();
                 clearTimeout(customerLocalProfileTimer);
@@ -1751,6 +1851,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 clearTimeout(billingPrefetchTimer);
                 purchaseOrderReferenceInFlight = '';
                 purchaseOrderReferencePromise = null;
+                setAddressLoadingPlaceholder(false);
+                setTransactionAutoLoadInFlight(false);
                 hideCustomerSuggestions();
                 hideDocumentSuggestions();
             } else if (target.id === 'ten_kh') {
@@ -2746,6 +2848,76 @@ document.addEventListener('DOMContentLoaded', function() {
         return window.__appSettings.auto_fill_transactions_default !== '0';
     }
 
+    function isTransactionAutoLoadActive() {
+        const key = transactionAutoFillCacheKey();
+        return !!key
+            && autoFillTransactionsEnabled()
+            && transactionAutoLoadInFlight
+            && !manualTransactionInputKeys.has(key);
+    }
+
+    function resolveTransactionAutoLoadChoice(choice) {
+        if (!transactionAutoLoadChoiceResolve) return;
+        const resolve = transactionAutoLoadChoiceResolve;
+        transactionAutoLoadChoiceResolve = null;
+        const promise = transactionAutoLoadChoicePromise;
+        transactionAutoLoadChoicePromise = null;
+        resolve(choice);
+        return promise;
+    }
+
+    async function askTransactionAutoLoadChoice() {
+        if (!isTransactionAutoLoadActive()) return 'manual';
+        if (!transactionAutoLoadChoiceModal) {
+            return confirm('Dữ liệu Bảng kê và Hoá đơn đang được tự động tải. Bạn có muốn tự nhập không?')
+                ? 'manual'
+                : 'wait';
+        }
+        if (!transactionAutoLoadChoicePromise) {
+            transactionAutoLoadChoicePromise = new Promise(resolve => {
+                transactionAutoLoadChoiceResolve = resolve;
+            });
+            transactionAutoLoadChoiceModal.show();
+        }
+        return transactionAutoLoadChoicePromise;
+    }
+
+    async function handleTransactionManualIntent(event) {
+        if (!isTransactionAutoLoadActive()) return true;
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const choice = await askTransactionAutoLoadChoice();
+        if (choice === 'manual') {
+            const key = transactionAutoFillCacheKey();
+            if (key) manualTransactionInputKeys.add(key);
+            updateTransactionLoadingStatus();
+            return true;
+        }
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+        }
+        try {
+            if (transactionAutoLoadPromise) await transactionAutoLoadPromise;
+        } catch (error) {
+            console.warn('Không thể chờ tự tải thông tin giao dịch.', error);
+        }
+        return false;
+    }
+
+    document.getElementById('btnWaitTransactionAutoLoad')?.addEventListener('click', function() {
+        transactionAutoLoadChoiceModal?.hide();
+        resolveTransactionAutoLoadChoice('wait');
+    });
+    document.getElementById('btnManualTransactionInput')?.addEventListener('click', function() {
+        transactionAutoLoadChoiceModal?.hide();
+        resolveTransactionAutoLoadChoice('manual');
+    });
+    transactionAutoLoadChoiceElement?.addEventListener('hidden.bs.modal', function() {
+        if (transactionAutoLoadChoiceResolve) resolveTransactionAutoLoadChoice('wait');
+    });
+
     function applyBkRefTableClass() {
         const table = document.getElementById('sapTable');
         if (table) table.classList.toggle('use-bk-ref', useBkRefEnabled());
@@ -2862,6 +3034,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!validLookupCustomerCode(customerCode)) return false;
         const key = billingSuggestionCacheKey(customerCode);
+        if (manualTransactionInputKeys.has(key)) return false;
         if (autoFilledTransactionCacheKeys.has(key)) return false;
         if (!purchaseOrderSuggestionCache.has(key) || !billingSuggestionCache.has(key)) return false;
 
@@ -2918,11 +3091,27 @@ document.addEventListener('DOMContentLoaded', function() {
     function scheduleDocumentPrefetch() {
         clearTimeout(billingPrefetchTimer);
         billingPrefetchTimer = setTimeout(async function() {
-            await Promise.all([
+            const key = transactionAutoFillCacheKey();
+            const shouldShowLoading = !!key
+                && autoFillTransactionsEnabled()
+                && !autoFilledTransactionCacheKeys.has(key)
+                && !manualTransactionInputKeys.has(key);
+            if (shouldShowLoading) setTransactionAutoLoadInFlight(true);
+            const loadingKey = key;
+            transactionAutoLoadPromise = Promise.all([
                 prefetchPurchaseOrderSuggestionsForCustomer(),
                 prefetchBillingSuggestionsForCustomer()
-            ]);
-            autoFillTransactionSuggestions();
+            ])
+            .then(function() {
+                autoFillTransactionSuggestions();
+            })
+            .finally(function() {
+                transactionAutoLoadPromise = null;
+                if (transactionAutoFillCacheKey() === loadingKey) {
+                    setTransactionAutoLoadInFlight(false);
+                }
+            });
+            await transactionAutoLoadPromise;
         }, 500);
     }
 
@@ -2990,7 +3179,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Edit handlers
         tbody.querySelectorAll('.sap-edit').forEach(function(el) {
-            el.addEventListener('change', function() {
+            el.addEventListener('change', async function(event) {
+                if (!await handleTransactionManualIntent(event)) {
+                    renderSapTable(sapItems);
+                    return;
+                }
                 const idx = parseInt(this.dataset.idx);
                 const field = this.dataset.field;
                 if (field === 'gia_tri') {
@@ -3027,7 +3220,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const idx = parseInt(this.dataset.idx);
                 scheduleDocumentSuggestions(idx);
             });
-            el.addEventListener('input', function() {
+            el.addEventListener('input', async function(event) {
+                if (!await handleTransactionManualIntent(event)) {
+                    renderSapTable(sapItems);
+                    return;
+                }
                 const idx = parseInt(this.dataset.idx);
                 if (sapItems[idx]) {
                     const previousPurchaseOrder = normalizePurchaseOrderNumber(sapItems[idx].so_ct || '');
@@ -3042,7 +3239,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         tbody.querySelectorAll('.sap-amount-input').forEach(function(el) {
-            el.addEventListener('blur', function() {
+            el.addEventListener('blur', async function(event) {
+                if (!await handleTransactionManualIntent(event)) {
+                    renderSapTable(sapItems);
+                    return;
+                }
                 const idx = parseInt(this.dataset.idx);
                 sapItems[idx].gia_tri = parseFloat(this.value.replace(/[.,\s]/g, '')) || 0;
                 this.value = sapItems[idx].gia_tri ? formatNum(sapItems[idx].gia_tri) : '';
@@ -3051,7 +3252,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         tbody.querySelectorAll('.sap-doc-type-option').forEach(function(btn) {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', async function(event) {
+                if (!await handleTransactionManualIntent(event)) return;
                 const idx = parseInt(this.dataset.idx);
                 const nextLoai = this.dataset.loai;
                 const previousLoai = sapItems[idx].loai;
@@ -3064,7 +3266,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Delete handlers
         tbody.querySelectorAll('.sap-del').forEach(function(btn) {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', async function(event) {
+                if (!await handleTransactionManualIntent(event)) return;
                 const idx = parseInt(this.dataset.idx);
                 const item = sapItems[idx] || {};
                 const message = 'Xóa dòng chứng từ này?\n\n'
@@ -3255,7 +3458,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== THÊM DÒNG THỦ CÔNG =====
-    document.getElementById('btnAddRow').addEventListener('click', function() {
+    document.getElementById('btnAddRow').addEventListener('click', async function(event) {
+        if (!await handleTransactionManualIntent(event)) return;
         sapItems.push({ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' });
         renderSapTable(sapItems);
         fetchPurchaseOrderReferencesForCustomer();
@@ -3281,9 +3485,11 @@ document.addEventListener('DOMContentLoaded', function() {
         purchaseOrderSuggestionCache.clear();
         purchaseOrderReferenceCache.clear();
         autoFilledTransactionCacheKeys.clear();
+        manualTransactionInputKeys.clear();
         purchaseOrderCustomerProfileCache.clear();
         purchaseOrderReferenceInFlight = '';
         purchaseOrderReferencePromise = null;
+        setTransactionAutoLoadInFlight(false);
         hideDocumentSuggestions();
         schedulePurchaseOrderCustomerProfile();
         scheduleDocumentPrefetch();
@@ -3835,6 +4041,9 @@ document.addEventListener('DOMContentLoaded', function() {
             clearTvv(false);
             applyStoreMode('pnj');
             autoFilledTransactionCacheKeys.clear();
+            manualTransactionInputKeys.clear();
+            setAddressLoadingPlaceholder(false);
+            setTransactionAutoLoadInFlight(false);
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
             sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
