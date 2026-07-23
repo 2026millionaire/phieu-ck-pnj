@@ -1238,6 +1238,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let erpBusinessPartnerProfileInFlight = '';
     let purchaseOrderCustomerProfileTimer = null;
     let purchaseOrderCustomerProfileInFlight = '';
+    let lastCustomerCodeLookupKey = '';
 
     function validLookupCustomerCode(value) {
         const code = (value || '').trim();
@@ -1371,12 +1372,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const key = customerLocalProfileCacheKey(customerCode);
         if (!turnstileToken && customerLocalProfileCache.has(key)) {
             applyCustomerLocalProfile(customerLocalProfileCache.get(key), customerCode);
-            schedulePurchaseOrderCustomerProfile();
             return;
         }
         if (customerLocalProfileInFlight === key) return;
         customerLocalProfileInFlight = key;
-        let shouldSchedulePurchaseOrder = true;
         try {
             const response = await fetch(appUrl('/api/customer-local-profile'), {
                 method: 'POST',
@@ -1390,7 +1389,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const data = await response.json().catch(() => ({ ok: false }));
             if (response.status === 403 && data.captcha_required) {
-                shouldSchedulePurchaseOrder = false;
                 openCustomerLookupCaptcha(customerCode, 'profile');
                 return;
             }
@@ -1401,10 +1399,6 @@ document.addEventListener('DOMContentLoaded', function() {
             customerLocalProfileCache.set(key, {});
         } finally {
             if (customerLocalProfileInFlight === key) customerLocalProfileInFlight = '';
-            const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
-            if (shouldSchedulePurchaseOrder && currentCode === customerCode.replace(/^0+/, '')) {
-                scheduleErpBusinessPartnerProfile();
-            }
         }
     }
 
@@ -1475,17 +1469,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function scheduleCustomerLocalProfile() {
         clearTimeout(customerLocalProfileTimer);
-        clearTimeout(erpBusinessPartnerProfileTimer);
-        clearTimeout(purchaseOrderCustomerProfileTimer);
         customerLocalProfileTimer = setTimeout(function() {
             const code = document.getElementById('ma_kh').value.trim();
             if (!validLookupCustomerCode(code)) return;
             if (!customerLookupEnabled) {
-                scheduleErpBusinessPartnerProfile();
                 return;
             }
             fetchCustomerLocalProfile(code);
-        }, 350);
+        }, 120);
     }
 
     function scheduleErpBusinessPartnerProfile() {
@@ -1495,7 +1486,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const code = document.getElementById('ma_kh').value.trim();
             if (!validLookupCustomerCode(code)) return;
             fetchErpBusinessPartnerProfile(code);
-        }, 500);
+        }, 180);
     }
 
     function schedulePurchaseOrderCustomerProfile() {
@@ -1504,7 +1495,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const code = document.getElementById('ma_kh').value.trim();
             if (!validLookupCustomerCode(code)) return;
             fetchPurchaseOrderCustomerProfile(code);
-        }, 650);
+        }, 900);
     }
 
     async function fetchCustomerSuggestion(code, field, turnstileToken) {
@@ -1630,25 +1621,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    if (customerLookupEnabled) {
-        Object.entries(customerSuggestionTargets).forEach(([field, target]) => {
-            target.input.addEventListener('focus', () => requestCustomerSuggestion(field));
-            target.input.addEventListener('click', () => requestCustomerSuggestion(field));
-        });
-        document.getElementById('ma_kh').addEventListener('input', function() {
-            // Mã NV có ký tự chữ; chuẩn hóa ngay khi nhập để API và các bước
-            // lưu/in phiếu luôn nhận cùng một mã E01... viết hoa.
-            const normalized = this.value.toUpperCase();
-            if (this.value !== normalized) this.value = normalized;
+    function handleCustomerCodeLookupChange(event) {
+        const input = document.getElementById('ma_kh');
+        // Mã NV có ký tự chữ; chuẩn hóa ngay khi nhập để API và các bước
+        // lưu/in phiếu luôn nhận cùng một mã E01... viết hoa.
+        const normalized = input.value.toUpperCase();
+        if (input.value !== normalized) input.value = normalized;
+        const key = input.value.trim().replace(/^0+/, '');
+        if (key !== lastCustomerCodeLookupKey) {
+            lastCustomerCodeLookupKey = key;
             customerSuggestionCache.clear();
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
             erpBusinessPartnerProfileCache.clear();
             purchaseOrderCustomerProfileCache.clear();
+            clearTimeout(customerLocalProfileTimer);
+            clearTimeout(erpBusinessPartnerProfileTimer);
+            clearTimeout(purchaseOrderCustomerProfileTimer);
+            clearTimeout(billingPrefetchTimer);
             hideCustomerSuggestions();
             hideDocumentSuggestions();
-            scheduleDocumentPrefetch();
-            scheduleCustomerLocalProfile();
+        }
+        if (!validLookupCustomerCode(input.value.trim())) return;
+        scheduleCustomerLocalProfile();
+        scheduleErpBusinessPartnerProfile();
+        scheduleDocumentPrefetch();
+    }
+
+    if (customerLookupEnabled) {
+        Object.entries(customerSuggestionTargets).forEach(([field, target]) => {
+            target.input.addEventListener('focus', () => requestCustomerSuggestion(field));
+            target.input.addEventListener('click', () => requestCustomerSuggestion(field));
         });
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.customer-suggestion-field')) hideCustomerSuggestions();
@@ -1668,6 +1671,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+    document.getElementById('ma_kh').addEventListener('input', handleCustomerCodeLookupChange);
 
     document.querySelectorAll('.customer-field-clear').forEach(function(button) {
         button.addEventListener('click', function(event) {
@@ -1679,9 +1683,16 @@ document.addEventListener('DOMContentLoaded', function() {
             target.dispatchEvent(new Event('change', { bubbles: true }));
             target.focus({ preventScroll: true });
             if (target.id === 'ma_kh') {
+                lastCustomerCodeLookupKey = '';
                 customerSuggestionCache.clear();
                 billingSuggestionCache.clear();
                 purchaseOrderSuggestionCache.clear();
+                erpBusinessPartnerProfileCache.clear();
+                purchaseOrderCustomerProfileCache.clear();
+                clearTimeout(customerLocalProfileTimer);
+                clearTimeout(erpBusinessPartnerProfileTimer);
+                clearTimeout(purchaseOrderCustomerProfileTimer);
+                clearTimeout(billingPrefetchTimer);
                 hideCustomerSuggestions();
                 hideDocumentSuggestions();
             } else if (target.id === 'ten_kh') {
@@ -2276,8 +2287,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
-    document.getElementById('ma_kh').addEventListener('blur', scheduleCustomerLocalProfile);
-    document.getElementById('ma_kh').addEventListener('change', scheduleCustomerLocalProfile);
+    document.getElementById('ma_kh').addEventListener('blur', handleCustomerCodeLookupChange);
+    document.getElementById('ma_kh').addEventListener('change', handleCustomerCodeLookupChange);
 
     const billingSuggestionCache = new Map();
     const purchaseOrderSuggestionCache = new Map();
@@ -2574,9 +2585,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function scheduleDocumentPrefetch() {
         clearTimeout(billingPrefetchTimer);
-        billingPrefetchTimer = setTimeout(function() {
-            prefetchBillingSuggestionsForCustomer();
-            prefetchPurchaseOrderSuggestionsForCustomer();
+        billingPrefetchTimer = setTimeout(async function() {
+            await prefetchPurchaseOrderSuggestionsForCustomer();
+            await prefetchBillingSuggestionsForCustomer();
         }, 500);
     }
 
