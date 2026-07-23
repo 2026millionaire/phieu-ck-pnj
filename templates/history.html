@@ -502,7 +502,7 @@ function renderTable(data) {
                 '<button type="button" class="action-btn print dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="In"><i class="bi bi-printer"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                     '<li><a class="dropdown-item" href="api/payment-planning/' + p.id + tokenPrintParam + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Thoả thuận thu đổi (pdf)</a></li>' +
-                    '<li><a class="dropdown-item" href="' + xnttPrintUrl + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Phiếu XNTTTTCK (pdf)</a></li>' +
+                    '<li><a class="dropdown-item" href="' + xnttPrintUrl + '" target="_blank"><i class="bi bi-file-earmark-pdf"></i>Phiếu xác nhận CK (pdf)</a></li>' +
                 '</ul>' +
             '</div>';
         var downloadMenu = isDnck ? '' :
@@ -511,7 +511,7 @@ function renderTable(data) {
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                     '<li><a class="dropdown-item" href="api/payment-planning-pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Thoả thuận thu đổi (pdf)</a></li>' +
                     '<li><a class="dropdown-item" href="api/payment-planning-xlsx/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-spreadsheet"></i>Thoả thuận thu đổi (excel)</a></li>' +
-                    '<li><a class="dropdown-item" href="api/pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Phiếu XNTTTTCK (pdf)</a></li>' +
+                    '<li><a class="dropdown-item" href="api/pdf/' + p.id + tokenParam + '"><i class="bi bi-file-earmark-pdf"></i>Phiếu xác nhận CK (pdf)</a></li>' +
                     adminDownloadItem +
                 '</ul>' +
             '</div>';
