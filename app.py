@@ -32,6 +32,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import shared_auth
 import erp_billing
 import erp_business_partner
+import erp_deposits
 import erp_purchase_orders
 import erp_supplier_line_items
 
@@ -2520,6 +2521,34 @@ def api_purchase_order_references():
             {"ok": False, "error": "Không thể lấy số hiệu bảng kê lúc này."}, 503
         )
     return _customer_lookup_json({"ok": True, **result})
+
+
+@app.route("/api/deposit-suggestions", methods=["POST"])
+def api_deposit_suggestions():
+    """Return ERP customer deposit receipt suggestions for one customer code."""
+    if request.content_length is not None and request.content_length > 4096:
+        return _customer_lookup_json({"ok": False, "error": "YÃªu cáº§u quÃ¡ lá»›n."}, 413)
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        return _customer_lookup_json({"ok": False, "error": "YÃªu cáº§u khÃ´ng há»£p lá»‡."}, 400)
+
+    data = request.get_json(silent=True) or {}
+    customer_code = data.get("customer_code")
+    if not erp_deposits.normalize_customer_code(customer_code):
+        return _customer_lookup_json({"ok": True, "suggestions": []})
+
+    try:
+        suggestions = erp_deposits.deposit_suggestions(
+            customer_code=customer_code,
+            target_date=data.get("deposit_date"),
+            lookback_days=data.get("lookback_days", erp_deposits.DEFAULT_LOOKBACK_DAYS),
+            limit=data.get("limit", erp_deposits.MAX_SUGGESTIONS),
+        )
+    except Exception:
+        app.logger.exception("KhÃ´ng thá»ƒ láº¥y gá»£i Ã½ BN cá»c ERP.")
+        return _customer_lookup_json(
+            {"ok": False, "error": "KhÃ´ng thá»ƒ láº¥y gá»£i Ã½ BN cá»c lÃºc nÃ y."}, 503
+        )
+    return _customer_lookup_json({"ok": True, "suggestions": suggestions})
 
 
 @app.route("/api/purchase-order-customer-profile", methods=["POST"])

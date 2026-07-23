@@ -224,16 +224,11 @@ textarea#sap_data {
     text-transform: none;
 }
 
-.address-transaction-wrap {
+.transaction-header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem 0.6rem;
-}
-
-.address-transaction-wrap .customer-input-wrap {
-    flex: 1 1 420px;
-    min-width: min(100%, 260px);
+    gap: 0.35rem 0.75rem;
 }
 
 .transaction-loading-status {
@@ -244,6 +239,7 @@ textarea#sap_data {
     font-weight: 600;
     line-height: 1.1;
     white-space: nowrap;
+    animation: transaction-loading-blink 1s ease-in-out infinite;
 }
 
 .transaction-loading-status.show {
@@ -255,6 +251,11 @@ textarea#sap_data {
         flex-basis: 100%;
         white-space: normal;
     }
+}
+
+@keyframes transaction-loading-blink {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
 }
 
 .customer-field-clear {
@@ -866,14 +867,11 @@ textarea#sap_data {
                         </div>
                         <div class="col-12">
                             <label class="form-label">Địa chỉ</label>
-                            <div class="address-transaction-wrap">
-                                <div class="customer-input-wrap">
+                            <div class="customer-input-wrap">
                                     <input type="text" class="form-control form-control-sm" id="dia_chi" name="dia_chi"
                                            value="" placeholder="" autocomplete="off">
                                     <button type="button" class="customer-field-clear" data-clear-target="dia_chi"
                                             title="Xóa địa chỉ" aria-label="Xóa địa chỉ">&times;</button>
-                                </div>
-                                <span class="transaction-loading-status" id="transactionLoadingStatus">&lt;Đang tải thông tin giao dịch&gt;</span>
                             </div>
                         </div>
                         <!-- Số BK: hidden, auto-filled from section 3 table -->
@@ -974,8 +972,9 @@ textarea#sap_data {
 
             <!-- 3. Thông tin giao dịch -->
             <div class="card mb-3">
-                <div class="card-header py-2">
+                <div class="card-header py-2 transaction-header">
                     <span><i class="bi bi-receipt"></i> 3. Thông tin giao dịch</span>
+                    <span class="transaction-loading-status" id="transactionLoadingStatus"></span>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered table-sm sap-table mb-0" id="sapTable">
@@ -1325,8 +1324,15 @@ document.addEventListener('DOMContentLoaded', function() {
     let purchaseOrderCustomerProfileInFlight = '';
     let lastCustomerCodeLookupKey = '';
     let transactionAutoLoadInFlight = false;
+    let transactionAutoLoadStage = '';
     let transactionAutoLoadPromise = null;
     const manualTransactionInputKeys = new Set();
+    const transactionAutoLoadStageLabels = {
+        purchase_orders: '<Đang tải bảng kê...>',
+        billings: '<Đang tải hoá đơn...>',
+        references: '<Đang tải số hiệu BK...>',
+        deposits: '<Đang tải BN cọc...>'
+    };
 
     function validLookupCustomerCode(value) {
         const code = (value || '').trim();
@@ -1352,12 +1358,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const show = !!key
             && autoFillTransactionsEnabled()
             && transactionAutoLoadInFlight
+            && !!transactionAutoLoadStage
             && !manualTransactionInputKeys.has(key);
+        status.textContent = show ? (transactionAutoLoadStageLabels[transactionAutoLoadStage] || '') : '';
         status.classList.toggle('show', show);
     }
 
-    function setTransactionAutoLoadInFlight(isLoading) {
-        transactionAutoLoadInFlight = !!isLoading;
+    function setTransactionAutoLoadStage(stage) {
+        transactionAutoLoadStage = stage || '';
+        transactionAutoLoadInFlight = !!transactionAutoLoadStage;
         updateTransactionLoadingStatus();
     }
 
@@ -1780,6 +1789,7 @@ document.addEventListener('DOMContentLoaded', function() {
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
             purchaseOrderReferenceCache.clear();
+            depositSuggestionCache.clear();
             autoFilledTransactionCacheKeys.clear();
             manualTransactionInputKeys.clear();
             erpBusinessPartnerProfileCache.clear();
@@ -1791,7 +1801,7 @@ document.addEventListener('DOMContentLoaded', function() {
             purchaseOrderReferenceInFlight = '';
             purchaseOrderReferencePromise = null;
             setAddressLoadingPlaceholder(false);
-            setTransactionAutoLoadInFlight(false);
+            setTransactionAutoLoadStage('');
             hideCustomerSuggestions();
             hideDocumentSuggestions();
         }
@@ -1841,6 +1851,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 billingSuggestionCache.clear();
                 purchaseOrderSuggestionCache.clear();
                 purchaseOrderReferenceCache.clear();
+                depositSuggestionCache.clear();
                 autoFilledTransactionCacheKeys.clear();
                 manualTransactionInputKeys.clear();
                 erpBusinessPartnerProfileCache.clear();
@@ -1852,7 +1863,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 purchaseOrderReferenceInFlight = '';
                 purchaseOrderReferencePromise = null;
                 setAddressLoadingPlaceholder(false);
-                setTransactionAutoLoadInFlight(false);
+                setTransactionAutoLoadStage('');
                 hideCustomerSuggestions();
                 hideDocumentSuggestions();
             } else if (target.id === 'ten_kh') {
@@ -2453,6 +2464,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const billingSuggestionCache = new Map();
     const purchaseOrderSuggestionCache = new Map();
     const purchaseOrderReferenceCache = new Map();
+    const depositSuggestionCache = new Map();
     const autoFilledTransactionCacheKeys = new Set();
     let billingSuggestionTimer = null;
     let billingPrefetchTimer = null;
@@ -2466,6 +2478,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function normalizePurchaseOrderNumber(value) {
         const normalized = normalizeDocNumber(value);
         return /^4403\d{6}$/.test(normalized) ? normalized : '';
+    }
+
+    function normalizeDepositDocumentNumber(value) {
+        const normalized = normalizeDocNumber(value);
+        return /^16\d{8}$/.test(normalized) ? normalized : '';
     }
 
     function normalizeBillingDocumentNumber(value) {
@@ -2988,12 +3005,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function prefetchPurchaseOrderSuggestionsForCustomer() {
+    async function prefetchPurchaseOrderSuggestionsForCustomer(options) {
+        const shouldLoadReferences = !(options && options.skipReferences);
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!validLookupCustomerCode(customerCode)) return;
         const key = billingSuggestionCacheKey(customerCode);
         if (purchaseOrderSuggestionCache.has(key)) {
-            await fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(key));
+            if (shouldLoadReferences) await fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(key));
             return;
         }
         try {
@@ -3011,12 +3029,37 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             purchaseOrderSuggestionCache.set(key, suggestions);
-            await fetchPurchaseOrderReferencesForCustomer(suggestions);
+            if (shouldLoadReferences) await fetchPurchaseOrderReferencesForCustomer(suggestions);
             sapItems.forEach(function(item, idx) {
                 if (item.loai === 'Bảng kê') showDocumentSuggestions(idx, suggestions, 'Bảng kê');
             });
         } catch (error) {
             purchaseOrderSuggestionCache.set(key, []);
+        }
+    }
+
+    async function prefetchDepositSuggestionsForCustomer() {
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        if (!validLookupCustomerCode(customerCode)) return;
+        const key = billingSuggestionCacheKey(customerCode);
+        if (depositSuggestionCache.has(key)) return;
+        try {
+            const response = await fetch(appUrl('/api/deposit-suggestions'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    customer_code: customerCode,
+                    deposit_date: lookupDateIso(),
+                    lookback_days: lookupLookbackDays(),
+                    limit: 10
+                })
+            });
+            const data = await response.json();
+            const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
+            depositSuggestionCache.set(key, suggestions);
+        } catch (error) {
+            depositSuggestionCache.set(key, []);
         }
     }
 
@@ -3036,7 +3079,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const key = billingSuggestionCacheKey(customerCode);
         if (manualTransactionInputKeys.has(key)) return false;
         if (autoFilledTransactionCacheKeys.has(key)) return false;
-        if (!purchaseOrderSuggestionCache.has(key) || !billingSuggestionCache.has(key)) return false;
+        if (!purchaseOrderSuggestionCache.has(key) || !billingSuggestionCache.has(key) || !depositSuggestionCache.has(key)) return false;
 
         autoFilledTransactionCacheKeys.add(key);
         const existing = new Set();
@@ -3080,6 +3123,23 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
+        const depositSuggestions = depositSuggestionCache.get(key) || [];
+        depositSuggestions.forEach(function(item) {
+            const depositDocument = normalizeDepositDocumentNumber(item.deposit_document || item.document_no || '');
+            const amount = parseFloat(item.amount || 0) || 0;
+            const rowKey = 'Biên nhận cọc|' + depositDocument;
+            if (!depositDocument || amount <= 0 || existing.has(rowKey)) return;
+            existing.add(rowKey);
+            rows.push({
+                loai: 'Biên nhận cọc',
+                so_ct: depositDocument,
+                bk_ref: '',
+                gia_tri: amount,
+                gio: '',
+                sign: '-'
+            });
+        });
+
         if (!rows.length) return false;
         sapItems = sapItems.filter(item => !isAutoFillPlaceholderTransaction(item));
         sapItems = sapItems.concat(rows);
@@ -3096,19 +3156,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 && autoFillTransactionsEnabled()
                 && !autoFilledTransactionCacheKeys.has(key)
                 && !manualTransactionInputKeys.has(key);
-            if (shouldShowLoading) setTransactionAutoLoadInFlight(true);
+            function setVisibleTransactionStage(stage) {
+                if (shouldShowLoading) setTransactionAutoLoadStage(stage);
+            }
+            setVisibleTransactionStage('purchase_orders');
             const loadingKey = key;
-            transactionAutoLoadPromise = Promise.all([
-                prefetchPurchaseOrderSuggestionsForCustomer(),
-                prefetchBillingSuggestionsForCustomer()
-            ])
-            .then(function() {
+            transactionAutoLoadPromise = (async function() {
+                setVisibleTransactionStage('purchase_orders');
+                await prefetchPurchaseOrderSuggestionsForCustomer({ skipReferences: true });
+                setVisibleTransactionStage('billings');
+                await prefetchBillingSuggestionsForCustomer();
+                setVisibleTransactionStage('references');
+                await fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(loadingKey) || []);
+                setVisibleTransactionStage('deposits');
+                await prefetchDepositSuggestionsForCustomer();
                 autoFillTransactionSuggestions();
-            })
+            })()
             .finally(function() {
                 transactionAutoLoadPromise = null;
                 if (transactionAutoFillCacheKey() === loadingKey) {
-                    setTransactionAutoLoadInFlight(false);
+                    setTransactionAutoLoadStage('');
                 }
             });
             await transactionAutoLoadPromise;
@@ -3484,12 +3551,13 @@ document.addEventListener('DOMContentLoaded', function() {
         billingSuggestionCache.clear();
         purchaseOrderSuggestionCache.clear();
         purchaseOrderReferenceCache.clear();
+        depositSuggestionCache.clear();
         autoFilledTransactionCacheKeys.clear();
         manualTransactionInputKeys.clear();
         purchaseOrderCustomerProfileCache.clear();
         purchaseOrderReferenceInFlight = '';
         purchaseOrderReferencePromise = null;
-        setTransactionAutoLoadInFlight(false);
+        setTransactionAutoLoadStage('');
         hideDocumentSuggestions();
         schedulePurchaseOrderCustomerProfile();
         scheduleDocumentPrefetch();
@@ -4040,10 +4108,14 @@ document.addEventListener('DOMContentLoaded', function() {
             clearBank();
             clearTvv(false);
             applyStoreMode('pnj');
+            billingSuggestionCache.clear();
+            purchaseOrderSuggestionCache.clear();
+            purchaseOrderReferenceCache.clear();
+            depositSuggestionCache.clear();
             autoFilledTransactionCacheKeys.clear();
             manualTransactionInputKeys.clear();
             setAddressLoadingPlaceholder(false);
-            setTransactionAutoLoadInFlight(false);
+            setTransactionAutoLoadStage('');
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
             sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
