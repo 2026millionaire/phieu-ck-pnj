@@ -1791,6 +1791,7 @@ document.addEventListener('DOMContentLoaded', function() {
             purchaseOrderReferenceCache.clear();
             depositSuggestionCache.clear();
             autoFilledTransactionCacheKeys.clear();
+            autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
             erpBusinessPartnerProfileCache.clear();
             purchaseOrderCustomerProfileCache.clear();
@@ -1853,6 +1854,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 purchaseOrderReferenceCache.clear();
                 depositSuggestionCache.clear();
                 autoFilledTransactionCacheKeys.clear();
+                autoFilledTransactionSources.clear();
                 manualTransactionInputKeys.clear();
                 erpBusinessPartnerProfileCache.clear();
                 purchaseOrderCustomerProfileCache.clear();
@@ -2466,6 +2468,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const purchaseOrderReferenceCache = new Map();
     const depositSuggestionCache = new Map();
     const autoFilledTransactionCacheKeys = new Set();
+    const autoFilledTransactionSources = new Map();
     let billingSuggestionTimer = null;
     let billingPrefetchTimer = null;
     let purchaseOrderReferenceInFlight = '';
@@ -2791,6 +2794,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function showDocumentSuggestions(idx, suggestions, loai) {
         const menu = document.getElementById('sapDocumentSuggestion' + idx);
         if (!menu) return;
+        const input = document.getElementById('sapDocNumber' + idx);
+        if (transactionAutoLoadInFlight && input && document.activeElement !== input) {
+            menu.classList.remove('show');
+            return;
+        }
         menu.innerHTML = '';
         if (!suggestions || !suggestions.length) {
             menu.classList.remove('show');
@@ -2977,7 +2985,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function prefetchBillingSuggestionsForCustomer() {
+    async function prefetchBillingSuggestionsForCustomer(options) {
+        const shouldShowSuggestions = !(options && options.showSuggestions === false);
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!validLookupCustomerCode(customerCode)) return;
         const key = billingSuggestionCacheKey(customerCode);
@@ -2997,9 +3006,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             billingSuggestionCache.set(key, suggestions);
-            sapItems.forEach(function(item, idx) {
-                if (item.loai === 'Hóa đơn') showDocumentSuggestions(idx, suggestions, 'Hóa đơn');
-            });
+            if (shouldShowSuggestions) {
+                sapItems.forEach(function(item, idx) {
+                    if (item.loai === 'Hóa đơn') showDocumentSuggestions(idx, suggestions, 'Hóa đơn');
+                });
+            }
         } catch (error) {
             billingSuggestionCache.set(key, []);
         }
@@ -3007,6 +3018,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function prefetchPurchaseOrderSuggestionsForCustomer(options) {
         const shouldLoadReferences = !(options && options.skipReferences);
+        const shouldShowSuggestions = !(options && options.showSuggestions === false);
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!validLookupCustomerCode(customerCode)) return;
         const key = billingSuggestionCacheKey(customerCode);
@@ -3030,9 +3042,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const suggestions = data && data.ok && Array.isArray(data.suggestions) ? data.suggestions : [];
             purchaseOrderSuggestionCache.set(key, suggestions);
             if (shouldLoadReferences) await fetchPurchaseOrderReferencesForCustomer(suggestions);
-            sapItems.forEach(function(item, idx) {
-                if (item.loai === 'Bảng kê') showDocumentSuggestions(idx, suggestions, 'Bảng kê');
-            });
+            if (shouldShowSuggestions) {
+                sapItems.forEach(function(item, idx) {
+                    if (item.loai === 'Bảng kê') showDocumentSuggestions(idx, suggestions, 'Bảng kê');
+                });
+            }
         } catch (error) {
             purchaseOrderSuggestionCache.set(key, []);
         }
@@ -3072,22 +3086,43 @@ document.addEventListener('DOMContentLoaded', function() {
         return false;
     }
 
-    function autoFillTransactionSuggestions() {
+    function autoFillSourceSet(key) {
+        if (!autoFilledTransactionSources.has(key)) autoFilledTransactionSources.set(key, new Set());
+        return autoFilledTransactionSources.get(key);
+    }
+
+    function autoFillCanApplySource(key, source) {
         if (!autoFillTransactionsEnabled()) return false;
         const customerCode = document.getElementById('ma_kh').value.trim();
         if (!validLookupCustomerCode(customerCode)) return false;
-        const key = billingSuggestionCacheKey(customerCode);
+        if (key !== billingSuggestionCacheKey(customerCode)) return false;
         if (manualTransactionInputKeys.has(key)) return false;
-        if (autoFilledTransactionCacheKeys.has(key)) return false;
-        if (!purchaseOrderSuggestionCache.has(key) || !billingSuggestionCache.has(key) || !depositSuggestionCache.has(key)) return false;
+        return !autoFillSourceSet(key).has(source);
+    }
 
-        autoFilledTransactionCacheKeys.add(key);
+    function currentTransactionDocumentKeys() {
         const existing = new Set();
         sapItems.forEach(function(item) {
             const doc = normalizeDocNumber(item && item.so_ct ? item.so_ct : '');
             if (item && item.loai && doc) existing.add(item.loai + '|' + doc);
         });
+        return existing;
+    }
 
+    function appendAutoFilledTransactionRows(rows) {
+        if (!rows.length) return false;
+        sapItems = sapItems.filter(item => !isAutoFillPlaceholderTransaction(item));
+        sapItems = sapItems.concat(rows);
+        renderSapTable(sapItems);
+        return true;
+    }
+
+    function autoFillPurchaseOrderSuggestions(key) {
+        if (!autoFillCanApplySource(key, 'purchase_orders')) return false;
+        if (!purchaseOrderSuggestionCache.has(key)) return false;
+        const sources = autoFillSourceSet(key);
+        sources.add('purchase_orders');
+        const existing = currentTransactionDocumentKeys();
         const rows = [];
         const purchaseSuggestions = purchaseOrderSuggestionCache.get(key) || [];
         purchaseSuggestions.forEach(function(item) {
@@ -3105,7 +3140,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 sign: '-'
             });
         });
+        return appendAutoFilledTransactionRows(rows);
+    }
 
+    function autoFillBillingSuggestions(key) {
+        if (!autoFillCanApplySource(key, 'billings')) return false;
+        if (!billingSuggestionCache.has(key)) return false;
+        const sources = autoFillSourceSet(key);
+        sources.add('billings');
+        const existing = currentTransactionDocumentKeys();
+        const rows = [];
         const billingSuggestions = billingSuggestionCache.get(key) || [];
         billingSuggestions.forEach(function(item) {
             const billingDocument = normalizeBillingDocumentNumber(item.billing_document || '');
@@ -3122,7 +3166,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 sign: '+'
             });
         });
+        return appendAutoFilledTransactionRows(rows);
+    }
 
+    function autoFillDepositSuggestions(key) {
+        if (!autoFillCanApplySource(key, 'deposits')) return false;
+        if (!depositSuggestionCache.has(key)) return false;
+        const sources = autoFillSourceSet(key);
+        sources.add('deposits');
+        const existing = currentTransactionDocumentKeys();
+        const rows = [];
         const depositSuggestions = depositSuggestionCache.get(key) || [];
         depositSuggestions.forEach(function(item) {
             const depositDocument = normalizeDepositDocumentNumber(item.deposit_document || item.document_no || '');
@@ -3139,13 +3192,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 sign: '-'
             });
         });
+        return appendAutoFilledTransactionRows(rows);
+    }
 
-        if (!rows.length) return false;
-        sapItems = sapItems.filter(item => !isAutoFillPlaceholderTransaction(item));
-        sapItems = sapItems.concat(rows);
-        renderSapTable(sapItems);
-        fetchPurchaseOrderReferencesForCustomer(purchaseSuggestions);
-        return true;
+    function markAutoFillTransactionComplete(key) {
+        const sources = autoFillSourceSet(key);
+        if (
+            purchaseOrderSuggestionCache.has(key)
+            && billingSuggestionCache.has(key)
+            && depositSuggestionCache.has(key)
+            && sources.has('purchase_orders')
+            && sources.has('billings')
+            && sources.has('deposits')
+        ) {
+            autoFilledTransactionCacheKeys.add(key);
+        }
+    }
+
+    function autoFillTransactionSuggestions() {
+        const key = transactionAutoFillCacheKey();
+        if (!key) return false;
+        let changed = false;
+        changed = autoFillPurchaseOrderSuggestions(key) || changed;
+        changed = autoFillBillingSuggestions(key) || changed;
+        changed = autoFillDepositSuggestions(key) || changed;
+        markAutoFillTransactionComplete(key);
+        return changed;
     }
 
     function scheduleDocumentPrefetch() {
@@ -3163,14 +3235,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const loadingKey = key;
             transactionAutoLoadPromise = (async function() {
                 setVisibleTransactionStage('purchase_orders');
-                await prefetchPurchaseOrderSuggestionsForCustomer({ skipReferences: true });
+                await prefetchPurchaseOrderSuggestionsForCustomer({ skipReferences: true, showSuggestions: false });
+                autoFillPurchaseOrderSuggestions(loadingKey);
                 setVisibleTransactionStage('billings');
-                await prefetchBillingSuggestionsForCustomer();
+                await prefetchBillingSuggestionsForCustomer({ showSuggestions: false });
+                autoFillBillingSuggestions(loadingKey);
                 setVisibleTransactionStage('references');
                 await fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(loadingKey) || []);
                 setVisibleTransactionStage('deposits');
                 await prefetchDepositSuggestionsForCustomer();
-                autoFillTransactionSuggestions();
+                autoFillDepositSuggestions(loadingKey);
+                markAutoFillTransactionComplete(loadingKey);
             })()
             .finally(function() {
                 transactionAutoLoadPromise = null;
@@ -3553,6 +3628,7 @@ document.addEventListener('DOMContentLoaded', function() {
         purchaseOrderReferenceCache.clear();
         depositSuggestionCache.clear();
         autoFilledTransactionCacheKeys.clear();
+        autoFilledTransactionSources.clear();
         manualTransactionInputKeys.clear();
         purchaseOrderCustomerProfileCache.clear();
         purchaseOrderReferenceInFlight = '';
@@ -4113,6 +4189,7 @@ document.addEventListener('DOMContentLoaded', function() {
             purchaseOrderReferenceCache.clear();
             depositSuggestionCache.clear();
             autoFilledTransactionCacheKeys.clear();
+            autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
             setAddressLoadingPlaceholder(false);
             setTransactionAutoLoadStage('');
