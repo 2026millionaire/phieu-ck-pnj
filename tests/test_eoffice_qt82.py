@@ -479,6 +479,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("buildPurchaseOrderReferenceMapping", index_html)
         self.assertIn("normalizePurchaseOrderNumber", index_html)
         self.assertIn("Promise.all", index_html)
+        self.assertIn("autoFillTransactionSuggestions", index_html)
+        self.assertIn("auto_fill_transactions_default", index_html)
         self.assertIn("classList.toggle('use-bk-ref'", index_html)
         self.assertIn("download-planning-pdf", index_html)
         self.assertIn("download-planning-xlsx", index_html)
@@ -509,13 +511,19 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('id="s_hbtl_prefix"', settings_html)
         self.assertIn('id="s_use_bk_ref_default"', settings_html)
         self.assertIn('id="s_show_payment_dates_default"', settings_html)
+        self.assertIn('id="s_auto_fill_transactions_default"', settings_html)
         saved_settings = self.client.post(
             "/api/settings",
-            json={"use_bk_ref_default": "0", "show_payment_dates_default": "1"},
+            json={
+                "auto_fill_transactions_default": "1",
+                "use_bk_ref_default": "0",
+                "show_payment_dates_default": "1",
+            },
             headers={"Origin": "http://localhost"},
         )
         self.assertEqual(saved_settings.status_code, 200)
         settings_json = self.client.get("/api/settings").get_json()["data"]
+        self.assertEqual(settings_json["auto_fill_transactions_default"], "1")
         self.assertEqual(settings_json["use_bk_ref_default"], "0")
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
 

@@ -1215,6 +1215,7 @@ textarea#sap_data {
     // Initialize app settings from server
     window.__appSettings = {
         tvv_button_color_mode: '{{ settings.get("tvv_button_color_mode", "0") }}',
+        auto_fill_transactions_default: '{{ settings.get("auto_fill_transactions_default", "1") }}',
         use_bk_ref_default: '{{ settings.get("use_bk_ref_default", "0") }}',
         show_payment_dates_default: '{{ settings.get("show_payment_dates_default", "1") }}'
     };
@@ -1683,6 +1684,7 @@ document.addEventListener('DOMContentLoaded', function() {
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
             purchaseOrderReferenceCache.clear();
+            autoFilledTransactionCacheKeys.clear();
             erpBusinessPartnerProfileCache.clear();
             purchaseOrderCustomerProfileCache.clear();
             clearTimeout(customerLocalProfileTimer);
@@ -1740,6 +1742,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 billingSuggestionCache.clear();
                 purchaseOrderSuggestionCache.clear();
                 purchaseOrderReferenceCache.clear();
+                autoFilledTransactionCacheKeys.clear();
                 erpBusinessPartnerProfileCache.clear();
                 purchaseOrderCustomerProfileCache.clear();
                 clearTimeout(customerLocalProfileTimer);
@@ -2348,6 +2351,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const billingSuggestionCache = new Map();
     const purchaseOrderSuggestionCache = new Map();
     const purchaseOrderReferenceCache = new Map();
+    const autoFilledTransactionCacheKeys = new Set();
     let billingSuggestionTimer = null;
     let billingPrefetchTimer = null;
     let purchaseOrderReferenceInFlight = '';
@@ -2360,6 +2364,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function normalizePurchaseOrderNumber(value) {
         const normalized = normalizeDocNumber(value);
         return /^4403\d{6}$/.test(normalized) ? normalized : '';
+    }
+
+    function normalizeBillingDocumentNumber(value) {
+        const normalized = normalizeDocNumber(value);
+        return /^90\d{8}$/.test(normalized) ? normalized : '';
     }
 
     function billingDateForItem(item) {
@@ -2733,6 +2742,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return window.__appSettings.show_payment_dates_default === '1';
     }
 
+    function autoFillTransactionsEnabled() {
+        return window.__appSettings.auto_fill_transactions_default !== '0';
+    }
+
     function applyBkRefTableClass() {
         const table = document.getElementById('sapTable');
         if (table) table.classList.toggle('use-bk-ref', useBkRefEnabled());
@@ -2835,6 +2848,73 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function isAutoFillPlaceholderTransaction(item) {
+        if (!item || parseFloat(item.gia_tri || 0)) return false;
+        const soCt = String(item.so_ct || '').trim();
+        const loai = item.loai || '';
+        if (loai === 'Bảng kê') return soCt === '' || soCt === (docTypePrefixes['Bảng kê'] || '');
+        if (loai === 'Hóa đơn') return soCt === '' || soCt === (docTypePrefixes['Hóa đơn'] || '');
+        return false;
+    }
+
+    function autoFillTransactionSuggestions() {
+        if (!autoFillTransactionsEnabled()) return false;
+        const customerCode = document.getElementById('ma_kh').value.trim();
+        if (!validLookupCustomerCode(customerCode)) return false;
+        const key = billingSuggestionCacheKey(customerCode);
+        if (autoFilledTransactionCacheKeys.has(key)) return false;
+        if (!purchaseOrderSuggestionCache.has(key) || !billingSuggestionCache.has(key)) return false;
+
+        autoFilledTransactionCacheKeys.add(key);
+        const existing = new Set();
+        sapItems.forEach(function(item) {
+            const doc = normalizeDocNumber(item && item.so_ct ? item.so_ct : '');
+            if (item && item.loai && doc) existing.add(item.loai + '|' + doc);
+        });
+
+        const rows = [];
+        const purchaseSuggestions = purchaseOrderSuggestionCache.get(key) || [];
+        purchaseSuggestions.forEach(function(item) {
+            const purchaseOrder = normalizePurchaseOrderNumber(item.purchase_order || '');
+            const amount = parseFloat(item.amount || 0) || 0;
+            const rowKey = 'Bảng kê|' + purchaseOrder;
+            if (!purchaseOrder || amount <= 0 || existing.has(rowKey)) return;
+            existing.add(rowKey);
+            rows.push({
+                loai: 'Bảng kê',
+                so_ct: purchaseOrder,
+                bk_ref: '',
+                gia_tri: amount,
+                gio: '',
+                sign: '-'
+            });
+        });
+
+        const billingSuggestions = billingSuggestionCache.get(key) || [];
+        billingSuggestions.forEach(function(item) {
+            const billingDocument = normalizeBillingDocumentNumber(item.billing_document || '');
+            const amount = parseFloat(item.amount || 0) || 0;
+            const rowKey = 'Hóa đơn|' + billingDocument;
+            if (!billingDocument || existing.has(rowKey)) return;
+            existing.add(rowKey);
+            rows.push({
+                loai: 'Hóa đơn',
+                so_ct: billingDocument,
+                bk_ref: '',
+                gia_tri: amount,
+                gio: '',
+                sign: '+'
+            });
+        });
+
+        if (!rows.length) return false;
+        sapItems = sapItems.filter(item => !isAutoFillPlaceholderTransaction(item));
+        sapItems = sapItems.concat(rows);
+        renderSapTable(sapItems);
+        fetchPurchaseOrderReferencesForCustomer(purchaseSuggestions);
+        return true;
+    }
+
     function scheduleDocumentPrefetch() {
         clearTimeout(billingPrefetchTimer);
         billingPrefetchTimer = setTimeout(async function() {
@@ -2842,6 +2922,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 prefetchPurchaseOrderSuggestionsForCustomer(),
                 prefetchBillingSuggestionsForCustomer()
             ]);
+            autoFillTransactionSuggestions();
         }, 500);
     }
 
@@ -3199,6 +3280,7 @@ document.addEventListener('DOMContentLoaded', function() {
         billingSuggestionCache.clear();
         purchaseOrderSuggestionCache.clear();
         purchaseOrderReferenceCache.clear();
+        autoFilledTransactionCacheKeys.clear();
         purchaseOrderCustomerProfileCache.clear();
         purchaseOrderReferenceInFlight = '';
         purchaseOrderReferencePromise = null;
@@ -3752,6 +3834,7 @@ document.addEventListener('DOMContentLoaded', function() {
             clearBank();
             clearTvv(false);
             applyStoreMode('pnj');
+            autoFilledTransactionCacheKeys.clear();
             document.getElementById('summaryBox').style.display = 'none';
             // Reset to 1 empty BK row
             sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];

@@ -600,6 +600,7 @@ def init_db():
         "deposit_prefix": "16",
         "hbtl_prefix": "990",
         "tvv_button_color_mode": "0",
+        "auto_fill_transactions_default": "1",
         "use_bk_ref_default": "0",
         "show_payment_dates_default": "1",
     }
@@ -3312,7 +3313,7 @@ def api_save_settings():
                 400,
             )
         data["qt82_form_url"] = qt82_form_url
-    for flag_key in ("use_bk_ref_default", "show_payment_dates_default"):
+    for flag_key in ("auto_fill_transactions_default", "use_bk_ref_default", "show_payment_dates_default"):
         if flag_key in data:
             data[flag_key] = str(settings_flag(data, flag_key, "0"))
     db = get_db()

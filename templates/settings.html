@@ -249,6 +249,13 @@
                             </label>
                         </div>
                         <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="s_auto_fill_transactions_default"
+                                   {% if settings.get('auto_fill_transactions_default', '1') == '1' %}checked{% endif %}>
+                            <label class="form-check-label" for="s_auto_fill_transactions_default">
+                                Tự tải Thông tin giao dịch từ ERP sau khi nhập Mã KH
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
                             <input class="form-check-input" type="checkbox" id="s_use_bk_ref_default"
                                    {% if settings.get('use_bk_ref_default', '0') == '1' %}checked{% endif %}>
                             <label class="form-check-label" for="s_use_bk_ref_default">
@@ -532,6 +539,7 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         thoi_gian_ck: document.getElementById('s_thoi_gian_ck').value,
         show_payment_time: document.getElementById('s_show_payment_time').checked ? '1' : '0',
         tvv_button_color_mode: document.getElementById('s_tvv_button_color_mode').checked ? '1' : '0',
+        auto_fill_transactions_default: document.getElementById('s_auto_fill_transactions_default').checked ? '1' : '0',
         use_bk_ref_default: document.getElementById('s_use_bk_ref_default').checked ? '1' : '0',
         show_payment_dates_default: document.getElementById('s_show_payment_dates_default').checked ? '1' : '0',
         plant: document.getElementById('s_plant').value.trim(),
