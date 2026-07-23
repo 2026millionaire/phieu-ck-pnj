@@ -443,6 +443,7 @@ textarea#sap_data {
 .sap-table td input { width: 100%; box-sizing: border-box; }
 .sap-table td {
     padding: 0.25rem;
+    vertical-align: top;
 }
 .sap-table .form-control-sm {
     min-height: 28px;
@@ -488,6 +489,14 @@ textarea#sap_data {
 .sap-table tbody tr.sap-row-tncn > td { background-color: #eff6ff; }
 .sap-table tbody tr.sap-row-thu  > td { background-color: #f0fdfa; }
 .sap-table tbody tr.sap-row-chi  > td { background-color: #f5f3ff; }
+.sap-table .sap-doc-type-dropdown,
+.sap-table .sap-invoice-suggestion-field,
+.sap-table .sap-bk-ref-cell,
+.sap-table .sap-amount-input,
+.sap-table input[type="time"],
+.sap-table .sap-del {
+    margin-top: 0;
+}
 
 .sap-mobile-row {
     display: flex;
@@ -2456,10 +2465,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyPurchaseOrderSuggestion(idx, suggestion) {
         if (!sapItems[idx]) return;
+        const previousPurchaseOrder = normalizePurchaseOrderNumber(sapItems[idx].so_ct || '');
         sapItems[idx].loai = 'Bảng kê';
         sapItems[idx].so_ct = suggestion.purchase_order || '';
+        if (previousPurchaseOrder !== normalizePurchaseOrderNumber(sapItems[idx].so_ct || '')) {
+            sapItems[idx].bk_ref = '';
+        }
         sapItems[idx].gia_tri = parseFloat(suggestion.amount || 0) || 0;
         sapItems[idx].sign = loaiSignMap['Bảng kê'] || '-';
+        refreshPurchaseOrderReferenceForRow(idx);
         renderSapTable(sapItems);
     }
 
@@ -2588,6 +2602,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const dynamicMapping = buildPurchaseOrderReferenceMapping(rows, result.references || []);
         result.mapping = Object.assign({}, result.mapping || {}, dynamicMapping);
         return applyPurchaseOrderReferenceMapping(result.mapping);
+    }
+
+    function refreshPurchaseOrderReferenceForRow(idx) {
+        const item = sapItems[idx];
+        if (!item || item.loai !== 'Bảng kê' || !normalizePurchaseOrderNumber(item.so_ct || '')) return;
+        fetchPurchaseOrderReferencesForCustomer();
     }
 
     async function fetchPurchaseOrderReferencesForCustomer(purchaseOrderRows) {
@@ -2903,11 +2923,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     sapItems[idx].gio = todayStr + ' ' + timeValue;
                 } else if (field === 'so_ct') {
+                    const previousPurchaseOrder = normalizePurchaseOrderNumber(sapItems[idx].so_ct || '');
                     sapItems[idx][field] = this.value;
+                    if (previousPurchaseOrder !== normalizePurchaseOrderNumber(this.value)) {
+                        sapItems[idx].bk_ref = '';
+                    }
                     if (maybeApplyBillingAmount(idx, this.value) || maybeApplyPurchaseOrderAmount(idx, this.value)) {
+                        refreshPurchaseOrderReferenceForRow(idx);
                         renderSapTable(sapItems);
                         return;
                     }
+                    refreshPurchaseOrderReferenceForRow(idx);
                 } else {
                     sapItems[idx][field] = this.value;
                 }
@@ -2922,7 +2948,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             el.addEventListener('input', function() {
                 const idx = parseInt(this.dataset.idx);
-                if (sapItems[idx]) sapItems[idx].so_ct = this.value;
+                if (sapItems[idx]) {
+                    const previousPurchaseOrder = normalizePurchaseOrderNumber(sapItems[idx].so_ct || '');
+                    sapItems[idx].so_ct = this.value;
+                    if (previousPurchaseOrder !== normalizePurchaseOrderNumber(this.value)) {
+                        sapItems[idx].bk_ref = '';
+                    }
+                }
+                refreshPurchaseOrderReferenceForRow(idx);
                 scheduleDocumentSuggestions(idx);
             });
         });
