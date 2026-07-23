@@ -1132,12 +1132,24 @@ def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
     return url
 
 
-def build_noi_dung(plant, so_bk, ngay, ten_kh):
+def format_vnd_amount(amount):
+    """Format VND amount with Vietnamese thousand separators for transfer descriptions."""
+    try:
+        value = int(round(float(amount or 0)))
+    except (TypeError, ValueError):
+        value = 0
+    return f"{value:,}".replace(",", ".")
+
+
+def build_noi_dung(plant, so_bk, ngay, ten_kh, tong_ck=None):
     """
     Build eOffice QT82 noi_dung string.
-    Format: '1305_CK BK {so_bk} ngày {date} cho {ten_kh}'
+    Format: '1305_CK BK {so_bk} ngày {date} cho {ten_kh} - {amount} VND'
     """
-    return f"{plant}_CK BK {so_bk} ngày {ngay} cho {ten_kh}"
+    base = f"{plant}_CK BK {so_bk} ngày {ngay} cho {ten_kh}"
+    if tong_ck is None:
+        return base
+    return f"{base} - {format_vnd_amount(tong_ck)} VND"
 
 
 def find_eoffice_bank_code(ngan_hang):
@@ -2708,7 +2720,7 @@ def eoffice_page(phieu_id):
     plant = d.get("plant", settings.get("plant", "1305"))
 
     # Build eOffice fields
-    # Nội dung: "1305_CK BK 4403... ngày 2026-04-09 cho HỒ THỊ MỸ VÂN"
+    # Nội dung: "1305_CK BK 4403... ngày 2026-04-09 cho HỒ THỊ MỸ VÂN - 1.234.567 VND"
     try:
         dt = datetime.strptime(d["created_at"], "%Y-%m-%d %H:%M:%S")
         ngay_str = dt.strftime("%Y-%m-%d")
@@ -2719,7 +2731,7 @@ def eoffice_page(phieu_id):
     so_bk = d.get("so_bk", "")
 
     d["eo_ma_kh"] = d.get("ma_kh", "")
-    d["eo_noi_dung"] = build_noi_dung(plant, so_bk, ngay_str, d.get("ten_kh", ""))
+    d["eo_noi_dung"] = build_noi_dung(plant, so_bk, ngay_str, d.get("ten_kh", ""), d.get("tong_ck"))
     d["eo_ten_tk"] = d.get("ten_tk", "")
     d["eo_so_tk"] = normalize_account_number(d.get("so_tk", ""))
     d["eo_ma_nh"] = find_eoffice_bank_code(d.get("ngan_hang", ""))
@@ -3392,7 +3404,7 @@ def api_save():
 
     # eOffice noi_dung
     ngay_str = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-    noi_dung = build_noi_dung(plant, so_bk, ngay_str, ten_kh)
+    noi_dung = build_noi_dung(plant, so_bk, ngay_str, ten_kh, tong_ck)
 
     nguoi_ki = data.get("nguoi_ki", "tvv")
 

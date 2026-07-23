@@ -233,6 +233,10 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(payload["costGroup"], "Hàng hóa(ML)")
         self.assertEqual(payload["storeManagerQuery"], "my.hth")
         self.assertEqual(payload["detailDocuments"], ["4403000001"])
+        self.assertEqual(
+            payload["requestContent"],
+            "1305_CK BK 4403000001 ngày 2026-07-16 cho KHACH HANG TEST - 1.500.000 VND",
+        )
         self.assertEqual(payload["formUrl"], app_module.DEFAULT_QT82_FORM_URL)
 
     def test_admin_can_override_sap_document_for_qt82(self):
