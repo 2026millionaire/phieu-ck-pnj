@@ -2348,6 +2348,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return String(value || '').replace(/\D+/g, '');
     }
 
+    function normalizePurchaseOrderNumber(value) {
+        const normalized = normalizeDocNumber(value);
+        return /^4403\d{6}$/.test(normalized) ? normalized : '';
+    }
+
     function billingDateForItem(item) {
         const raw = String(item && item.gio ? item.gio : '').split(' ')[0];
         const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -2491,20 +2496,76 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function purchaseOrderRowsForReference(suggestions) {
+        const rows = [];
         if (Array.isArray(suggestions) && suggestions.length) {
-            return suggestions
+            suggestions
                 .map(item => ({
-                    purchase_order: normalizeDocNumber(item.purchase_order || ''),
+                    purchase_order: normalizePurchaseOrderNumber(item.purchase_order || ''),
                     creation_date: item.creation_date || lookupDateIso()
                 }))
-                .filter(item => item.purchase_order);
+                .filter(item => item.purchase_order)
+                .forEach(item => rows.push(item));
         }
-        return sapItems
-            .filter(item => item.loai === 'Bảng kê' && normalizeDocNumber(item.so_ct || ''))
+        sapItems
+            .filter(item => item.loai === 'Bảng kê' && normalizePurchaseOrderNumber(item.so_ct || ''))
             .map(item => ({
-                purchase_order: normalizeDocNumber(item.so_ct || ''),
+                purchase_order: normalizePurchaseOrderNumber(item.so_ct || ''),
                 creation_date: billingDateForItem(item)
-            }));
+            }))
+            .forEach(item => rows.push(item));
+        const seen = new Set();
+        return rows.filter(function(item) {
+            const key = item.purchase_order + '|' + item.creation_date;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
+
+    function purchaseOrderReferenceSortKey(reference) {
+        const match = String(reference || '').match(/^(\d{6})\/(\d{2})_(\d{4})$/);
+        if (!match) return [0, 0, ''];
+        return [parseInt(match[1], 10) || 0, parseInt(match[2], 10) || 0, match[3]];
+    }
+
+    function comparePurchaseOrderReferencesDesc(a, b) {
+        const left = purchaseOrderReferenceSortKey(a);
+        const right = purchaseOrderReferenceSortKey(b);
+        for (let i = 0; i < left.length; i += 1) {
+            if (left[i] < right[i]) return 1;
+            if (left[i] > right[i]) return -1;
+        }
+        return 0;
+    }
+
+    function buildPurchaseOrderReferenceMapping(rows, references) {
+        const poByDate = new Map();
+        purchaseOrderRowsForReference(rows).forEach(function(item) {
+            const purchaseOrder = normalizePurchaseOrderNumber(item.purchase_order || '');
+            const creationDate = item.creation_date || lookupDateIso();
+            if (!purchaseOrder || !creationDate) return;
+            if (!poByDate.has(creationDate)) poByDate.set(creationDate, new Set());
+            poByDate.get(creationDate).add(purchaseOrder);
+        });
+
+        const referenceByDate = new Map();
+        (Array.isArray(references) ? references : []).forEach(function(item) {
+            const reference = String(item && item.reference ? item.reference : '').trim();
+            const postingDate = String(item && item.posting_date ? item.posting_date : '').trim();
+            if (!reference || !postingDate) return;
+            if (!referenceByDate.has(postingDate)) referenceByDate.set(postingDate, new Set());
+            referenceByDate.get(postingDate).add(reference);
+        });
+
+        const mapping = {};
+        poByDate.forEach(function(purchaseOrders, day) {
+            const sortedPos = Array.from(purchaseOrders).sort().reverse();
+            const sortedRefs = Array.from(referenceByDate.get(day) || []).sort(comparePurchaseOrderReferencesDesc);
+            sortedPos.forEach(function(purchaseOrder, idx) {
+                if (sortedRefs[idx]) mapping[purchaseOrder] = sortedRefs[idx];
+            });
+        });
+        return mapping;
     }
 
     function applyPurchaseOrderReferenceMapping(mapping) {
@@ -2512,7 +2573,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let changed = false;
         sapItems.forEach(function(item) {
             if (!item || item.loai !== 'Bảng kê' || item.bk_ref) return;
-            const purchaseOrder = normalizeDocNumber(item.so_ct || '');
+            const purchaseOrder = normalizePurchaseOrderNumber(item.so_ct || '');
             if (purchaseOrder && mapping[purchaseOrder]) {
                 item.bk_ref = mapping[purchaseOrder];
                 changed = true;
@@ -2520,6 +2581,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         if (changed) renderSapTable(sapItems);
         return changed;
+    }
+
+    function applyPurchaseOrderReferenceResult(result, rows) {
+        if (!result || typeof result !== 'object') return false;
+        const dynamicMapping = buildPurchaseOrderReferenceMapping(rows, result.references || []);
+        result.mapping = Object.assign({}, result.mapping || {}, dynamicMapping);
+        return applyPurchaseOrderReferenceMapping(result.mapping);
     }
 
     async function fetchPurchaseOrderReferencesForCustomer(purchaseOrderRows) {
@@ -2530,7 +2598,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const key = purchaseOrderReferenceCacheKey(customerCode);
         if (purchaseOrderReferenceCache.has(key)) {
             const cached = purchaseOrderReferenceCache.get(key);
-            applyPurchaseOrderReferenceMapping(cached.mapping || {});
+            applyPurchaseOrderReferenceResult(cached, rows);
             return cached;
         }
         if (purchaseOrderReferenceInFlight === key && purchaseOrderReferencePromise) return purchaseOrderReferencePromise;
@@ -2554,7 +2622,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 references: Array.isArray(data.references) ? data.references : []
             } : { mapping: {}, references: [] };
             purchaseOrderReferenceCache.set(key, result);
-            applyPurchaseOrderReferenceMapping(result.mapping);
+            applyPurchaseOrderReferenceResult(result);
             return result;
         })
         .catch(() => {
@@ -2750,8 +2818,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function scheduleDocumentPrefetch() {
         clearTimeout(billingPrefetchTimer);
         billingPrefetchTimer = setTimeout(async function() {
-            await prefetchPurchaseOrderSuggestionsForCustomer();
-            await prefetchBillingSuggestionsForCustomer();
+            await Promise.all([
+                prefetchPurchaseOrderSuggestionsForCustomer(),
+                prefetchBillingSuggestionsForCustomer()
+            ]);
         }, 500);
     }
 
@@ -3074,6 +3144,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnAddRow').addEventListener('click', function() {
         sapItems.push({ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' });
         renderSapTable(sapItems);
+        fetchPurchaseOrderReferencesForCustomer();
         if (window.matchMedia('(max-width: 360px)').matches) {
             requestAnimationFrame(function() {
                 const newTypeButton = document.getElementById('sapDocType' + (sapItems.length - 1));
