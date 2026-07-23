@@ -1287,6 +1287,35 @@ document.addEventListener('DOMContentLoaded', function() {
         return code.trim() + '|' + field;
     }
 
+    function cacheProfileSuggestion(customerCode, field, value) {
+        const cleanValue = String(value || '').trim();
+        if (!cleanValue) return;
+        const key = customerSuggestionCacheKey(customerCode, field);
+        const suggestions = Array.isArray(customerSuggestionCache.get(key))
+            ? customerSuggestionCache.get(key).slice()
+            : [];
+        if (!suggestions.some(item => item && item.value === cleanValue)) {
+            suggestions.unshift({ value: cleanValue });
+            customerSuggestionCache.set(key, suggestions.slice(0, 10));
+        }
+        const target = customerSuggestionTargets[field];
+        if (target && document.activeElement === target.input && !target.input.value.trim()) {
+            showCustomerSuggestions(field, customerSuggestionCache.get(key));
+        }
+    }
+
+    function cacheCustomerProfileSuggestions(profile, requestedCode) {
+        if (!profile || typeof profile !== 'object') return;
+        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+        const normalizedCode = String(requestedCode || '').trim().replace(/^0+/, '');
+        if (normalizedCode && currentCode !== normalizedCode) return;
+        const cacheCode = document.getElementById('ma_kh').value.trim();
+        const profileName = profile.name || profile.full_name || '';
+        cacheProfileSuggestion(cacheCode, 'name', profileName ? String(profileName).toUpperCase() : '');
+        cacheProfileSuggestion(cacheCode, 'phone', profile.phone || '');
+        cacheProfileSuggestion(cacheCode, 'cccd', profile.cccd || '');
+    }
+
     function customerLocalProfileCacheKey(code) {
         return code.trim().replace(/^0+/, '');
     }
@@ -1300,47 +1329,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function applyCustomerLocalProfile(profile, requestedCode) {
-        if (!profile || typeof profile !== 'object') return;
-        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
-        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
-        const nameInput = document.getElementById('ten_kh');
-        const phoneInput = document.getElementById('sdt');
-        const cccdInput = document.getElementById('cccd');
-        if (!nameInput.value.trim() && profile.name) {
-            nameInput.value = String(profile.name).toUpperCase();
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (!phoneInput.value.trim() && profile.phone) {
-            phoneInput.value = profile.phone;
-            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (!cccdInput.value.trim() && profile.cccd) {
-            cccdInput.value = profile.cccd;
-            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        cacheCustomerProfileSuggestions(profile, requestedCode);
     }
 
     function applyErpBusinessPartnerProfile(profile, requestedCode) {
         if (!profile || typeof profile !== 'object') return;
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
-        const nameInput = document.getElementById('ten_kh');
-        const phoneInput = document.getElementById('sdt');
-        const cccdInput = document.getElementById('cccd');
         const addressInput = document.getElementById('dia_chi');
-        const profileName = profile.name || profile.full_name || '';
-        if (!nameInput.value.trim() && profileName) {
-            nameInput.value = String(profileName).toUpperCase();
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (!phoneInput.value.trim() && profile.phone) {
-            phoneInput.value = profile.phone;
-            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (!cccdInput.value.trim() && profile.cccd) {
-            cccdInput.value = profile.cccd;
-            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        cacheCustomerProfileSuggestions(profile, requestedCode);
         if (!addressInput.value.trim() && profile.address) {
             addressInput.value = profile.address;
             addressInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1351,17 +1348,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!profile || typeof profile !== 'object') return;
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
-        const nameInput = document.getElementById('ten_kh');
-        const phoneInput = document.getElementById('sdt');
         const addressInput = document.getElementById('dia_chi');
-        if (!nameInput.value.trim() && profile.name) {
-            nameInput.value = String(profile.name).toUpperCase();
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (!phoneInput.value.trim() && profile.phone) {
-            phoneInput.value = profile.phone;
-            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        cacheCustomerProfileSuggestions(profile, requestedCode);
         if (!addressInput.value.trim() && profile.address) {
             addressInput.value = profile.address;
             addressInput.dispatchEvent(new Event('input', { bubbles: true }));
