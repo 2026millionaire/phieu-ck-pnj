@@ -13,7 +13,6 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
-from bs4 import BeautifulSoup
 
 import erp_billing
 
@@ -71,6 +70,33 @@ def _decode_sap_js_text(value: Any) -> str:
         return chr(int(match.group(1), 16))
 
     return re.sub(r"\\x([0-9A-Fa-f]{2})", repl, text)
+
+
+def _parse_html_attrs(tag: str) -> dict[str, str]:
+    attrs = {}
+    for match in re.finditer(r'([\w:-]+)=("[^"]*"|\'[^\']*\'|[^\s>]+)', tag or ""):
+        attrs[match.group(1)] = unescape(match.group(2).strip("\"'"))
+    return attrs
+
+
+def _extract_form(html_text: str, form_id: str) -> tuple[str, dict[str, str]]:
+    form_match = re.search(rf'<form\b([^>]*)\bid="{re.escape(form_id)}"([^>]*)>(.*?)</form>', html_text or "", re.S)
+    if not form_match:
+        form_match = re.search(rf"<form\b([^>]*)>(?:(?!</form>).)*?</form>", html_text or "", re.S)
+        while form_match and f'id="{form_id}"' not in form_match.group(0) and f"id='{form_id}'" not in form_match.group(0):
+            next_start = form_match.end()
+            form_match = re.search(rf"<form\b([^>]*)>(?:(?!</form>).)*?</form>", (html_text or "")[next_start:], re.S)
+    if not form_match:
+        raise RuntimeError("RESTGUI start form was not found.")
+    form_html = form_match.group(0)
+    start_tag = re.search(r"<form\b([^>]*)>", form_html, re.S)
+    form_attrs = _parse_html_attrs(start_tag.group(1) if start_tag else "")
+    fields = {}
+    for input_match in re.finditer(r"<input\b([^>]*)>", form_html, re.S):
+        attrs = _parse_html_attrs(input_match.group(1))
+        if attrs.get("name"):
+            fields[attrs["name"]] = attrs.get("value", "")
+    return form_attrs.get("action", ""), fields
 
 
 def parse_signed_amount(value: Any) -> int:
@@ -303,12 +329,8 @@ def _start_restgui_transaction(session: requests.Session, base_url: str) -> tupl
         timeout=ERP_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    form = soup.find("form", id="webguiStartForm")
-    if form is None:
-        raise RuntimeError("RESTGUI start form was not found.")
-    action_url = urljoin(response.url, str(form.get("action") or ""))
-    fields = {inp.get("name"): inp.get("value", "") for inp in form.find_all("input") if inp.get("name")}
+    action, fields = _extract_form(response.text, "webguiStartForm")
+    action_url = urljoin(response.url, action)
     fields.update(
         {
             "~webguiUserAreaHeight": "900",
