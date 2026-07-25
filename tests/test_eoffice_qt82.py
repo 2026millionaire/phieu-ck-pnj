@@ -388,6 +388,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("Chi tiết Phương án lựa chọn", html)
         page_one_html = html.split('<div class="page-two">', 1)[0]
         self.assertIn('<div class="section-title">V. Hình thức và thông tin thanh toán</div>', page_one_html)
+        self.assertIn('<div class="section-title">VI. Nguyên tắc thanh toán</div>', page_one_html)
         self.assertIn("☐ Phương án 1 (chuyển đổi sang sản phẩm PNJ)", page_one_html)
         self.assertIn("☐ Phương án 2 (nhận tiền theo lộ trình thanh toán)", page_one_html)
         self.assertIn('<span class="option-line">☑ Phương án 3 (lựa chọn kết hợp linh hoạt)</span>', page_one_html)
