@@ -5,6 +5,8 @@ Flask web app for creating transfer confirmation slips.
 """
 
 import json
+import hashlib
+import hmac
 import io
 import os
 import re
@@ -91,6 +93,7 @@ CUSTOMER_LOOKUP_TURNSTILE_SECRET = os.environ.get(
 CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
     "CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME", ""
 ).strip()
+BIEU_MAU_BP_FREE_UNIQUE_LOOKUPS = 3
 _customer_lookup_store = None
 _customer_identity_store = None
 _employee_lookup_store = None
@@ -1197,6 +1200,19 @@ def make_pdf_from_print_html(html):
         return buf
 
 
+def send_print_html_pdf(html, filename):
+    try:
+        pdf = make_pdf_from_print_html(html)
+    except RuntimeError as exc:
+        if str(exc) == "PDF_RENDERER_MISSING":
+            return "Máy chủ chưa cấu hình công cụ xuất PDF.", 503
+        return "Không thể xuất PDF lúc này.", 503
+    except Exception:
+        app.logger.exception("Không thể xuất PDF từ HTML in.")
+        return "Không thể xuất PDF lúc này.", 503
+    return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
+
+
 def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
     """
     Build VietQR image URL.
@@ -1937,7 +1953,25 @@ def check_auth():
     if not REQUIRE_LOGIN:
         return
     allowed = ("login_page", "login_action", "logout_action", "static")
+    public_bieu_mau = {
+        "bieu_mau_page",
+        "bb_huy_page",
+        "doi_thongtin_page",
+        "bb_huy_print",
+        "bb_huy_pdf",
+        "doi_thongtin_print_f1",
+        "doi_thongtin_pdf_f1",
+        "doi_thongtin_print_f2",
+        "doi_thongtin_pdf_f2",
+        "cao_hml_print",
+        "cao_hml_pdf",
+        "api_tvv",
+        "api_lydo_huy",
+        "api_erp_business_partner_profile",
+    }
     if request.endpoint in allowed:
+        return
+    if request.endpoint in public_bieu_mau:
         return
     if request.endpoint == "api_print_token" and verify_print_token():
         return
@@ -2277,6 +2311,36 @@ def _verify_customer_lookup_turnstile(token):
     ):
         return False
     return True
+
+
+def _bieu_mau_bp_lookup_digest(customer_code):
+    secret = str(app.secret_key or "phieu-ck").encode("utf-8")
+    return hmac.new(secret, str(customer_code or "").encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _assess_bieu_mau_bp_captcha(customer_code, turnstile_token):
+    digest = _bieu_mau_bp_lookup_digest(customer_code)
+    seen = [
+        item for item in session.get("bieu_mau_bp_lookup_digests", [])
+        if isinstance(item, str) and len(item) == 64
+    ]
+    already_seen = digest in seen
+    requires_captcha = (
+        not session.get("user_id")
+        and not already_seen
+        and len(seen) >= BIEU_MAU_BP_FREE_UNIQUE_LOOKUPS
+    )
+    if requires_captcha:
+        if not CUSTOMER_LOOKUP_TURNSTILE_SITEKEY or not CUSTOMER_LOOKUP_TURNSTILE_SECRET:
+            return _customer_lookup_json(
+                {"ok": False, "error": "CAPTCHA chưa được cấu hình."}, 503
+            )
+        if not turnstile_token or not _verify_customer_lookup_turnstile(turnstile_token):
+            return _customer_lookup_json({"ok": False, "captcha_required": True}, 403)
+    if not already_seen:
+        seen.append(digest)
+        session["bieu_mau_bp_lookup_digests"] = seen[-20:]
+    return None
 
 
 def get_accessible_phieu(db, phieu_id):
@@ -2684,6 +2748,12 @@ def api_erp_business_partner_profile():
     customer_code = data.get("customer_code")
     if not erp_business_partner.normalize_customer_code(customer_code):
         return _customer_lookup_json({"ok": True, "profile": {}})
+    captcha_response = _assess_bieu_mau_bp_captcha(
+        erp_business_partner.normalize_customer_code(customer_code),
+        str(data.get("turnstile_token") or ""),
+    )
+    if captcha_response is not None:
+        return captcha_response
 
     try:
         profile = erp_business_partner.business_partner_profile(customer_code)
@@ -2706,7 +2776,12 @@ def bieu_mau_page():
     """Biểu Mẫu — merged page: BB Hủy BK, F1, F2."""
     settings = get_settings()
     bk_prefix = settings.get("bk_prefix", "4403")
-    return render_template("bieu_mau.html", settings=settings, bk_prefix=bk_prefix)
+    return render_template(
+        "bieu_mau.html",
+        settings=settings,
+        bk_prefix=bk_prefix,
+        customer_lookup_turnstile_sitekey=CUSTOMER_LOOKUP_TURNSTILE_SITEKEY,
+    )
 
 
 @app.route("/bb-huy")
@@ -2718,6 +2793,10 @@ def bb_huy_page():
 @app.route("/bb-huy/print")
 def bb_huy_print():
     """BB Hủy Bảng Kê — printable A5 landscape."""
+    return render_bb_huy_print_html()
+
+
+def render_bb_huy_print_html():
     settings = get_settings()
     so_bk = request.args.get("so_bk", "")
     tvv_name = request.args.get("tvv", "")
@@ -2740,6 +2819,13 @@ def bb_huy_print():
         ngay_str=ngay_str, plant=plant)
 
 
+@app.route("/bb-huy/pdf")
+def bb_huy_pdf():
+    """BB Hủy Bảng Kê — PDF rendered from printable HTML."""
+    so_bk = ascii_filename_part(request.args.get("so_bk", ""), 20)
+    return send_print_html_pdf(render_bb_huy_print_html(), f"BB HUY BK {so_bk}.pdf")
+
+
 @app.route("/doi-thongtin")
 def doi_thongtin_page():
     """Redirect old Đổi TT KH page to Biểu Mẫu."""
@@ -2749,6 +2835,10 @@ def doi_thongtin_page():
 @app.route("/doi-thongtin/print-f1")
 def doi_thongtin_print_f1():
     """F1 — VB đồng ý XLDL cá nhân — printable A4."""
+    return render_doi_thongtin_f1_html()
+
+
+def render_doi_thongtin_f1_html():
     now = datetime.now()
     return render_template("doi_thongtin_print_f1.html",
         ten_cu=request.args.get("ten_cu", ""),
@@ -2762,9 +2852,20 @@ def doi_thongtin_print_f1():
         nam=request.args.get("nam", now.strftime("%Y")))
 
 
+@app.route("/doi-thongtin/pdf-f1")
+def doi_thongtin_pdf_f1():
+    """F1 — PDF rendered from printable HTML."""
+    name = ascii_filename_part(request.args.get("ten_cu") or request.args.get("ten_moi"), 30)
+    return send_print_html_pdf(render_doi_thongtin_f1_html(), f"F1 XLDL {name}.pdf")
+
+
 @app.route("/doi-thongtin/print-f2")
 def doi_thongtin_print_f2():
     """F2 — Đề nghị khóa dữ liệu — printable A4."""
+    return render_doi_thongtin_f2_html()
+
+
+def render_doi_thongtin_f2_html():
     now = datetime.now()
     return render_template("doi_thongtin_print_f2.html",
         ho_ten=request.args.get("ho_ten", ""),
@@ -2776,9 +2877,20 @@ def doi_thongtin_print_f2():
         nam=request.args.get("nam", now.strftime("%Y")))
 
 
+@app.route("/doi-thongtin/pdf-f2")
+def doi_thongtin_pdf_f2():
+    """F2 — PDF rendered from printable HTML."""
+    name = ascii_filename_part(request.args.get("ho_ten") or request.args.get("ma_kh"), 30)
+    return send_print_html_pdf(render_doi_thongtin_f2_html(), f"F2 KHOA DULIEU {name}.pdf")
+
+
 @app.route("/cao-hml/print")
 def cao_hml_print():
     """CAO — Mẫu kiểm tra HML printable HTML."""
+    return render_cao_hml_print_html()
+
+
+def render_cao_hml_print_html():
     product_codes_raw = request.args.get("product_codes", "")
     product_codes = [remove_all_whitespace(line).upper() for line in product_codes_raw.splitlines() if line.strip()]
     try:
@@ -2793,6 +2905,14 @@ def cao_hml_print():
         store=request.args.get("store", "CAO 27 HÀ NỘI - HUẾ").strip().upper(),
         plan=request.args.get("plan", "2122").strip(),
         rows=rows)
+
+
+@app.route("/cao-hml/pdf")
+def cao_hml_pdf():
+    """CAO — Mẫu kiểm tra HML PDF rendered from printable HTML."""
+    store = ascii_filename_part(request.args.get("store", "CAO 27 HA NOI HUE"), 28)
+    plan = ascii_filename_part(request.args.get("plan", "2122"), 12)
+    return send_print_html_pdf(render_cao_hml_print_html(), f"CAO HML {store} PLAN {plan}.pdf")
 
 
 @app.route("/eoffice")

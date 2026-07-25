@@ -4,6 +4,12 @@
 {% block nav_bieumau %}active{% endblock %}
 {% block page_title %}Biểu Mẫu{% endblock %}
 
+{% block head %}
+{% if customer_lookup_turnstile_sitekey %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+{% endif %}
+{% endblock %}
+
 {% block extra_css %}
 .form-label { font-weight: 600; font-size: 0.85rem; color: #374151; }
 .muted-placeholder::placeholder { color: #b0b0b0; font-style: italic; text-transform: none; }
@@ -132,6 +138,9 @@
                 <button type="button" class="btn btn-primary" id="btnPrintBBHuy">
                     <i class="bi bi-printer"></i> In biên bản
                 </button>
+                <button type="button" class="btn btn-outline-primary" id="btnPdfBBHuy">
+                    <i class="bi bi-file-earmark-pdf"></i> Tải PDF
+                </button>
             </div>
         </div>
 
@@ -189,6 +198,9 @@
                 <button type="button" class="btn btn-primary" id="btnPrintF1">
                     <i class="bi bi-printer"></i> In biểu mẫu F1
                 </button>
+                <button type="button" class="btn btn-outline-primary" id="btnPdfF1">
+                    <i class="bi bi-file-earmark-pdf"></i> Tải PDF
+                </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClearF1">
                     <i class="bi bi-eraser"></i> Xóa form
                 </button>
@@ -230,6 +242,9 @@
             <div class="d-flex gap-2 mb-4">
                 <button type="button" class="btn btn-primary" id="btnPrintF2">
                     <i class="bi bi-printer"></i> In biểu mẫu F2
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnPdfF2">
+                    <i class="bi bi-file-earmark-pdf"></i> Tải PDF
                 </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClearF2">
                     <i class="bi bi-eraser"></i> Xóa form
@@ -284,9 +299,27 @@
                 <button type="button" class="btn btn-primary" id="btnPrintCaoHml">
                     <i class="bi bi-printer"></i> In mẫu HML
                 </button>
+                <button type="button" class="btn btn-outline-primary" id="btnPdfCaoHml">
+                    <i class="bi bi-file-earmark-pdf"></i> Tải PDF
+                </button>
                 <button type="button" class="btn btn-outline-secondary" id="btnClearCaoHml">
                     <i class="bi bi-eraser"></i> Xóa form
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="f1BpCaptchaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Xác minh tra cứu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div id="f1BpCaptcha"></div>
+                <div id="f1BpCaptchaError" class="small text-danger mt-2"></div>
             </div>
         </div>
     </div>
@@ -295,6 +328,11 @@
 
 {% block scripts %}
 <script>
+const appBasePath = window.location.pathname.startsWith('/bk/') || window.location.pathname === '/bk' ? '/bk' : '';
+function appUrl(path) {
+    return appBasePath + path;
+}
+
 // ── Pre-fill ngày hôm nay ──
 (function() {
     const today = new Date();
@@ -320,7 +358,7 @@ document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
 
 // Load TVV list + Lý do hủy
 document.addEventListener('DOMContentLoaded', function() {
-    fetch('/api/tvv').then(r => r.json()).then(json => {
+    fetch(appUrl('/api/tvv')).then(r => r.json()).then(json => {
         if (!json.ok) return;
         const sel = document.getElementById('tvvSelect');
         json.data.forEach(function(t) {
@@ -338,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
         restoreDefaultTvv();
     });
 
-    fetch('/api/lydo-huy').then(r => r.json()).then(json => {
+    fetch(appUrl('/api/lydo-huy')).then(r => r.json()).then(json => {
         const sel = document.getElementById('lyDoSelect');
         sel.innerHTML = '';
         if (json.ok && json.data.length) {
@@ -415,14 +453,14 @@ function formatLydo(s) {
     return s;
 }
 
-document.getElementById('btnPrintBBHuy').addEventListener('click', function() {
+function buildBBHuyParams() {
     const soBKEl = document.getElementById('soBK');
     let soBK = soBKEl.value.replace(/\D/g, '');
     if (soBK.length > 10) soBK = soBK.slice(-10);
     soBKEl.value = soBK;
 
-    if (soBK.length !== 10) { alert('Số bảng kê phải đúng 10 chữ số!'); soBKEl.focus(); return; }
-    if (!soBK.startsWith('440')) { alert('Số bảng kê phải bắt đầu bằng 440!'); soBKEl.focus(); return; }
+    if (soBK.length !== 10) { alert('Số bảng kê phải đúng 10 chữ số!'); soBKEl.focus(); return null; }
+    if (!soBK.startsWith('440')) { alert('Số bảng kê phải bắt đầu bằng 440!'); soBKEl.focus(); return null; }
 
     const tvvSel = document.getElementById('tvvSelect').value;
     const tvvCustom = document.getElementById('tvvCustom').value.trim().toUpperCase();
@@ -435,12 +473,20 @@ document.getElementById('btnPrintBBHuy').addEventListener('click', function() {
     const kt = document.getElementById('ktSelect').value;
     const tenKh = document.getElementById('tenKhHuy').value.trim().toUpperCase();
 
-    if (!tvv) { alert('Vui lòng chọn hoặc nhập tên Tư vấn viên!'); return; }
-    if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return; }
+    if (!tvv) { alert('Vui lòng chọn hoặc nhập tên Tư vấn viên!'); return null; }
+    if (!lyDo) { alert('Vui lòng nhập lý do hủy!'); return null; }
 
     const d = document.getElementById('ngayLap').value.split('-');
-    const params = new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt, ten_kh: tenKh, ngay: d[2]||'', thang: d[1]||'', nam: d[0]||'' });
-    window.open('/bb-huy/print?' + params.toString(), '_blank');
+    return new URLSearchParams({ so_bk: soBK, tvv: tvv, ly_do: lyDo, kt: kt, ten_kh: tenKh, ngay: d[2]||'', thang: d[1]||'', nam: d[0]||'' });
+}
+
+document.getElementById('btnPrintBBHuy').addEventListener('click', function() {
+    const params = buildBBHuyParams();
+    if (params) window.open(appUrl('/bb-huy/print') + '?' + params.toString(), '_blank');
+});
+document.getElementById('btnPdfBBHuy').addEventListener('click', function() {
+    const params = buildBBHuyParams();
+    if (params) window.location.href = appUrl('/bb-huy/pdf') + '?' + params.toString();
 });
 
 // ══════════════════════════════════════
@@ -503,6 +549,10 @@ const f1BpDefaultPlaceholders = {
 const f1BpProfileCache = new Map();
 let f1BpProfileTimer = null;
 let f1BpProfileInFlight = '';
+let f1BpCaptchaModal = null;
+let f1BpTurnstileWidgetId = null;
+let pendingF1BpCustomerCode = '';
+const f1BpTurnstileSitekey = {{ customer_lookup_turnstile_sitekey|tojson }};
 
 function normalizeF1CustomerCode(value) {
     return String(value || '').trim().replace(/^0+/, '').toUpperCase();
@@ -547,11 +597,48 @@ function applyF1BusinessPartnerProfile(profile, requestedCode) {
     if (birthDate && !birthDateInput.value.trim()) birthDateInput.value = birthDate;
 }
 
-async function fetchF1BusinessPartnerProfile(customerCode) {
+function openF1BpCaptcha(customerCode) {
+    pendingF1BpCustomerCode = customerCode;
+    const modalElement = document.getElementById('f1BpCaptchaModal');
+    const errorElement = document.getElementById('f1BpCaptchaError');
+    if (errorElement) errorElement.textContent = '';
+    if (!f1BpTurnstileSitekey || !window.bootstrap) {
+        alert('Vui lòng đăng nhập hoặc thử lại sau. CAPTCHA chưa sẵn sàng.');
+        return;
+    }
+    f1BpCaptchaModal = f1BpCaptchaModal || new bootstrap.Modal(modalElement);
+    f1BpCaptchaModal.show();
+}
+
+function renderF1BpCaptcha() {
+    const errorElement = document.getElementById('f1BpCaptchaError');
+    if (!pendingF1BpCustomerCode || !f1BpTurnstileSitekey) return;
+    if (!window.turnstile) {
+        if (errorElement) errorElement.textContent = 'Không tải được CAPTCHA. Vui lòng kiểm tra kết nối mạng.';
+        return;
+    }
+    if (f1BpTurnstileWidgetId !== null) {
+        try { window.turnstile.remove(f1BpTurnstileWidgetId); } catch (error) { /* no-op */ }
+        f1BpTurnstileWidgetId = null;
+    }
+    f1BpTurnstileWidgetId = window.turnstile.render('#f1BpCaptcha', {
+        sitekey: f1BpTurnstileSitekey,
+        action: 'customer_lookup',
+        callback: function(token) {
+            if (f1BpCaptchaModal) f1BpCaptchaModal.hide();
+            fetchF1BusinessPartnerProfile(pendingF1BpCustomerCode, token);
+        },
+        'error-callback': function() {
+            if (errorElement) errorElement.textContent = 'CAPTCHA gặp lỗi. Vui lòng thử lại.';
+        }
+    });
+}
+
+async function fetchF1BusinessPartnerProfile(customerCode, turnstileToken) {
     const key = normalizeF1CustomerCode(customerCode);
     if (!key || !validF1CustomerCode(customerCode)) return;
 
-    if (f1BpProfileCache.has(key)) {
+    if (!turnstileToken && f1BpProfileCache.has(key)) {
         applyF1BusinessPartnerProfile(f1BpProfileCache.get(key), key);
         return;
     }
@@ -561,7 +648,7 @@ async function fetchF1BusinessPartnerProfile(customerCode) {
     setF1BpLoading(true);
 
     try {
-        const response = await fetch('/api/erp-business-partner-profile', {
+        const response = await fetch(appUrl('/api/erp-business-partner-profile'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -569,9 +656,20 @@ async function fetchF1BusinessPartnerProfile(customerCode) {
             },
             credentials: 'same-origin',
             cache: 'no-store',
-            body: JSON.stringify({ customer_code: customerCode })
+            body: JSON.stringify({
+                customer_code: customerCode,
+                turnstile_token: turnstileToken || ''
+            })
         });
         const data = await response.json().catch(function() { return { ok: false }; });
+        if (response.status === 403 && data.captcha_required) {
+            openF1BpCaptcha(customerCode);
+            return;
+        }
+        if (!response.ok && data.error) {
+            alert(data.error);
+            return;
+        }
         const profile = data && data.ok && data.profile ? data.profile : {};
         f1BpProfileCache.set(key, profile);
         applyF1BusinessPartnerProfile(profile, key);
@@ -600,9 +698,20 @@ document.getElementById('f1_ma_kh').addEventListener('input', function() {
     }, 350);
 });
 
-document.getElementById('btnPrintF1').addEventListener('click', function() {
+const f1CaptchaElement = document.getElementById('f1BpCaptchaModal');
+if (f1CaptchaElement) {
+    f1CaptchaElement.addEventListener('shown.bs.modal', renderF1BpCaptcha);
+    f1CaptchaElement.addEventListener('hidden.bs.modal', function() {
+        if (window.turnstile && f1BpTurnstileWidgetId !== null) {
+            try { window.turnstile.remove(f1BpTurnstileWidgetId); } catch (error) { /* no-op */ }
+        }
+        f1BpTurnstileWidgetId = null;
+    });
+}
+
+function buildF1Params() {
     const d = document.getElementById('ngayLap').value.split('-');
-    const params = new URLSearchParams({
+    return new URLSearchParams({
         ten_cu:  document.getElementById('f1_ten_cu').value.trim().toUpperCase(),
         ten_moi: document.getElementById('f1_ten_moi').value.trim().toUpperCase(),
         ns_cu:   document.getElementById('f1_ns_cu').value.trim(),
@@ -611,22 +720,38 @@ document.getElementById('btnPrintF1').addEventListener('click', function() {
         sdt_moi: document.getElementById('f1_sdt_moi').value.trim(),
         ngay: d[2] || '', thang: d[1] || '', nam: d[0] || '',
     });
-    window.open('/doi-thongtin/print-f1?' + params.toString(), '_blank');
+}
+
+document.getElementById('btnPrintF1').addEventListener('click', function() {
+    const params = buildF1Params();
+    window.open(appUrl('/doi-thongtin/print-f1') + '?' + params.toString(), '_blank');
+});
+document.getElementById('btnPdfF1').addEventListener('click', function() {
+    const params = buildF1Params();
+    window.location.href = appUrl('/doi-thongtin/pdf-f1') + '?' + params.toString();
 });
 
-document.getElementById('btnPrintF2').addEventListener('click', function() {
+function buildF2Params() {
     const d = document.getElementById('ngayLap').value.split('-');
-    const params = new URLSearchParams({
+    return new URLSearchParams({
         ho_ten: document.getElementById('f2_ho_ten').value.trim().toUpperCase(),
         sdt:    document.getElementById('f2_sdt').value.trim(),
         cccd:   document.getElementById('f2_cccd').value.trim(),
         ma_kh:  document.getElementById('f2_ma_kh').value.trim(),
         ngay: d[2] || '', thang: d[1] || '', nam: d[0] || '',
     });
-    window.open('/doi-thongtin/print-f2?' + params.toString(), '_blank');
+}
+
+document.getElementById('btnPrintF2').addEventListener('click', function() {
+    const params = buildF2Params();
+    window.open(appUrl('/doi-thongtin/print-f2') + '?' + params.toString(), '_blank');
+});
+document.getElementById('btnPdfF2').addEventListener('click', function() {
+    const params = buildF2Params();
+    window.location.href = appUrl('/doi-thongtin/pdf-f2') + '?' + params.toString();
 });
 
-document.getElementById('btnPrintCaoHml').addEventListener('click', function() {
+function buildCaoHmlParams() {
     const codes = hmlRows.map(normalizeHmlCode).filter(Boolean);
     const invalidCodes = codes.filter(function(code) { return code.length !== 17; });
     if (invalidCodes.length) {
@@ -635,16 +760,24 @@ document.getElementById('btnPrintCaoHml').addEventListener('click', function() {
             + 'Các mã chưa đúng 17 ký tự: ' + invalidCodes.join(', ')
             + '\nBạn có muốn tiếp tục in không?'
         );
-        if (!ok) return;
+        if (!ok) return null;
     }
-    const params = new URLSearchParams({
+    return new URLSearchParams({
         store: document.getElementById('hml_store').value.trim().toUpperCase(),
         plan: document.getElementById('hml_plan').value.trim(),
         product_codes: codes.join('\n'),
         blank_rows: Math.max(0, hmlRows.length - codes.length),
         print: '1',
     });
-    window.open('/cao-hml/print?' + params.toString(), '_blank');
+}
+
+document.getElementById('btnPrintCaoHml').addEventListener('click', function() {
+    const params = buildCaoHmlParams();
+    if (params) window.open(appUrl('/cao-hml/print') + '?' + params.toString(), '_blank');
+});
+document.getElementById('btnPdfCaoHml').addEventListener('click', function() {
+    const params = buildCaoHmlParams();
+    if (params) window.location.href = appUrl('/cao-hml/pdf') + '?' + params.toString();
 });
 
 document.getElementById('btnClearF1').addEventListener('click', function() {

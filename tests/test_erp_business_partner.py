@@ -1,7 +1,9 @@
 import json
+import io
 import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import app as app_module
@@ -15,6 +17,9 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.original_fixture = os.environ.get("PNJ_ERP_BP_FIXTURE_PATH")
         self.original_user = os.environ.get("PNJ_ERP_USER")
         self.original_password = os.environ.get("PNJ_ERP_PASSWORD")
+        self.original_require_login = app_module.REQUIRE_LOGIN
+        self.original_sitekey = app_module.CUSTOMER_LOOKUP_TURNSTILE_SITEKEY
+        self.original_secret = app_module.CUSTOMER_LOOKUP_TURNSTILE_SECRET
         os.environ.pop("PNJ_ERP_USER", None)
         os.environ.pop("PNJ_ERP_PASSWORD", None)
         self.client = app_module.app.test_client()
@@ -33,6 +38,9 @@ class ErpBusinessPartnerTests(unittest.TestCase):
             os.environ.pop("PNJ_ERP_PASSWORD", None)
         else:
             os.environ["PNJ_ERP_PASSWORD"] = self.original_password
+        app_module.REQUIRE_LOGIN = self.original_require_login
+        app_module.CUSTOMER_LOOKUP_TURNSTILE_SITEKEY = self.original_sitekey
+        app_module.CUSTOMER_LOOKUP_TURNSTILE_SECRET = self.original_secret
         self.temp_dir.cleanup()
 
     def write_fixture(self, records):
@@ -131,6 +139,11 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertNotIn('id="f1BpStatus"', html)
         self.assertIn("/api/erp-business-partner-profile", html)
         self.assertIn("fetchF1BusinessPartnerProfile", html)
+        self.assertIn('id="btnPdfF1"', html)
+        self.assertIn('id="btnPdfF2"', html)
+        self.assertIn('id="btnPdfBBHuy"', html)
+        self.assertIn('id="btnPdfCaoHml"', html)
+        self.assertIn('id="f1BpCaptchaModal"', html)
         self.assertIn("<Đang tải...>", html)
         self.assertIn("birth_date", html)
         self.assertIn(r"text.match(/^(\d{4})(\d{2})(\d{2})$/)", html)
@@ -145,6 +158,39 @@ class ErpBusinessPartnerTests(unittest.TestCase):
 
         self.assertIn(".col-ma { text-align: center; width: 30%; }", html)
         self.assertIn(".col-desc { width: 21%; }", html)
+
+    def test_bieu_mau_is_public_when_login_is_required(self):
+        app_module.REQUIRE_LOGIN = True
+
+        response = self.client.get("/bieu-mau")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Biểu Mẫu", response.get_data(as_text=True))
+
+    def test_bieu_mau_bp_lookup_requires_captcha_after_three_unique_codes(self):
+        app_module.CUSTOMER_LOOKUP_TURNSTILE_SITEKEY = "site-key"
+        app_module.CUSTOMER_LOOKUP_TURNSTILE_SECRET = "secret"
+
+        for code in ("100000001", "100000002", "100000003"):
+            response = self.client.post("/api/erp-business-partner-profile", json={"customer_code": code})
+            self.assertEqual(response.status_code, 200)
+
+        response = self.client.post("/api/erp-business-partner-profile", json={"customer_code": "100000004"})
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(response.get_json()["captcha_required"])
+
+    def test_bieu_mau_pdf_routes_render_from_print_html(self):
+        fake_pdf = io.BytesIO(b"%PDF-1.4\n")
+        fake_pdf.seek(0)
+        with mock.patch.object(app_module, "make_pdf_from_print_html", return_value=fake_pdf) as renderer:
+            response = self.client.get("/doi-thongtin/pdf-f1?ten_cu=TRAN%20VAN%20A")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/pdf")
+        self.assertGreater(renderer.call_count, 0)
+        rendered_html = renderer.call_args.args[0]
+        self.assertIn("TRAN VAN A", rendered_html)
 
 
 if __name__ == "__main__":
