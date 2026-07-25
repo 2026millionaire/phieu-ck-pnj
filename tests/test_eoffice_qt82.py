@@ -386,6 +386,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("0900000001", html)
         self.assertIn("☑ Phương án 3 (lựa chọn kết hợp linh hoạt)", html)
         self.assertIn("Chi tiết Phương án lựa chọn", html)
+        self.assertNotIn('class="planning-title-bg"', html)
         page_one_html = html.split('<div class="page-two">', 1)[0]
         self.assertIn('<div class="section-title">V. Hình thức và thông tin thanh toán</div>', page_one_html)
         self.assertIn('<div class="section-title">VI. Nguyên tắc thanh toán</div>', page_one_html)
@@ -405,6 +406,15 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("<td>21/07/2026</td>", html)
         self.assertIn("<td>20/08/2026</td>", html)
         self.assertIn("Ngày ký: 21 / 07 / 2026", html)
+
+        color_settings = self.client.post(
+            "/api/settings",
+            json={"payment_planning_title_bg": "1"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(color_settings.status_code, 200)
+        colored_html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
+        self.assertIn('class="planning-title-bg"', colored_html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
         self.assertEqual(xlsx_response.status_code, 200)
@@ -574,12 +584,14 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('id="s_use_bk_ref_default"', settings_html)
         self.assertIn('id="s_show_payment_dates_default"', settings_html)
         self.assertIn('id="s_auto_fill_transactions_default"', settings_html)
+        self.assertIn('id="s_payment_planning_title_bg"', settings_html)
         saved_settings = self.client.post(
             "/api/settings",
             json={
                 "auto_fill_transactions_default": "1",
                 "use_bk_ref_default": "0",
                 "show_payment_dates_default": "1",
+                "payment_planning_title_bg": "1",
             },
             headers={"Origin": "http://localhost"},
         )
@@ -588,6 +600,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(settings_json["auto_fill_transactions_default"], "1")
         self.assertEqual(settings_json["use_bk_ref_default"], "0")
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
+        self.assertEqual(settings_json["payment_planning_title_bg"], "1")
 
     def test_cao_mode_uses_plant_2122_and_caf_payment_planning_text(self):
         self.login(role="admin")

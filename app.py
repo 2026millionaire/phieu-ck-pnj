@@ -696,6 +696,7 @@ def init_db():
         "auto_fill_transactions_default": "1",
         "use_bk_ref_default": "0",
         "show_payment_dates_default": "1",
+        "payment_planning_title_bg": "0",
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
@@ -947,6 +948,7 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_company_commitments"] = profile["company_commitments"]
     p["planning_section_ix_title"] = profile["section_ix_title"]
     p["planning_effectiveness_items"] = profile["effectiveness_items"]
+    p["planning_title_bg_enabled"] = bool(settings_flag(settings or {}, "payment_planning_title_bg", "0"))
     p["planning_option"] = classify_payment_planning_option(p.get("chung_tu", []), amounts["cash_amount"])
     planning_option_entries = [
         f"{'☑' if p['planning_option'] == index else '☐'} {label}"
@@ -3725,7 +3727,12 @@ def api_save_settings():
                 400,
             )
         data["qt82_form_url"] = qt82_form_url
-    for flag_key in ("auto_fill_transactions_default", "use_bk_ref_default", "show_payment_dates_default"):
+    for flag_key in (
+        "auto_fill_transactions_default",
+        "use_bk_ref_default",
+        "show_payment_dates_default",
+        "payment_planning_title_bg",
+    ):
         if flag_key in data:
             data[flag_key] = str(settings_flag(data, flag_key, "0"))
     db = get_db()

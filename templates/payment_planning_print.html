@@ -53,6 +53,11 @@
             text-transform: uppercase;
             margin: 0 0 2px;
         }
+        .planning-title-bg .title {
+            border: 1px solid #000;
+            background: #d9eaf7;
+            padding: 2px 4px;
+        }
         .subtitle {
             text-align: center;
             margin-bottom: 4px;
@@ -78,6 +83,12 @@
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
+        }
+        .planning-title-bg .section-title {
+            border: 1px solid #000;
+            background: #fff2cc;
+            padding: 2px 5px;
+            margin-bottom: 0;
         }
         .subsection {
             font-weight: 700;
@@ -207,7 +218,7 @@
         }
     </style>
 </head>
-<body>
+<body{% if p.planning_title_bg_enabled %} class="planning-title-bg"{% endif %}>
     <div class="no-print">
         <button onclick="window.print()">In phụ lục</button>
         <a href="{{ url_for('api_payment_planning_pdf', phieu_id=p.id) }}{% if p.pdf_token %}?token={{ p.pdf_token|urlencode }}{% endif %}">Tải thoả thuận PDF</a>
