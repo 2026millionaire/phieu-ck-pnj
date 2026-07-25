@@ -5,8 +5,8 @@
     <title>Đề xuất nguyên liệu</title>
     <style>
         @page {
-            size: A4 portrait;
-            margin: 14mm 18mm;
+            size: A5 landscape;
+            margin: 8mm 9mm;
         }
 
         * {
@@ -18,10 +18,10 @@
         }
 
         body {
-            font-size: 14px;
-            line-height: 1.45;
+            font-size: 11px;
+            line-height: 1.25;
             margin: 0 auto;
-            width: 174mm;
+            width: 192mm;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -32,8 +32,8 @@
                 background: #fff;
                 border-radius: 4px;
                 box-shadow: 0 4px 24px rgba(0,0,0,0.18);
-                min-height: 270mm;
-                padding: 14mm 18mm;
+                min-height: 132mm;
+                padding: 8mm 9mm;
             }
         }
 
@@ -60,38 +60,29 @@
             padding: 8px 24px;
         }
 
-        .logo-header {
-            align-items: center;
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
+        .meta-line {
+            font-size: 10px;
+            margin-bottom: 4px;
+            text-align: right;
         }
-        .logo-header img { height: 38px; }
-        .company-name {
-            color: #1a3a5c;
-            font-size: 13px;
-            font-weight: 700;
-        }
-        .company-sub {
-            color: #555;
-            font-size: 11px;
-            letter-spacing: 0.3px;
-        }
-
         .title {
-            font-size: 17px;
+            font-size: 15px;
             font-weight: 700;
-            margin-bottom: 14px;
+            margin-bottom: 4px;
             text-align: center;
             text-transform: uppercase;
         }
         .date-line {
-            font-style: italic;
-            margin-bottom: 12px;
-            text-align: right;
+            font-size: 12px;
+            margin-bottom: 6px;
+            text-align: center;
         }
-        .body-text {
-            margin-bottom: 10px;
+        .doc-no {
+            margin-bottom: 2px;
+            text-align: left;
+        }
+        .info-line {
+            margin-bottom: 2px;
             text-align: justify;
         }
         .label {
@@ -100,44 +91,47 @@
 
         .material-table {
             border-collapse: collapse;
-            font-size: 13.5px;
-            margin: 10px 0 14px;
+            font-size: 10.5px;
+            margin: 6px 0 6px;
             width: 100%;
         }
         .material-table th,
         .material-table td {
             border: 1px solid #000;
-            padding: 6px 8px;
+            height: 20px;
+            padding: 3px 4px;
             vertical-align: middle;
         }
         .material-table th {
             font-weight: 700;
             text-align: center;
         }
-        .col-stt { text-align: center; width: 12%; }
-        .col-code { text-align: center; width: 26%; }
-        .col-name { width: 62%; }
+        .col-stt { text-align: center; width: 7%; }
+        .col-name { width: 31%; }
+        .col-unit { text-align: center; width: 9%; }
+        .col-qty { text-align: center; width: 11%; }
+        .col-weight { text-align: center; width: 13%; }
+        .col-value { text-align: center; width: 14%; }
+        .col-approve { text-align: center; width: 15%; }
 
-        .note {
-            margin-bottom: 14px;
-            text-align: justify;
+        .amount-text {
+            margin: 6px 0 8px;
         }
         .signature-wrap {
             display: flex;
-            justify-content: flex-end;
-            margin-top: 24px;
+            justify-content: space-between;
+            margin-top: 6px;
+            padding: 0 20mm;
         }
         .signature {
             text-align: center;
-            width: 48%;
+            width: 48mm;
         }
-        .signature-title {
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
+        .signature-date { margin-bottom: 4px; text-align: center; }
+        .signature-title { margin-bottom: 2px; }
         .signature-sub {
             font-style: italic;
-            margin-bottom: 48px;
+            margin-bottom: 24px;
         }
     </style>
 </head>
@@ -147,49 +141,65 @@
     </div>
 
     <div class="page">
-        <div class="logo-header">
-            <img src="/static/logo_pnj.webp" alt="PNJ">
-            <div>
-                <div class="company-name">CÔNG TY CP VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN</div>
-                <div class="company-sub">PHU NHUAN JEWELRY JOINT STOCK COMPANY</div>
-            </div>
-        </div>
+        <div class="meta-line">MS: PNJ-QYĐ-PHC-VC-GNVC-F6&nbsp;&nbsp;&nbsp;&nbsp;LSX : 04/00&nbsp;&nbsp;&nbsp;&nbsp;NHL: 04/08/2017&nbsp;&nbsp;&nbsp;&nbsp;TRANG : 1/1</div>
 
+        <div class="doc-no">Số: ...../1305-{{ nam }}</div>
         <div class="title">ĐỀ XUẤT NGUYÊN LIỆU</div>
-        <div class="date-line">Huế, ngày {{ ngay }} tháng {{ thang }} năm {{ nam }}</div>
+        <div class="date-line">Ngày {{ ngay }} tháng {{ thang }} năm {{ nam }}</div>
 
-        <div class="body-text">
-            <span class="label">Nội dung:</span>
-            Đề xuất nguyên liệu để {{ purpose }} sản phẩm tại cửa hàng.
-        </div>
+        <div class="info-line"><span class="label">Đơn vị đề xuất:</span> CH PNJ 27 HÀ NỘI - HUẾ</div>
+        <div class="info-line"><span class="label">Nội dung:</span> Đề xuất nguyên liệu {{ rows[0].short_name|lower if rows and rows[0].short_name else "" }} làm hàng {{ purpose }}</div>
+        <div class="info-line"><span class="label">Căn cứ theo:</span> Nhu cầu thực tế tại cửa hàng</div>
+        <div class="info-line"><span class="label">Xuất tại kho:</span> 1203 - Nguyên liệu – CH PNJ 27 HÀ NỘI - HUẾ .</div>
+        <div class="info-line"><span class="label">Kho, đơn vị nhận:</span>1204 - Nguyên liệu – CH PNJ 27 HÀ NỘI - HUẾ .</div>
 
         <table class="material-table">
             <thead>
                 <tr>
                     <th class="col-stt">STT</th>
-                    <th class="col-code">Mã NL</th>
-                    <th class="col-name">Tên nguyên liệu đề xuất</th>
+                    <th class="col-name">TÊN HÀNG<br>(QUY CÁCH)</th>
+                    <th class="col-unit">ĐVT</th>
+                    <th class="col-qty">SỐ<br>LƯỢNG</th>
+                    <th class="col-weight">TRỌNG<br>LƯỢNG</th>
+                    <th class="col-value">GIÁ TRỊ</th>
+                    <th class="col-approve">DUYỆT</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in rows %}
                 <tr>
-                    <td class="col-stt">{{ loop.index }}</td>
-                    <td class="col-code">{{ row.code }}</td>
-                    <td class="col-name">{{ row.short_name }}</td>
+                    <td class="col-stt">{% if row.code %}{{ "%02d"|format(loop.index) }}{% endif %}</td>
+                    <td class="col-name">{{ row.code }}{% if row.code and row.short_name %} - {{ row.short_name }}{% endif %}</td>
+                    <td class="col-unit">{{ row.unit }}</td>
+                    <td class="col-qty">{{ row.quantity }}</td>
+                    <td class="col-weight">{{ row.weight }}</td>
+                    <td class="col-value"></td>
+                    <td class="col-approve"></td>
                 </tr>
                 {% endfor %}
+                <tr>
+                    <td class="col-stt"></td>
+                    <td class="col-name"><strong>Tổng Cộng</strong></td>
+                    <td class="col-unit"></td>
+                    <td class="col-qty">{{ totals.quantity }}</td>
+                    <td class="col-weight">{{ totals.weight }}</td>
+                    <td class="col-value"></td>
+                    <td class="col-approve"></td>
+                </tr>
             </tbody>
         </table>
 
-        <div class="note">
-            Kính đề nghị bộ phận liên quan xem xét cấp nguyên liệu nêu trên để cửa hàng thực hiện đúng nhu cầu nghiệp vụ.
-        </div>
+        <div class="amount-text">Bằng chữ…………………………………………………………………………………………………..</div>
+        <div class="signature-date">Ngày {{ ngay }} tháng {{ thang }} năm {{ nam }}</div>
 
         <div class="signature-wrap">
             <div class="signature">
+                <div class="signature-title">Trưởng đơn vị</div>
+                <div class="signature-sub">(Ký ghi rõ họ tên)</div>
+            </div>
+            <div class="signature">
                 <div class="signature-title">Người đề xuất</div>
-                <div class="signature-sub">(Ký, ghi rõ họ tên)</div>
+                <div class="signature-sub">(Ký ghi rõ họ tên)</div>
             </div>
         </div>
     </div>

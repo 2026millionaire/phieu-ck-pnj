@@ -200,16 +200,29 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn('id="btnPdfMaterialProposal"', html)
         self.assertIn("31000403", html)
         self.assertIn("NLT VÀNG VHÀN KQT TUỔI 3330", html)
+        self.assertIn("material-quantity-input", html)
+        self.assertIn("material-weight-input", html)
 
         print_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"
-            "purpose=bao_hanh&material_codes=31000204%0A31000403%0A32000090&ngay=25&thang=07&nam=2026"
+            "purpose=bao_hanh&material_codes=31000204%0A31000403%0A32000090"
+            "&quantities=1.2%0A2.3%0A3.4&weights=1.2%0A2.3%0A3.4&ngay=25&thang=07&nam=2026"
         ).get_data(as_text=True)
 
-        self.assertIn("Đề xuất nguyên liệu để bảo hành sản phẩm", print_html)
+        self.assertIn("size: A5 landscape", print_html)
+        self.assertIn("MS: PNJ-QYĐ-PHC-VC-GNVC-F6", print_html)
+        self.assertIn("Số: ...../1305-2026", print_html)
+        self.assertIn("Đề xuất nguyên liệu nl tinh vàng 4160 làm hàng bảo hành", print_html)
+        self.assertIn("Căn cứ theo:</span> Nhu cầu thực tế tại cửa hàng", print_html)
+        self.assertIn("Xuất tại kho:</span> 1203", print_html)
+        self.assertIn("Kho, đơn vị nhận:</span>1204", print_html)
         self.assertIn("NL tinh vàng 4160", print_html)
         self.assertIn("Vảy hàn 3330", print_html)
         self.assertIn("Vảy hàn 8000", print_html)
+        self.assertIn("<strong>Tổng Cộng</strong>", print_html)
+        self.assertIn(">6.9<", print_html)
+        self.assertIn("Bằng chữ", print_html)
+        self.assertIn("Trưởng đơn vị", print_html)
         self.assertNotIn("NLT VÀNG VHÀN KQT", print_html)
 
 

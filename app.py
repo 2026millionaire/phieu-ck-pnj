@@ -2370,21 +2370,60 @@ def short_material_name(raw_name):
     return f"{base} {age}".strip()
 
 
-def material_proposal_rows(material_codes, blank_rows=0):
+def _material_number(value):
+    text = str(value or "").strip().replace(",", ".")
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _format_material_number(value):
+    number = _material_number(value)
+    if number is None:
+        return str(value or "").strip()
+    return f"{number:.3f}".rstrip("0").rstrip(".")
+
+
+def material_proposal_rows(material_codes, quantities=None, weights=None, blank_rows=0):
+    quantities = quantities or []
+    weights = weights or []
     rows = []
-    for code in material_codes:
+    total_quantity = 0.0
+    total_weight = 0.0
+    has_quantity = False
+    has_weight = False
+    for idx, code in enumerate(material_codes):
         canonical = remove_all_whitespace(code)
         raw_name = MATERIAL_PROPOSAL_CATALOG.get(canonical)
         if not raw_name:
             continue
+        quantity = _format_material_number(quantities[idx] if idx < len(quantities) else "")
+        weight = _format_material_number(weights[idx] if idx < len(weights) else "")
+        quantity_number = _material_number(quantity)
+        weight_number = _material_number(weight)
+        if quantity_number is not None:
+            total_quantity += quantity_number
+            has_quantity = True
+        if weight_number is not None:
+            total_weight += weight_number
+            has_weight = True
         rows.append({
             "code": canonical,
             "raw_name": raw_name,
             "short_name": short_material_name(raw_name),
+            "unit": "PHÂN",
+            "quantity": quantity,
+            "weight": weight,
         })
     for _ in range(max(0, blank_rows)):
-        rows.append({"code": "", "raw_name": "", "short_name": ""})
-    return rows
+        rows.append({"code": "", "raw_name": "", "short_name": "", "unit": "", "quantity": "", "weight": ""})
+    return rows, {
+        "quantity": _format_material_number(total_quantity) if has_quantity else "",
+        "weight": _format_material_number(total_weight) if has_weight else "",
+    }
 
 
 def get_accessible_phieu(db, phieu_id):
@@ -2970,13 +3009,16 @@ def render_de_xuat_nguyen_lieu_html():
     raw_purpose = str(request.args.get("purpose") or "xu_ly").strip().lower()
     purpose = "bảo hành" if raw_purpose in ("bao_hanh", "bảo hành", "baohanh") else "xử lý"
     material_codes = request.args.get("material_codes", "").splitlines()
-    rows = material_proposal_rows(material_codes)
+    quantities = request.args.get("quantities", "").splitlines()
+    weights = request.args.get("weights", "").splitlines()
+    rows, totals = material_proposal_rows(material_codes, quantities, weights)
     if not rows:
-        rows = material_proposal_rows([], 3)
+        rows, totals = material_proposal_rows([], blank_rows=3)
     return render_template(
         "de_xuat_nguyen_lieu_print.html",
         purpose=purpose,
         rows=rows,
+        totals=totals,
         ngay=request.args.get("ngay", now.strftime("%d")),
         thang=request.args.get("thang", now.strftime("%m")),
         nam=request.args.get("nam", now.strftime("%Y")),
