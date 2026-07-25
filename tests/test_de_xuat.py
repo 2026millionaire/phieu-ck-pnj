@@ -85,8 +85,8 @@ class DeXuatTests(unittest.TestCase):
         saved = self.client.post("/de-xuat/api/save", json=self.valid_payload()).get_json()
         with mock.patch.object(
             app_module,
-            "find_pdf_renderer",
-            return_value=None,
+            "make_pdf_from_print_html",
+            side_effect=RuntimeError("PDF_RENDERER_MISSING"),
         ):
             response = self.client.get(saved["pdf_url"])
         self.assertEqual(response.status_code, 503)
