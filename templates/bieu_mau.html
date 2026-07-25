@@ -28,28 +28,56 @@
 .bb-title { text-align: center; font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
 .btn-print { background: linear-gradient(135deg, #0ea5e9, #0369a1); border: none; color: #fff; padding: 10px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
 .btn-print:hover { background: linear-gradient(135deg, #0369a1, #024a75); color: #fff; }
-.material-button-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.material-table-wrap { overflow: visible; }
+.material-picker-dropdown { width: 100%; min-width: 0; }
 .material-pick-btn {
+    align-items: center;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
     color: #1f2937;
+    display: inline-flex;
     font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1.15;
-    min-width: 58px;
-    padding: 6px 8px;
+    font-weight: 800;
+    justify-content: center;
+    line-height: 1;
+    max-width: 5.7rem;
+    min-height: 30px;
+    min-width: 4.2rem;
+    padding: 0.2rem 0.45rem;
+    text-align: center;
 }
-.material-pick-btn.material-vh-gold { background: #fff3bf; border-color: #f4d35e; }
-.material-pick-btn.material-vh-silver { background: #e9ecef; border-color: #cbd5e1; }
-.material-pick-btn.material-nlt-gold { background: #d8f3dc; border-color: #95d5b2; }
-.material-pick-btn.active {
-    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.22);
-    outline: 2px solid #0d6efd;
+.material-pick-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.material-choice-menu { min-width: 17rem; padding: 0.35rem; }
+.material-choice-option {
+    align-items: center;
+    border-radius: 0.45rem;
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    white-space: normal;
 }
+.material-choice-mini {
+    align-items: center;
+    border-radius: 999px;
+    display: inline-flex;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 800;
+    justify-content: center;
+    min-height: 1.7rem;
+    min-width: 4.1rem;
+    padding: 0 0.5rem;
+}
+.material-choice-text { line-height: 1.18; }
+.material-type-vh-gold { background: #fff3bf; border-color: #f4d35e; color: #92400e; }
+.material-type-vh-silver { background: #e9ecef; border-color: #cbd5e1; color: #334155; }
+.material-type-nlt-gold { background: #d8f3dc; border-color: #95d5b2; color: #166534; }
 .material-selected-name { color: #475569; font-size: 0.78rem; margin-top: 5px; }
 @media (max-width: 576px) {
     .material-mobile-stt { display: none; }
-    .material-pick-btn { min-width: 52px; padding: 5px 7px; }
+    .material-choice-menu { min-width: min(17rem, 86vw); }
+    .material-pick-btn { min-width: 3.8rem; padding: 0.2rem 0.4rem; }
 }
 {% endblock %}
 
@@ -359,7 +387,7 @@
                             <i class="bi bi-plus-circle"></i> Thêm dòng
                         </button>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive material-table-wrap">
                         <table class="table table-sm table-bordered mb-0" style="font-size:0.86rem;">
                             <thead class="table-light">
                                 <tr>
@@ -647,14 +675,27 @@ function escapeMaterialText(value) {
 }
 
 function materialButtonHtml(selectedCode, rowIdx) {
-    return materialCatalog.map(function(item) {
-        const active = item.code === selectedCode ? ' active' : '';
-        const label = escapeMaterialText(item.buttonName);
-        return '<button type="button" class="material-pick-btn material-' + item.group + active + '"'
-            + ' data-idx="' + rowIdx + '" data-code="' + item.code + '"'
-            + ' title="' + item.code + ' - ' + escapeMaterialText(item.shortName) + '">'
-            + label + '</button>';
-    }).join('');
+    const selected = materialByCode(selectedCode);
+    const buttonLabel = selected ? selected.buttonName : 'Chọn';
+    const group = selected ? selected.group : 'nlt-gold';
+    const buttonId = 'materialPick' + rowIdx;
+    let html = '<div class="dropdown material-picker-dropdown">'
+        + '<button type="button" id="' + buttonId + '" '
+        + 'class="btn btn-sm dropdown-toggle material-pick-btn material-type-' + group + '" '
+        + 'data-bs-toggle="dropdown" aria-expanded="false" '
+        + 'title="' + escapeMaterialText(selected ? (selected.code + ' - ' + selected.shortName) : 'Chọn nguyên liệu') + '">'
+        + escapeMaterialText(buttonLabel)
+        + '</button>'
+        + '<div class="dropdown-menu material-choice-menu" aria-labelledby="' + buttonId + '">';
+    materialCatalog.forEach(function(item) {
+        html += '<button type="button" class="dropdown-item material-choice-option" '
+            + 'data-idx="' + rowIdx + '" data-code="' + item.code + '">'
+            + '<span class="material-choice-mini material-type-' + item.group + '">' + escapeMaterialText(item.buttonName) + '</span>'
+            + '<span class="material-choice-text">' + escapeMaterialText(item.code + ' - ' + item.shortName) + '</span>'
+            + '</button>';
+    });
+    html += '</div></div>';
+    return html;
 }
 
 function renderMaterialRows() {
@@ -666,13 +707,13 @@ function renderMaterialRows() {
         const tr = document.createElement('tr');
         tr.innerHTML =
             '<td class="text-center align-middle material-mobile-stt">' + (idx + 1) + '</td>' +
-            '<td><div class="material-button-grid">' + materialButtonHtml(code, idx) + '</div>' +
+            '<td>' + materialButtonHtml(code, idx) +
             '<div class="material-selected-name">' + escapeMaterialText(selectedText) + '</div></td>' +
             '<td><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + escapeMaterialText(materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
             '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 material-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
         tbody.appendChild(tr);
     });
-    tbody.querySelectorAll('.material-pick-btn').forEach(function(btn) {
+    tbody.querySelectorAll('.material-choice-option').forEach(function(btn) {
         btn.addEventListener('click', function() {
             materialRows[parseInt(this.dataset.idx)] = this.dataset.code;
             renderMaterialRows();
