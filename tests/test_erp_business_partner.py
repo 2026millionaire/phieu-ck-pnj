@@ -140,6 +140,12 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         print_handler = html[print_start:print_end]
         self.assertNotIn("f1_ma_kh", print_handler)
 
+    def test_cao_hml_print_uses_wider_product_code_column(self):
+        html = self.client.get("/cao-hml/print").get_data(as_text=True)
+
+        self.assertIn(".col-ma { text-align: center; width: 30%; }", html)
+        self.assertIn(".col-desc { width: 21%; }", html)
+
 
 if __name__ == "__main__":
     unittest.main()
