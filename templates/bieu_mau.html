@@ -272,24 +272,24 @@
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-md-6">
-                            <label class="form-label">Họ và tên</label>
-                            <input type="text" class="form-control form-control-sm" id="f2_ho_ten"
-                                   placeholder="Họ và tên KH" style="text-transform:uppercase;">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Số điện thoại</label>
-                            <input type="text" class="form-control form-control-sm" id="f2_sdt"
-                                   placeholder="SĐT">
+                            <label class="form-label">Mã KH tại PNJ</label>
+                            <input type="text" class="form-control form-control-sm" id="f2_ma_kh"
+                                   placeholder="VD: 0102163610" autocomplete="off" inputmode="numeric">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">CCCD / Passport</label>
-                            <input type="text" class="form-control form-control-sm" id="f2_cccd"
+                            <input type="text" class="form-control form-control-sm muted-placeholder" id="f2_cccd"
                                    placeholder="Số CCCD hoặc Passport">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Mã KH tại PNJ</label>
-                            <input type="text" class="form-control form-control-sm" id="f2_ma_kh"
-                                   placeholder="VD: 0102163610">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" class="form-control form-control-sm muted-placeholder" id="f2_sdt"
+                                   placeholder="SĐT">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Họ và tên</label>
+                            <input type="text" class="form-control form-control-sm muted-placeholder" id="f2_ho_ten"
+                                   placeholder="Họ và tên KH" style="text-transform:uppercase;">
                         </div>
                     </div>
                 </div>
@@ -752,12 +752,20 @@ const f1BpDefaultPlaceholders = {
     f1_ns_cu: 'Đổi thì nhập',
     f1_sdt_cu: 'Đổi thì nhập'
 };
+const f2BpDefaultPlaceholders = {
+    f2_cccd: 'Số CCCD hoặc Passport',
+    f2_sdt: 'SĐT',
+    f2_ho_ten: 'Họ và tên KH'
+};
 const f1BpProfileCache = new Map();
 let f1BpProfileTimer = null;
 let f1BpProfileInFlight = '';
+let f2BpProfileTimer = null;
+let f2BpProfileInFlight = '';
 let f1BpCaptchaModal = null;
 let f1BpTurnstileWidgetId = null;
 let pendingF1BpCustomerCode = '';
+let pendingF1BpLookupTarget = 'f1';
 const f1BpTurnstileSitekey = {{ customer_lookup_turnstile_sitekey|tojson }};
 
 function normalizeF1CustomerCode(value) {
@@ -786,6 +794,14 @@ function setF1BpLoading(isLoading) {
     });
 }
 
+function setF2BpLoading(isLoading) {
+    ['f2_cccd', 'f2_sdt', 'f2_ho_ten'].forEach(function(id) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.placeholder = isLoading ? f1BpLoadingText : f2BpDefaultPlaceholders[id];
+    });
+}
+
 function applyF1BusinessPartnerProfile(profile, requestedCode) {
     const currentCode = normalizeF1CustomerCode(document.getElementById('f1_ma_kh').value);
     if (requestedCode && currentCode !== normalizeF1CustomerCode(requestedCode)) return;
@@ -803,8 +819,26 @@ function applyF1BusinessPartnerProfile(profile, requestedCode) {
     if (birthDate && !birthDateInput.value.trim()) birthDateInput.value = birthDate;
 }
 
-function openF1BpCaptcha(customerCode) {
+function applyF2BusinessPartnerProfile(profile, requestedCode) {
+    const currentCode = normalizeF1CustomerCode(document.getElementById('f2_ma_kh').value);
+    if (requestedCode && currentCode !== normalizeF1CustomerCode(requestedCode)) return;
+
+    const name = profile.name || profile.full_name || '';
+    const phone = profile.phone || '';
+    const cccd = profile.cccd || profile.identification_number || profile.id_number || '';
+
+    const nameInput = document.getElementById('f2_ho_ten');
+    const phoneInput = document.getElementById('f2_sdt');
+    const cccdInput = document.getElementById('f2_cccd');
+
+    if (cccd && !cccdInput.value.trim()) cccdInput.value = cccd;
+    if (phone && !phoneInput.value.trim()) phoneInput.value = phone;
+    if (name && !nameInput.value.trim()) nameInput.value = name.toUpperCase();
+}
+
+function openF1BpCaptcha(customerCode, target) {
     pendingF1BpCustomerCode = customerCode;
+    pendingF1BpLookupTarget = target || 'f1';
     const modalElement = document.getElementById('f1BpCaptchaModal');
     const errorElement = document.getElementById('f1BpCaptchaError');
     if (errorElement) errorElement.textContent = '';
@@ -832,7 +866,11 @@ function renderF1BpCaptcha() {
         action: 'customer_lookup',
         callback: function(token) {
             if (f1BpCaptchaModal) f1BpCaptchaModal.hide();
-            fetchF1BusinessPartnerProfile(pendingF1BpCustomerCode, token);
+            if (pendingF1BpLookupTarget === 'f2') {
+                fetchF2BusinessPartnerProfile(pendingF1BpCustomerCode, token);
+            } else {
+                fetchF1BusinessPartnerProfile(pendingF1BpCustomerCode, token);
+            }
         },
         'error-callback': function() {
             if (errorElement) errorElement.textContent = 'CAPTCHA gặp lỗi. Vui lòng thử lại.';
@@ -869,7 +907,7 @@ async function fetchF1BusinessPartnerProfile(customerCode, turnstileToken) {
         });
         const data = await response.json().catch(function() { return { ok: false }; });
         if (response.status === 403 && data.captcha_required) {
-            openF1BpCaptcha(customerCode);
+            openF1BpCaptcha(customerCode, 'f1');
             return;
         }
         if (!response.ok && data.error) {
@@ -889,6 +927,55 @@ async function fetchF1BusinessPartnerProfile(customerCode, turnstileToken) {
     }
 }
 
+async function fetchF2BusinessPartnerProfile(customerCode, turnstileToken) {
+    const key = normalizeF1CustomerCode(customerCode);
+    if (!key || !validF1CustomerCode(customerCode)) return;
+
+    if (!turnstileToken && f1BpProfileCache.has(key)) {
+        applyF2BusinessPartnerProfile(f1BpProfileCache.get(key), key);
+        return;
+    }
+    if (f2BpProfileInFlight === key) return;
+
+    f2BpProfileInFlight = key;
+    setF2BpLoading(true);
+
+    try {
+        const response = await fetch(appUrl('/api/erp-business-partner-profile'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            cache: 'no-store',
+            body: JSON.stringify({
+                customer_code: customerCode,
+                turnstile_token: turnstileToken || ''
+            })
+        });
+        const data = await response.json().catch(function() { return { ok: false }; });
+        if (response.status === 403 && data.captcha_required) {
+            openF1BpCaptcha(customerCode, 'f2');
+            return;
+        }
+        if (!response.ok && data.error) {
+            alert(data.error);
+            return;
+        }
+        const profile = data && data.ok && data.profile ? data.profile : {};
+        f1BpProfileCache.set(key, profile);
+        applyF2BusinessPartnerProfile(profile, key);
+    } catch (error) {
+        f1BpProfileCache.set(key, {});
+    } finally {
+        if (f2BpProfileInFlight === key) {
+            f2BpProfileInFlight = '';
+            setF2BpLoading(false);
+        }
+    }
+}
+
 document.getElementById('f1_ma_kh').addEventListener('input', function() {
     this.value = this.value.toUpperCase();
     clearTimeout(f1BpProfileTimer);
@@ -901,6 +988,21 @@ document.getElementById('f1_ma_kh').addEventListener('input', function() {
     const customerCode = this.value.trim();
     f1BpProfileTimer = setTimeout(function() {
         fetchF1BusinessPartnerProfile(customerCode);
+    }, 350);
+});
+
+document.getElementById('f2_ma_kh').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+    clearTimeout(f2BpProfileTimer);
+
+    if (!validF1CustomerCode(this.value)) {
+        setF2BpLoading(false);
+        return;
+    }
+
+    const customerCode = this.value.trim();
+    f2BpProfileTimer = setTimeout(function() {
+        fetchF2BusinessPartnerProfile(customerCode);
     }, 350);
 });
 
@@ -1022,6 +1124,9 @@ document.getElementById('btnClearF1').addEventListener('click', function() {
     });
 });
 document.getElementById('btnClearF2').addEventListener('click', function() {
+    clearTimeout(f2BpProfileTimer);
+    f2BpProfileInFlight = '';
+    setF2BpLoading(false);
     ['f2_ho_ten','f2_sdt','f2_cccd','f2_ma_kh'].forEach(function(id) {
         document.getElementById(id).value = '';
     });

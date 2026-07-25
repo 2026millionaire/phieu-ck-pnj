@@ -137,9 +137,14 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         html = self.client.get("/bieu-mau").get_data(as_text=True)
 
         self.assertIn('id="f1_ma_kh"', html)
+        self.assertIn('id="f2_ma_kh"', html)
         self.assertNotIn('id="f1BpStatus"', html)
         self.assertIn("/api/erp-business-partner-profile", html)
         self.assertIn("fetchF1BusinessPartnerProfile", html)
+        self.assertIn("fetchF2BusinessPartnerProfile", html)
+        self.assertIn("setF2BpLoading", html)
+        self.assertIn("applyF2BusinessPartnerProfile", html)
+        self.assertIn("profile.cccd", html)
         self.assertIn('id="btnPdfF1"', html)
         self.assertIn('id="btnPdfF2"', html)
         self.assertIn('id="btnPdfBBHuy"', html)
@@ -153,6 +158,16 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         print_end = html.index("document.getElementById('btnPrintF2')")
         print_handler = html[print_start:print_end]
         self.assertNotIn("f1_ma_kh", print_handler)
+
+        f2_section = html[html.index('id="sectionF2"'):html.index('id="btnPrintF2"')]
+        self.assertLess(f2_section.index('id="f2_ma_kh"'), f2_section.index('id="f2_cccd"'))
+        self.assertLess(f2_section.index('id="f2_cccd"'), f2_section.index('id="f2_sdt"'))
+        self.assertLess(f2_section.index('id="f2_sdt"'), f2_section.index('id="f2_ho_ten"'))
+
+        f2_print_start = html.index("function buildF2Params()")
+        f2_print_end = html.index("function buildCaoHmlParams()")
+        f2_handler = html[f2_print_start:f2_print_end]
+        self.assertIn("f2_ma_kh", f2_handler)
 
     def test_cao_hml_print_uses_wider_product_code_column(self):
         html = self.client.get("/cao-hml/print").get_data(as_text=True)
