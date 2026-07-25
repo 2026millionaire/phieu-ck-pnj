@@ -29,6 +29,7 @@
 .btn-print { background: linear-gradient(135deg, #0ea5e9, #0369a1); border: none; color: #fff; padding: 10px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
 .btn-print:hover { background: linear-gradient(135deg, #0369a1, #024a75); color: #fff; }
 .material-table-wrap { overflow: visible; }
+.material-picker-cell { text-align: center; width: 96px; }
 .material-picker-dropdown { width: 100%; min-width: 0; }
 .material-pick-btn {
     align-items: center;
@@ -73,9 +74,11 @@
 .material-type-vh-gold { background: #fff3bf; border-color: #f4d35e; color: #92400e; }
 .material-type-vh-silver { background: #e9ecef; border-color: #cbd5e1; color: #334155; }
 .material-type-nlt-gold { background: #d8f3dc; border-color: #95d5b2; color: #166534; }
+.material-quantity-cell { width: 120px; }
 @media (max-width: 576px) {
     .material-mobile-stt { display: none; }
     .material-choice-menu { min-width: min(17rem, 86vw); }
+    .material-picker-cell { width: 82px; }
     .material-pick-btn { min-width: 3.8rem; padding: 0.2rem 0.4rem; }
 }
 {% endblock %}
@@ -384,7 +387,7 @@
                             </label>
                             <label class="form-check mb-0">
                                 <input class="form-check-input" type="radio" name="materialPurpose" id="materialPurposeCustom" value="custom">
-                                <span class="form-check-label">................................................................................... (tự ghi)</span>
+                                <span class="form-check-label">.................... (tự ghi)</span>
                             </label>
                         </div>
                     </div>
@@ -399,15 +402,14 @@
                             <thead class="table-light">
                                 <tr>
                                     <th class="material-mobile-stt" style="width:52px;">STT</th>
-                                    <th>Nguyên liệu</th>
-                                    <th style="width:110px;">Số lượng</th>
+                                    <th class="text-center" style="width:96px;">Nguyên liệu</th>
+                                    <th style="width:120px;">Số lượng</th>
                                     <th style="width:52px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="materialProposalBody"></tbody>
                         </table>
                     </div>
-                    <small class="text-muted">Bản in sẽ dùng tên SAP chuẩn của nguyên liệu đã chọn.</small>
                 </div>
             </div>
 
@@ -681,6 +683,16 @@ function escapeMaterialText(value) {
     });
 }
 
+function normalizeMaterialQuantity(value) {
+    const text = String(value || '').trim().replace(/\s+/g, '').replace(',', '.');
+    if (!text) return '';
+    const match = text.match(/^([+-]?\d{0,3})(?:\.(\d*))?$/);
+    if (!match || !match[1]) return String(value || '').trim();
+    const number = Number(match[1] + '.' + (match[2] || ''));
+    if (!Number.isFinite(number)) return String(value || '').trim();
+    return number.toFixed(3);
+}
+
 function materialButtonHtml(selectedCode, rowIdx) {
     const selected = materialByCode(selectedCode);
     const buttonLabel = selected ? selected.buttonName : 'Chọn';
@@ -712,8 +724,8 @@ function renderMaterialRows() {
         const tr = document.createElement('tr');
         tr.innerHTML =
             '<td class="text-center align-middle material-mobile-stt">' + (idx + 1) + '</td>' +
-            '<td>' + materialButtonHtml(code, idx) + '</td>' +
-            '<td><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + escapeMaterialText(materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
+            '<td class="material-picker-cell">' + materialButtonHtml(code, idx) + '</td>' +
+            '<td class="material-quantity-cell"><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + escapeMaterialText(materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
             '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 material-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
         tbody.appendChild(tr);
     });
@@ -726,6 +738,11 @@ function renderMaterialRows() {
     tbody.querySelectorAll('.material-quantity-input').forEach(function(input) {
         input.addEventListener('input', function() {
             materialQuantities[parseInt(this.dataset.idx)] = this.value;
+        });
+        input.addEventListener('blur', function() {
+            const idx = parseInt(this.dataset.idx);
+            materialQuantities[idx] = normalizeMaterialQuantity(this.value);
+            this.value = materialQuantities[idx];
         });
     });
     tbody.querySelectorAll('.material-del-row').forEach(function(btn) {

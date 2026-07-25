@@ -242,7 +242,10 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("Đề xuất nguyên liệu làm hàng <strong>xử lý</strong>", html)
         self.assertIn("Đề xuất nguyên liệu làm hàng <strong>bảo hành</strong>", html)
         self.assertIn('id="materialPurposeCustom"', html)
-        self.assertIn("................................................................................... (tự ghi)", html)
+        self.assertIn(".................... (tự ghi)", html)
+        self.assertIn("normalizeMaterialQuantity", html)
+        self.assertIn("material-picker-cell", html)
+        self.assertNotIn("Bản in sẽ dùng tên SAP chuẩn", html)
         self.assertIn("buttonName: 'VH 416'", html)
         self.assertIn("buttonName: 'VH bạc'", html)
         self.assertIn("buttonName: 'NLT 333'", html)
@@ -286,11 +289,11 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("Kho, đơn vị nhận:</span>1204", print_html)
         self.assertIn("31000425 - NLT VÀNG VHÀN KQT TUỔI 7500", print_html)
         self.assertIn("31000204 - NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160", print_html)
-        self.assertGreaterEqual(print_html.count(">1.2<"), 2)
-        self.assertGreaterEqual(print_html.count(">2.3<"), 2)
+        self.assertGreaterEqual(print_html.count(">1.200<"), 2)
+        self.assertGreaterEqual(print_html.count(">2.300<"), 2)
         self.assertGreaterEqual(print_html.count("<tr>"), 5)
         self.assertIn("<strong>Tổng Cộng</strong>", print_html)
-        self.assertGreaterEqual(print_html.count(">3.5<"), 2)
+        self.assertGreaterEqual(print_html.count(">3.500<"), 2)
         self.assertIn("total-number", print_html)
         self.assertIn("Bằng chữ", print_html)
         self.assertIn("Trưởng đơn vị", print_html)
@@ -318,6 +321,14 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         ).get_data(as_text=True)
         self.assertIn("Nội dung:</span> ...................................................................................", custom_html)
         self.assertNotIn("Đề xuất nguyên liệu làm hàng .", custom_html)
+
+        missing_quantity_html = self.client.get(
+            "/de-xuat-nguyen-lieu/print?"
+            "purpose=xu_ly&material_codes=31000820%0A32000090"
+            "&quantities=1%0A&ngay=25&thang=07&nam=2026"
+        ).get_data(as_text=True)
+        self.assertEqual(missing_quantity_html.count(">1.000<"), 2)
+        self.assertNotIn(">3.000<", missing_quantity_html)
 
 
 if __name__ == "__main__":

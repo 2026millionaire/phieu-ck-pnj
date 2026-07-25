@@ -2438,7 +2438,7 @@ def _format_material_number(value):
     number = _material_number(value)
     if number is None:
         return str(value or "").strip()
-    return f"{number:.3f}".rstrip("0").rstrip(".")
+    return f"{number:.3f}"
 
 
 def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
@@ -2446,6 +2446,7 @@ def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
     rows = []
     total_quantity = 0.0
     has_quantity = False
+    has_missing_quantity = False
     for idx, code in enumerate(material_codes):
         canonical = remove_all_whitespace(code)
         raw_name = MATERIAL_PROPOSAL_CATALOG.get(canonical)
@@ -2456,6 +2457,8 @@ def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
         if quantity_number is not None:
             total_quantity += quantity_number
             has_quantity = True
+        else:
+            has_missing_quantity = True
         rows.append({
             "code": canonical,
             "raw_name": raw_name,
@@ -2466,9 +2469,10 @@ def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
         })
     for _ in range(max(0, blank_rows, 3 - len(rows))):
         rows.append({"code": "", "raw_name": "", "short_name": "", "unit": "", "quantity": "", "weight": ""})
+    total = "" if has_missing_quantity else (_format_material_number(total_quantity) if has_quantity else "")
     return rows, {
-        "quantity": _format_material_number(total_quantity) if has_quantity else "",
-        "weight": _format_material_number(total_quantity) if has_quantity else "",
+        "quantity": total,
+        "weight": total,
     }
 
 
