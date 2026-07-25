@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Đề xuất{% endblock %}
+{% block nav_de_xuat %}active{% endblock %}
+{% block page_title %}ĐỀ XUẤT{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('de_xuat.static', filename='de_xuat.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dx-shell">
+    <section class="dx-hero">
+        <div>
+            <span class="dx-eyebrow">PNJ 1305</span>
+            <h1>Soạn đề xuất nhanh, đúng mẫu</h1>
+            <p>Chọn tình huống thường dùng, điền dữ liệu và kiểm tra nội dung trước khi xuất PDF.</p>
+        </div>
+        <a class="btn btn-light dx-hero-action" href="{{ url_for('de_xuat.new', template='de-xuat-chung') }}">
+            <i class="bi bi-plus-lg"></i> Đề xuất mới
+        </a>
+    </section>
+
+    <div class="dx-toolbar">
+        <label class="dx-search">
+            <i class="bi bi-search"></i>
+            <input id="templateSearch" type="search" placeholder="Tìm: hoàn cọc, máy in, hóa đơn..." autocomplete="off">
+        </label>
+        <a class="btn btn-outline-secondary" href="{{ url_for('de_xuat.history') }}">
+            <i class="bi bi-clock-history"></i> Lịch sử
+        </a>
+    </div>
+
+    <section>
+        <div class="dx-section-heading">
+            <div>
+                <h2>Mẫu thông dụng</h2>
+                <p>Chọn mẫu phù hợp để hệ thống gợi ý đúng trường cần nhập.</p>
+            </div>
+        </div>
+        <div class="dx-template-grid" id="templateGrid">
+            {% for template in templates %}
+            <a class="dx-template-card"
+               href="{{ url_for('de_xuat.new', template=template.slug) }}"
+               data-search="{{ (template.name ~ ' ' ~ template.group_name ~ ' ' ~ template.description)|lower }}">
+                <span class="dx-template-icon"><i class="bi {{ template.icon }}"></i></span>
+                <span class="dx-template-content">
+                    <span class="dx-template-group">{{ template.group_name }}</span>
+                    <strong>{{ template.name }}</strong>
+                    <small>{{ template.description }}</small>
+                </span>
+                <i class="bi bi-chevron-right dx-template-arrow"></i>
+            </a>
+            {% endfor %}
+        </div>
+        <div class="dx-empty d-none" id="templateEmpty">
+            <i class="bi bi-search"></i>
+            <p>Không tìm thấy mẫu phù hợp.</p>
+        </div>
+    </section>
+
+    {% if recent %}
+    <section class="dx-recent-section">
+        <div class="dx-section-heading">
+            <div>
+                <h2>Đề xuất gần đây</h2>
+                <p>Mở lại bản nháp hoặc kiểm tra hồ sơ vừa lập.</p>
+            </div>
+            <a href="{{ url_for('de_xuat.history') }}">Xem tất cả</a>
+        </div>
+        <div class="dx-recent-list">
+            {% for item in recent %}
+            <a href="{{ url_for('de_xuat.edit', proposal_id=item.id) }}" class="dx-recent-item">
+                <span class="dx-status dx-status-{{ item.status }}">
+                    {% if item.status == 'exported' %}Đã xuất PDF
+                    {% elif item.status == 'completed' %}Hoàn thiện
+                    {% else %}Bản nháp{% endif %}
+                </span>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.template_name }} · {{ item.updated_at }}</small>
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const input = document.getElementById('templateSearch');
+    const cards = Array.from(document.querySelectorAll('.dx-template-card'));
+    const empty = document.getElementById('templateEmpty');
+    input.addEventListener('input', () => {
+        const keyword = input.value.trim().toLocaleLowerCase('vi');
+        let visible = 0;
+        cards.forEach(card => {
+            const show = !keyword || card.dataset.search.includes(keyword);
+            card.classList.toggle('d-none', !show);
+            if (show) visible += 1;
+        });
+        empty.classList.toggle('d-none', visible !== 0);
+    });
+})();
+</script>
+{% endblock %}

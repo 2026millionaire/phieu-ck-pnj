@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Lịch sử đề xuất{% endblock %}
+{% block nav_de_xuat %}active{% endblock %}
+{% block page_title %}Lịch sử đề xuất{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('de_xuat.static', filename='de_xuat.css') }}">
+{% endblock %}
+
+{% block topbar_right %}
+<a class="btn btn-sm btn-primary" href="{{ url_for('de_xuat.index') }}">
+    <i class="bi bi-plus-lg"></i> Tạo đề xuất
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="dx-shell">
+    <div class="dx-toolbar">
+        <label class="dx-search">
+            <i class="bi bi-search"></i>
+            <input id="historySearch" type="search" placeholder="Tìm theo tiêu đề hoặc mẫu..." autocomplete="off">
+        </label>
+        <select class="form-select dx-status-filter" id="statusFilter">
+            <option value="">Tất cả trạng thái</option>
+            <option value="draft">Bản nháp</option>
+            <option value="completed">Hoàn thiện</option>
+            <option value="exported">Đã xuất PDF</option>
+        </select>
+    </div>
+
+    <div class="dx-history-list" id="historyList">
+        {% for item in proposals %}
+        <article class="dx-history-card"
+                 data-search="{{ (item.title ~ ' ' ~ item.template_name ~ ' ' ~ item.group_name)|lower }}"
+                 data-status="{{ item.status }}">
+            <div class="dx-history-main">
+                <div class="dx-history-topline">
+                    <span class="dx-status dx-status-{{ item.status }}">
+                        {% if item.status == 'exported' %}Đã xuất PDF
+                        {% elif item.status == 'completed' %}Hoàn thiện
+                        {% else %}Bản nháp{% endif %}
+                    </span>
+                    <span>{{ item.updated_at }}</span>
+                </div>
+                <h2>{{ item.title }}</h2>
+                <p>{{ item.template_name }} · {{ item.group_name }}</p>
+                {% if item.amount %}
+                <strong class="dx-history-amount">{{ "{:,.0f}".format(item.amount).replace(",", ".") }} đồng</strong>
+                {% endif %}
+            </div>
+            <div class="dx-history-actions">
+                <a class="btn btn-outline-primary" href="{{ url_for('de_xuat.edit', proposal_id=item.id) }}">
+                    <i class="bi bi-pencil"></i> Sửa
+                </a>
+                <a class="btn btn-outline-secondary" target="_blank"
+                   href="{{ url_for('de_xuat.preview', proposal_id=item.id) }}">
+                    <i class="bi bi-eye"></i> Xem
+                </a>
+                <a class="btn btn-outline-success" href="{{ url_for('de_xuat.pdf', proposal_id=item.id) }}">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </a>
+                <button class="btn btn-outline-secondary dx-duplicate"
+                        data-url="{{ url_for('de_xuat.duplicate', proposal_id=item.id) }}">
+                    <i class="bi bi-copy"></i> Tạo bản mới
+                </button>
+            </div>
+        </article>
+        {% else %}
+        <div class="dx-empty">
+            <i class="bi bi-inbox"></i>
+            <p>Chưa có đề xuất nào.</p>
+            <a class="btn btn-primary" href="{{ url_for('de_xuat.index') }}">Chọn mẫu đầu tiên</a>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="dx-empty d-none" id="historyEmpty">
+        <i class="bi bi-search"></i>
+        <p>Không tìm thấy đề xuất phù hợp.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const search = document.getElementById('historySearch');
+    const status = document.getElementById('statusFilter');
+    const cards = Array.from(document.querySelectorAll('.dx-history-card'));
+    const empty = document.getElementById('historyEmpty');
+    function filter() {
+        const keyword = search.value.trim().toLocaleLowerCase('vi');
+        let visible = 0;
+        cards.forEach(card => {
+            const show = (!keyword || card.dataset.search.includes(keyword))
+                && (!status.value || card.dataset.status === status.value);
+            card.classList.toggle('d-none', !show);
+            if (show) visible += 1;
+        });
+        empty.classList.toggle('d-none', visible !== 0 || cards.length === 0);
+    }
+    search.addEventListener('input', filter);
+    status.addEventListener('change', filter);
+    document.querySelectorAll('.dx-duplicate').forEach(button => {
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            try {
+                const response = await fetch(button.dataset.url, {method: 'POST'});
+                const result = await response.json();
+                if (!response.ok || !result.ok) throw new Error(result.error || 'Không thể tạo bản mới.');
+                window.location.href = result.edit_url;
+            } catch (error) {
+                alert(error.message);
+                button.disabled = false;
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

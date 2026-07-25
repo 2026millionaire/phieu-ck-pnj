@@ -37,6 +37,7 @@ import erp_business_partner
 import erp_deposits
 import erp_purchase_orders
 import erp_supplier_line_items
+from de_xuat import create_de_xuat_blueprint, initialize_schema
 
 try:
     from customer_lookup import (
@@ -700,6 +701,7 @@ def init_db():
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
+    initialize_schema(conn)
     conn.commit()
     conn.close()
 
@@ -2034,15 +2036,29 @@ def check_auth():
     if request.endpoint == "api_pdf" and verify_pdf_token(request.view_args.get("phieu_id")):
         return
     if not session.get("user_id"):
+        if request.path == "/de-xuat" or request.path.startswith("/de-xuat/"):
+            return redirect("/bk/login?" + urllib.parse.urlencode({"next": request.full_path.rstrip("?")}))
         return redirect(url_for("login_page"))
+
+
+def safe_login_next(value):
+    """Chỉ cho phép quay lại đường dẫn nội bộ sau khi đăng nhập."""
+    target = str(value or "").strip()
+    if not target.startswith("/") or target.startswith("//"):
+        return ""
+    parsed = urllib.parse.urlsplit(target)
+    if parsed.scheme or parsed.netloc:
+        return ""
+    return target
 
 
 @app.route("/login", methods=["GET"])
 def login_page():
+    next_url = safe_login_next(request.args.get("next"))
     if session.get("user_id"):
-        return redirect(url_for("index"))
+        return redirect(next_url or url_for("index"))
     error = request.args.get("error", "")
-    return render_template("login.html", error=error)
+    return render_template("login.html", error=error, next_url=next_url)
 
 
 @app.route("/login", methods=["POST"])
@@ -2050,6 +2066,7 @@ def login_action():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
     remember = request.form.get("remember")
+    next_url = safe_login_next(request.form.get("next"))
 
     user = shared_auth.authenticate(username, password)
     if user:
@@ -2060,9 +2077,13 @@ def login_action():
         if remember:
             session.permanent = True
             app.permanent_session_lifetime = timedelta(days=30)
-        return redirect(url_for("index"))
+        return redirect(next_url or url_for("index"))
 
-    return redirect(url_for("login_page", error="Sai tên đăng nhập hoặc mật khẩu"))
+    return redirect(url_for(
+        "login_page",
+        error="Sai tên đăng nhập hoặc mật khẩu",
+        next=next_url or None,
+    ))
 
 
 @app.route("/logout")
@@ -5479,6 +5500,14 @@ def api_lydo_huy_delete(ld_id):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+app.register_blueprint(create_de_xuat_blueprint(
+    get_db=get_db,
+    current_user_id=current_user_id,
+    is_admin=is_admin,
+    send_pdf=send_print_html_pdf,
+    pdf_filename=form_pdf_filename,
+))
 
 # Always init DB when module loads
 init_db()

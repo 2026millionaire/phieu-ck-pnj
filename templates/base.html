@@ -262,6 +262,11 @@
                         <i class="bi bi-file-earmark-text"></i> Biểu Mẫu
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% block nav_de_xuat %}{% endblock %}" href="{{ url_for('de_xuat.index', _external=True) }}">
+                        <i class="bi bi-file-earmark-check"></i> Đề xuất
+                    </a>
+                </li>
                 {% if admin %}
                     <li class="nav-item">
                         <a class="nav-link" href="/thudoi/">

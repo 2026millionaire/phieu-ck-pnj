@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ proposal.title }}</title>
+    <style>
+        @page { size: A4 portrait; margin: 16mm 18mm 18mm; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            color: #111;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 13.5pt;
+            line-height: 1.45;
+        }
+        .header {
+            display: grid;
+            grid-template-columns: 42% 58%;
+            gap: 12px;
+            text-align: center;
+            font-size: 11.5pt;
+            line-height: 1.25;
+        }
+        .header strong { font-size: 12pt; }
+        .rule {
+            width: 44%;
+            margin: 5px auto 0;
+            border-top: 1px solid #111;
+        }
+        h1 {
+            margin: 24px 0 8px;
+            text-align: center;
+            font-size: 17pt;
+            text-transform: uppercase;
+        }
+        .meta { text-align: center; font-style: italic; margin-bottom: 22px; }
+        .section { margin-top: 14px; }
+        .section-title { font-weight: bold; margin-bottom: 5px; }
+        .content {
+            white-space: pre-line;
+            text-align: justify;
+            text-indent: 28px;
+            margin: 0;
+        }
+        .approval { margin-top: 10px; }
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 36px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .signature-space { height: 72px; }
+        .no-print {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+        }
+        .no-print a, .no-print button {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: white;
+            background: #0ea5e9;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    {% if not download %}
+    <div class="no-print">
+        <button onclick="window.print()">In</button>
+        <a href="{{ url_for('de_xuat.pdf', proposal_id=proposal.id) }}">Tải PDF</a>
+    </div>
+    {% endif %}
+
+    <header class="header">
+        <div>
+            <strong>CÔNG TY CỔ PHẦN VÀNG BẠC<br>ĐÁ QUÝ PHÚ NHUẬN</strong>
+            <div>PNJ NEXT 27 HÀ NỘI - HUẾ</div>
+        </div>
+        <div>
+            <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
+            <div>Độc lập - Tự do - Hạnh phúc</div>
+            <div class="rule"></div>
+        </div>
+    </header>
+
+    <h1>{{ proposal.title }}</h1>
+    <div class="meta">{{ proposal.organization }}</div>
+
+    <section class="section">
+        <div class="section-title">1. Nội dung đề xuất</div>
+        <p class="content">{{ proposal.proposal_content }}</p>
+    </section>
+
+    <section class="section">
+        <div class="section-title">2. Lý do</div>
+        <p class="content">{{ proposal.reason_content or "……" }}</p>
+    </section>
+
+    <section class="section">
+        <div class="section-title">3. Chứng từ kèm theo</div>
+        <p class="content">{{ proposal.attachments or "……" }}</p>
+    </section>
+
+    {% if proposal.approval_level %}
+    <div class="approval"><strong>Cấp duyệt dự kiến:</strong> {{ proposal.approval_level }}</div>
+    {% endif %}
+
+    <div class="signatures">
+        <div>Người lập đề xuất<div class="signature-space"></div></div>
+        <div>Quản lý cửa hàng<div class="signature-space"></div></div>
+        <div>Cấp phê duyệt<div class="signature-space"></div></div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Soạn đề xuất{% endblock %}
+{% block nav_de_xuat %}active{% endblock %}
+{% block page_title %}Soạn đề xuất{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('de_xuat.static', filename='de_xuat.css') }}">
+{% endblock %}
+
+{% block topbar_right %}
+<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('de_xuat.index') }}">
+    <i class="bi bi-grid"></i> Danh sách mẫu
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="dx-editor"
+     id="proposalEditor"
+     data-id="{{ proposal.id or '' }}"
+     data-template-id="{{ template.id }}"
+     data-title-template="{{ template.title_template|e }}"
+     data-content-template="{{ template.content_template|e }}"
+     data-reason-template="{{ template.reason_template|e }}"
+     data-save-url="{{ url_for('de_xuat.save') }}">
+    <main class="dx-form-column">
+        <div class="dx-editor-heading">
+            <div class="dx-template-icon"><i class="bi {{ template.icon }}"></i></div>
+            <div>
+                <span>{{ template.group_name }}</span>
+                <h1>{{ template.name }}</h1>
+                <p>{{ template.description }}</p>
+            </div>
+        </div>
+
+        <div class="dx-progress" aria-label="Tiến trình soạn đề xuất">
+            <span class="active">1. Điền thông tin</span>
+            <span>2. Kiểm tra</span>
+            <span>3. Xuất PDF</span>
+        </div>
+
+        <section class="dx-form-card">
+            <div class="dx-card-title">
+                <span>Thông tin tình huống</span>
+                <small><i class="bi bi-asterisk"></i> Trường bắt buộc</small>
+            </div>
+            <div class="row g-3">
+                {% for field in template.fields %}
+                <div class="{% if field.type == 'textarea' %}col-12{% else %}col-12 col-md-6{% endif %}">
+                    <label class="form-label" for="field_{{ field.key }}">
+                        {{ field.label }}
+                        {% if field.required %}<span class="text-danger">*</span>{% endif %}
+                    </label>
+                    {% if field.type == 'textarea' %}
+                    <textarea class="form-control dx-input" rows="3"
+                              id="field_{{ field.key }}" data-field="{{ field.key }}"
+                              placeholder="{{ field.placeholder or '' }}"
+                              {% if field.required %}required{% endif %}>{{ proposal.form_data.get(field.key, '') }}</textarea>
+                    {% elif field.type == 'select' %}
+                    <select class="form-select dx-input" id="field_{{ field.key }}" data-field="{{ field.key }}"
+                            {% if field.required %}required{% endif %}>
+                        <option value="">-- Chọn --</option>
+                        {% for option in field.options %}
+                        <option value="{{ option }}" {% if proposal.form_data.get(field.key) == option %}selected{% endif %}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <input class="form-control dx-input"
+                           type="{% if field.type == 'date' %}date{% else %}text{% endif %}"
+                           id="field_{{ field.key }}" data-field="{{ field.key }}"
+                           data-type="{{ field.type }}"
+                           value="{{ proposal.form_data.get(field.key, '') }}"
+                           placeholder="{{ field.placeholder or '' }}"
+                           {% if field.type == 'money' %}inputmode="numeric"{% endif %}
+                           {% if field.required %}required{% endif %}>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="dx-form-card">
+            <div class="dx-card-title">
+                <span>Nội dung đề xuất</span>
+                <button class="btn btn-sm btn-outline-primary" type="button" id="regenerateContent">
+                    <i class="bi bi-arrow-repeat"></i> Tạo lại từ dữ liệu
+                </button>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="proposalTitle">Tiêu đề <span class="text-danger">*</span></label>
+                <input class="form-control dx-input" id="proposalTitle" value="{{ proposal.title }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="proposalContent">Nội dung <span class="text-danger">*</span></label>
+                <textarea class="form-control dx-input" id="proposalContent" rows="8" required>{{ proposal.proposal_content }}</textarea>
+                <div class="form-text">Kiểm tra kỹ số tiền, hóa đơn, bảng kê và mã khách hàng trước khi lưu.</div>
+            </div>
+            <div>
+                <label class="form-label" for="reasonContent">Lý do</label>
+                <textarea class="form-control dx-input" id="reasonContent" rows="3">{{ proposal.reason_content }}</textarea>
+            </div>
+        </section>
+
+        <section class="dx-form-card">
+            <div class="dx-card-title"><span>Trình duyệt và chứng từ</span></div>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <label class="form-label" for="approvalLevel">Cấp duyệt</label>
+                    <input class="form-control dx-input" id="approvalLevel"
+                           value="{{ proposal.approval_level }}" placeholder="Ví dụ: GĐCN / GĐVH">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label" for="organization">Đơn vị đề xuất</label>
+                    <input class="form-control dx-input" id="organization"
+                           value="{{ proposal.organization }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="attachments">Chứng từ kèm theo</label>
+                    <textarea class="form-control dx-input" id="attachments" rows="2"
+                              placeholder="Liệt kê hóa đơn, bảng kê, biên nhận...">{{ proposal.attachments }}</textarea>
+                </div>
+            </div>
+        </section>
+
+        <div class="dx-save-message d-none" id="saveMessage" role="status"></div>
+        <div class="dx-mobile-spacer"></div>
+    </main>
+
+    <aside class="dx-preview-column">
+        <div class="dx-preview-toolbar">
+            <strong><i class="bi bi-eye"></i> Xem trước</strong>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="openMobilePreview">
+                Mở toàn màn hình
+            </button>
+        </div>
+        <div class="dx-paper" id="livePreview">
+            <div class="dx-paper-header">
+                <div><strong>CÔNG TY CP VÀNG BẠC<br>ĐÁ QUÝ PHÚ NHUẬN</strong></div>
+                <div><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br>Độc lập - Tự do - Hạnh phúc</div>
+            </div>
+            <h2 id="previewTitle"></h2>
+            <div class="dx-paper-meta" id="previewOrganization"></div>
+            <div class="dx-paper-section">
+                <strong>1. Nội dung đề xuất</strong>
+                <p id="previewContent"></p>
+            </div>
+            <div class="dx-paper-section">
+                <strong>2. Lý do</strong>
+                <p id="previewReason"></p>
+            </div>
+            <div class="dx-paper-section">
+                <strong>3. Chứng từ kèm theo</strong>
+                <p id="previewAttachments"></p>
+            </div>
+            <div class="dx-paper-signatures">
+                <div>Người lập đề xuất</div>
+                <div>Quản lý cửa hàng</div>
+                <div>Cấp phê duyệt</div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="dx-mobile-actions">
+        <button class="btn btn-outline-primary" type="button" id="mobilePreviewButton">
+            <i class="bi bi-eye"></i><span>Xem</span>
+        </button>
+        <button class="btn btn-primary" type="button" id="saveDraftButton">
+            <i class="bi bi-floppy"></i><span>Lưu nháp</span>
+        </button>
+        <button class="btn btn-success" type="button" id="downloadPdfButton">
+            <i class="bi bi-file-earmark-pdf"></i><span>PDF</span>
+        </button>
+    </div>
+</div>
+
+<div class="dx-preview-modal d-none" id="previewModal">
+    <button type="button" class="dx-preview-close" id="closePreview" aria-label="Đóng">
+        <i class="bi bi-x-lg"></i>
+    </button>
+    <div id="mobilePreviewHost"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('de_xuat.static', filename='de_xuat.js') }}"></script>
+{% endblock %}
