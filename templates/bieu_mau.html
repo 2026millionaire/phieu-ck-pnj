@@ -142,6 +142,18 @@
                     <i class="bi bi-pencil-square"></i> Thông tin cập nhật (F1)
                 </div>
                 <div class="card-body">
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label" for="f1_ma_kh">
+                                <i class="bi bi-person-badge"></i> Mã KH
+                            </label>
+                            <input type="text" class="form-control form-control-sm" id="f1_ma_kh"
+                                   placeholder="VD: 100065309" autocomplete="off" inputmode="numeric">
+                        </div>
+                        <div class="col-md-7">
+                            <div id="f1BpStatus" class="small text-muted d-none">&lt;Đang tải dữ liệu...&gt;</div>
+                        </div>
+                    </div>
                     <table class="table table-bordered table-sm mb-0" style="font-size:0.88rem;">
                         <thead class="table-light">
                             <tr>
@@ -153,7 +165,7 @@
                         <tbody>
                             <tr>
                                 <td class="fw-semibold">Họ và tên</td>
-                                <td><input type="text" class="form-control form-control-sm" id="f1_ten_cu"
+                                <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_cu"
                                            style="text-transform:uppercase;"></td>
                                 <td><input type="text" class="form-control form-control-sm muted-placeholder" id="f1_ten_moi"
                                            placeholder="Đổi thì nhập" style="text-transform:uppercase;"></td>
@@ -486,6 +498,113 @@ renderHmlRows();
 // F1 + F2
 // ══════════════════════════════════════
 
+const f1BpLoadingText = '<Đang tải dữ liệu...>';
+const f1BpDefaultPlaceholders = {
+    f1_ten_cu: '',
+    f1_ns_cu: 'Đổi thì nhập',
+    f1_sdt_cu: 'Đổi thì nhập'
+};
+const f1BpProfileCache = new Map();
+let f1BpProfileTimer = null;
+let f1BpProfileInFlight = '';
+
+function normalizeF1CustomerCode(value) {
+    return String(value || '').trim().replace(/^0+/, '').toUpperCase();
+}
+
+function validF1CustomerCode(value) {
+    const code = String(value || '').trim().toUpperCase();
+    return /^1\d{8}$/.test(code) || /^0*1\d{8}$/.test(code);
+}
+
+function formatBirthDateForF1(value) {
+    const text = String(value || '').trim();
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) return match[3] + '/' + match[2] + '/' + match[1];
+    return text;
+}
+
+function setF1BpLoading(isLoading) {
+    const status = document.getElementById('f1BpStatus');
+    if (status) status.classList.toggle('d-none', !isLoading);
+
+    ['f1_ten_cu', 'f1_ns_cu', 'f1_sdt_cu'].forEach(function(id) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.placeholder = isLoading ? f1BpLoadingText : f1BpDefaultPlaceholders[id];
+    });
+}
+
+function applyF1BusinessPartnerProfile(profile, requestedCode) {
+    const currentCode = normalizeF1CustomerCode(document.getElementById('f1_ma_kh').value);
+    if (requestedCode && currentCode !== normalizeF1CustomerCode(requestedCode)) return;
+
+    const name = profile.name || profile.full_name || '';
+    const phone = profile.phone || '';
+    const birthDate = formatBirthDateForF1(profile.birth_date || profile.birthday || '');
+
+    const nameInput = document.getElementById('f1_ten_cu');
+    const phoneInput = document.getElementById('f1_sdt_cu');
+    const birthDateInput = document.getElementById('f1_ns_cu');
+
+    if (name && !nameInput.value.trim()) nameInput.value = name.toUpperCase();
+    if (phone && !phoneInput.value.trim()) phoneInput.value = phone;
+    if (birthDate && !birthDateInput.value.trim()) birthDateInput.value = birthDate;
+}
+
+async function fetchF1BusinessPartnerProfile(customerCode) {
+    const key = normalizeF1CustomerCode(customerCode);
+    if (!key || !validF1CustomerCode(customerCode)) return;
+
+    if (f1BpProfileCache.has(key)) {
+        applyF1BusinessPartnerProfile(f1BpProfileCache.get(key), key);
+        return;
+    }
+    if (f1BpProfileInFlight === key) return;
+
+    f1BpProfileInFlight = key;
+    setF1BpLoading(true);
+
+    try {
+        const response = await fetch('/api/erp-business-partner-profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            cache: 'no-store',
+            body: JSON.stringify({ customer_code: customerCode })
+        });
+        const data = await response.json().catch(function() { return { ok: false }; });
+        const profile = data && data.ok && data.profile ? data.profile : {};
+        f1BpProfileCache.set(key, profile);
+        applyF1BusinessPartnerProfile(profile, key);
+    } catch (error) {
+        f1BpProfileCache.set(key, {});
+    } finally {
+        if (f1BpProfileInFlight === key) {
+            f1BpProfileInFlight = '';
+            setF1BpLoading(false);
+        }
+    }
+}
+
+document.getElementById('f1_ma_kh').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+    clearTimeout(f1BpProfileTimer);
+
+    if (!validF1CustomerCode(this.value)) {
+        setF1BpLoading(false);
+        return;
+    }
+
+    const customerCode = this.value.trim();
+    f1BpProfileTimer = setTimeout(function() {
+        fetchF1BusinessPartnerProfile(customerCode);
+    }, 350);
+});
+
 document.getElementById('btnPrintF1').addEventListener('click', function() {
     const d = document.getElementById('ngayLap').value.split('-');
     const params = new URLSearchParams({
@@ -534,7 +653,10 @@ document.getElementById('btnPrintCaoHml').addEventListener('click', function() {
 });
 
 document.getElementById('btnClearF1').addEventListener('click', function() {
-    ['f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
+    clearTimeout(f1BpProfileTimer);
+    f1BpProfileInFlight = '';
+    setF1BpLoading(false);
+    ['f1_ma_kh','f1_ten_cu','f1_ten_moi','f1_ns_cu','f1_ns_moi','f1_sdt_cu','f1_sdt_moi'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
 });

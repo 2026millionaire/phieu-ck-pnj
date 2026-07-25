@@ -61,6 +61,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertEqual(profile["name"], "LÊ NGHI GIÁNG HƯƠNG")
         self.assertEqual(profile["phone"], "0983156393")
         self.assertEqual(profile["cccd"], "046166004673")
+        self.assertEqual(profile["birth_date"], "1966-08-19")
         self.assertEqual(
             profile["address"],
             "18A TRẦN BÌNH TRỌNG, THUẬN HÒA, TP HUẾ, THỪA THIÊN HUẾ",
@@ -122,6 +123,20 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("/api/erp-business-partner-profile", html)
         self.assertIn("fetchErpBusinessPartnerProfile", html)
         self.assertIn("erpBusinessPartnerProfileCache", html)
+
+    def test_bieu_mau_f1_contains_bp_lookup_without_printing_customer_code(self):
+        html = self.client.get("/bieu-mau").get_data(as_text=True)
+
+        self.assertIn('id="f1_ma_kh"', html)
+        self.assertIn('id="f1BpStatus"', html)
+        self.assertIn("/api/erp-business-partner-profile", html)
+        self.assertIn("fetchF1BusinessPartnerProfile", html)
+        self.assertIn("birth_date", html)
+
+        print_start = html.index("document.getElementById('btnPrintF1')")
+        print_end = html.index("document.getElementById('btnPrintF2')")
+        print_handler = html[print_start:print_end]
+        self.assertNotIn("f1_ma_kh", print_handler)
 
 
 if __name__ == "__main__":
