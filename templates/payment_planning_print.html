@@ -124,6 +124,14 @@
         .page-two {
             padding-top: 0;
         }
+        .page-two .section-title {
+            margin: 8px 0 4px;
+            font-size: 12px;
+        }
+        .page-two td {
+            padding: 6px 5px;
+            line-height: 1.42;
+        }
         .signature td {
             height: 104px;
             text-align: center;
@@ -131,11 +139,19 @@
             vertical-align: top;
             padding: 5px 4px 4px;
         }
+        .page-two .signature td {
+            height: 170px;
+            padding: 8px 5px 6px;
+            line-height: 1.28;
+        }
         .signature-block {
             display: grid;
             grid-template-rows: 34px 38px 18px;
             height: 100%;
             align-items: start;
+        }
+        .page-two .signature-block {
+            grid-template-rows: 50px 72px 24px;
         }
         .signature-role {
             line-height: 1.35;
@@ -166,6 +182,9 @@
             height: 22px;
             text-align: center;
             vertical-align: middle;
+        }
+        .page-two .date-row td {
+            height: 30px;
         }
         @media print {
             body {
