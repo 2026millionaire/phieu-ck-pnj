@@ -343,7 +343,6 @@
                                     <th style="width:52px;">STT</th>
                                     <th>Nguyên liệu</th>
                                     <th style="width:110px;">Số lượng</th>
-                                    <th style="width:110px;">Trọng lượng</th>
                                     <th style="width:52px;"></th>
                                 </tr>
                             </thead>
@@ -600,18 +599,18 @@ renderHmlRows();
 // ĐỀ XUẤT NGUYÊN LIỆU
 // ══════════════════════════════════════
 const materialCatalog = [
-    ['31000204', 'NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160'],
-    ['31000217', 'NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 7500'],
-    ['31000237', 'NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 5850'],
-    ['31000243', 'NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 7500'],
-    ['31000403', 'NLT VÀNG VHÀN KQT TUỔI 3330 (hội 335)'],
-    ['31000407', 'NLT VÀNG VHÀN KQT TUỔI 5850'],
-    ['31000820', 'NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330(hội 334)'],
-    ['32000090', 'NLT BẠC VHÀN KQT TUỔI 8000']
+    ['31000403', 'Vảy hàn 3330 (hội 335)'],
+    ['31000820', 'Vảy hàn 3330 (hội 334)'],
+    ['31000404', 'Vảy hàn 4160'],
+    ['31000407', 'Vảy hàn 5850'],
+    ['31000204', 'NL tinh màu vàng 4160'],
+    ['31000237', 'NL tinh màu trắng 5850'],
+    ['31000217', 'NL tinh màu vàng 7500'],
+    ['31000243', 'NL tinh màu trắng 7500'],
+    ['32000090', 'NL tinh bạc 8000']
 ];
 let materialRows = ['', '', ''];
 let materialQuantities = ['', '', ''];
-let materialWeights = ['', '', ''];
 
 function materialOptionHtml(selectedCode) {
     let html = '<option value="">-- Chọn nguyên liệu --</option>';
@@ -631,7 +630,6 @@ function renderMaterialRows() {
             '<td class="text-center align-middle">' + (idx + 1) + '</td>' +
             '<td><select class="form-select form-select-sm material-code-select" data-idx="' + idx + '">' + materialOptionHtml(code) + '</select></td>' +
             '<td><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + (materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
-            '<td><input type="text" class="form-control form-control-sm material-weight-input" data-idx="' + idx + '" value="' + (materialWeights[idx] || '') + '" inputmode="decimal"></td>' +
             '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 material-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
         tbody.appendChild(tr);
     });
@@ -645,21 +643,14 @@ function renderMaterialRows() {
             materialQuantities[parseInt(this.dataset.idx)] = this.value;
         });
     });
-    tbody.querySelectorAll('.material-weight-input').forEach(function(input) {
-        input.addEventListener('input', function() {
-            materialWeights[parseInt(this.dataset.idx)] = this.value;
-        });
-    });
     tbody.querySelectorAll('.material-del-row').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const idx = parseInt(this.dataset.idx);
             materialRows.splice(idx, 1);
             materialQuantities.splice(idx, 1);
-            materialWeights.splice(idx, 1);
             if (!materialRows.length) {
                 materialRows.push('');
                 materialQuantities.push('');
-                materialWeights.push('');
             }
             renderMaterialRows();
         });
@@ -669,7 +660,6 @@ function renderMaterialRows() {
 document.getElementById('btnAddMaterialRow').addEventListener('click', function() {
     materialRows.push('');
     materialQuantities.push('');
-    materialWeights.push('');
     renderMaterialRows();
 });
 
@@ -931,7 +921,6 @@ function buildMaterialProposalParams() {
         purpose: purpose,
         material_codes: codes.join('\n'),
         quantities: materialRows.map(function(code, idx) { return code ? (materialQuantities[idx] || '') : ''; }).filter(function(_value, idx) { return Boolean(materialRows[idx]); }).join('\n'),
-        weights: materialRows.map(function(code, idx) { return code ? (materialWeights[idx] || '') : ''; }).filter(function(_value, idx) { return Boolean(materialRows[idx]); }).join('\n'),
         ngay: d[2] || '',
         thang: d[1] || '',
         nam: d[0] || '',
@@ -968,7 +957,6 @@ document.getElementById('btnClearMaterialProposal').addEventListener('click', fu
     document.getElementById('materialPurposeXuLy').checked = true;
     materialRows = ['', '', ''];
     materialQuantities = ['', '', ''];
-    materialWeights = ['', '', ''];
     renderMaterialRows();
 });
 </script>

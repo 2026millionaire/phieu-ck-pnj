@@ -95,14 +95,26 @@ CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
 ).strip()
 BIEU_MAU_BP_FREE_UNIQUE_LOOKUPS = 3
 MATERIAL_PROPOSAL_CATALOG = {
-    "31000204": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160",
-    "31000217": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 7500",
-    "31000237": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 5850",
-    "31000243": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 7500",
     "31000403": "NLT VÀNG VHÀN KQT TUỔI 3330 (hội 335)",
-    "31000407": "NLT VÀNG VHÀN KQT TUỔI 5850",
     "31000820": "NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330(hội 334)",
+    "31000404": "NLT VÀNG VHÀN KQT TUỔI 4160",
+    "31000407": "NLT VÀNG VHÀN KQT TUỔI 5850",
+    "31000204": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160",
+    "31000237": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 5850",
+    "31000217": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 7500",
+    "31000243": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 7500",
     "32000090": "NLT BẠC VHÀN KQT TUỔI 8000",
+}
+MATERIAL_PROPOSAL_SHORT_NAMES = {
+    "31000403": "Vảy hàn 3330 (hội 335)",
+    "31000820": "Vảy hàn 3330 (hội 334)",
+    "31000404": "Vảy hàn 4160",
+    "31000407": "Vảy hàn 5850",
+    "31000204": "NL tinh màu vàng 4160",
+    "31000237": "NL tinh màu trắng 5850",
+    "31000217": "NL tinh màu vàng 7500",
+    "31000243": "NL tinh màu trắng 7500",
+    "32000090": "NL tinh bạc 8000",
 }
 _customer_lookup_store = None
 _customer_identity_store = None
@@ -2359,15 +2371,27 @@ def short_material_name(raw_name):
     text = re.sub(r"\s+", " ", str(raw_name or "").replace("Ð", "Đ").strip().upper())
     age_match = re.search(r"TUỔI\s*([0-9]{4})", text)
     age = age_match.group(1) if age_match else ""
+    note_match = re.search(r"\(([^)]*HỘI[^)]*)\)", text, flags=re.IGNORECASE)
+    note = f" ({note_match.group(1).lower()})" if note_match else ""
     if "VHÀN" in text:
         base = "Vảy hàn"
     elif "NLT VÀNG" in text:
-        base = "NL tinh vàng"
+        if "TRẮNG" in text:
+            base = "NL tinh màu trắng"
+        elif "VÀNG" in text:
+            base = "NL tinh màu vàng"
+        else:
+            base = "NL tinh vàng"
     elif "NLT BẠC" in text:
         base = "NL tinh bạc"
     else:
         base = text.title()
-    return f"{base} {age}".strip()
+    return f"{base} {age}{note}".strip()
+
+
+def material_short_name(code, raw_name):
+    canonical = remove_all_whitespace(code)
+    return MATERIAL_PROPOSAL_SHORT_NAMES.get(canonical) or short_material_name(raw_name)
 
 
 def _material_number(value):
@@ -2387,42 +2411,34 @@ def _format_material_number(value):
     return f"{number:.3f}".rstrip("0").rstrip(".")
 
 
-def material_proposal_rows(material_codes, quantities=None, weights=None, blank_rows=0):
+def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
     quantities = quantities or []
-    weights = weights or []
     rows = []
     total_quantity = 0.0
-    total_weight = 0.0
     has_quantity = False
-    has_weight = False
     for idx, code in enumerate(material_codes):
         canonical = remove_all_whitespace(code)
         raw_name = MATERIAL_PROPOSAL_CATALOG.get(canonical)
         if not raw_name:
             continue
         quantity = _format_material_number(quantities[idx] if idx < len(quantities) else "")
-        weight = _format_material_number(weights[idx] if idx < len(weights) else "")
         quantity_number = _material_number(quantity)
-        weight_number = _material_number(weight)
         if quantity_number is not None:
             total_quantity += quantity_number
             has_quantity = True
-        if weight_number is not None:
-            total_weight += weight_number
-            has_weight = True
         rows.append({
             "code": canonical,
             "raw_name": raw_name,
-            "short_name": short_material_name(raw_name),
+            "short_name": material_short_name(canonical, raw_name),
             "unit": "PHÂN",
             "quantity": quantity,
-            "weight": weight,
+            "weight": "",
         })
-    for _ in range(max(0, blank_rows)):
+    for _ in range(max(0, blank_rows, 3 - len(rows))):
         rows.append({"code": "", "raw_name": "", "short_name": "", "unit": "", "quantity": "", "weight": ""})
     return rows, {
         "quantity": _format_material_number(total_quantity) if has_quantity else "",
-        "weight": _format_material_number(total_weight) if has_weight else "",
+        "weight": "",
     }
 
 
@@ -3007,11 +3023,10 @@ def de_xuat_nguyen_lieu_print():
 def render_de_xuat_nguyen_lieu_html():
     now = datetime.now()
     raw_purpose = str(request.args.get("purpose") or "xu_ly").strip().lower()
-    purpose = "bảo hành" if raw_purpose in ("bao_hanh", "bảo hành", "baohanh") else "xử lý"
+    purpose = "bảo hành" if raw_purpose in ("bao_hanh", "bảo hành", "baohanh") else "xử lí"
     material_codes = request.args.get("material_codes", "").splitlines()
     quantities = request.args.get("quantities", "").splitlines()
-    weights = request.args.get("weights", "").splitlines()
-    rows, totals = material_proposal_rows(material_codes, quantities, weights)
+    rows, totals = material_proposal_rows(material_codes, quantities)
     if not rows:
         rows, totals = material_proposal_rows([], blank_rows=3)
     return render_template(

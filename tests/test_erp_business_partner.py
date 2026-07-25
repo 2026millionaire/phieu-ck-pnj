@@ -198,32 +198,56 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn('id="rbMaterialProposal"', html)
         self.assertIn('id="btnPrintMaterialProposal"', html)
         self.assertIn('id="btnPdfMaterialProposal"', html)
+        self.assertIn("31000404", html)
         self.assertIn("31000403", html)
-        self.assertIn("NLT VÀNG VHÀN KQT TUỔI 3330", html)
+        self.assertIn("['31000403', 'Vảy hàn 3330 (hội 335)']", html)
+        self.assertIn("['31000820', 'Vảy hàn 3330 (hội 334)']", html)
+        self.assertIn("['31000204', 'NL tinh màu vàng 4160']", html)
+        self.assertIn("['32000090', 'NL tinh bạc 8000']", html)
+        self.assertIn("+ ' - ' + item[1]", html)
         self.assertIn("material-quantity-input", html)
-        self.assertIn("material-weight-input", html)
+        self.assertNotIn("material-weight-input", html)
+        self.assertLess(html.index("['31000403', 'Vảy hàn"), html.index("['31000820', 'Vảy hàn"))
+        self.assertLess(html.index("['31000820', 'Vảy hàn"), html.index("['31000404', 'Vảy hàn"))
+        self.assertLess(html.index("['31000403', 'Vảy hàn"), html.index("['31000204', 'NL tinh"))
+        self.assertLess(html.index("['31000204', 'NL tinh"), html.index("['32000090', 'NL tinh bạc"))
 
         print_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"
-            "purpose=bao_hanh&material_codes=31000204%0A31000403%0A32000090"
-            "&quantities=1.2%0A2.3%0A3.4&weights=1.2%0A2.3%0A3.4&ngay=25&thang=07&nam=2026"
+            "purpose=bao_hanh&material_codes=31000204%0A31000403"
+            "&quantities=1.2%0A2.3&ngay=25&thang=07&nam=2026"
         ).get_data(as_text=True)
 
         self.assertIn("size: A5 landscape", print_html)
+        self.assertIn("form-header", print_html)
+        self.assertIn("/static/logo_pnj.webp", print_html)
         self.assertIn("MS: PNJ-QYĐ-PHC-VC-GNVC-F6", print_html)
+        self.assertIn("LSX : 04/00", print_html)
+        self.assertIn("NHL: 04/08/2017", print_html)
+        self.assertIn("TRANG : 1/1", print_html)
         self.assertIn("Số: ...../1305-2026", print_html)
-        self.assertIn("Đề xuất nguyên liệu nl tinh vàng 4160 làm hàng bảo hành", print_html)
+        self.assertIn("Đề xuất nguyên liệu làm hàng bảo hành.", print_html)
         self.assertIn("Căn cứ theo:</span> Nhu cầu thực tế tại cửa hàng", print_html)
         self.assertIn("Xuất tại kho:</span> 1203", print_html)
         self.assertIn("Kho, đơn vị nhận:</span>1204", print_html)
-        self.assertIn("NL tinh vàng 4160", print_html)
+        self.assertIn("NL tinh màu vàng 4160", print_html)
         self.assertIn("Vảy hàn 3330", print_html)
-        self.assertIn("Vảy hàn 8000", print_html)
+        self.assertGreaterEqual(print_html.count("<tr>"), 5)
         self.assertIn("<strong>Tổng Cộng</strong>", print_html)
-        self.assertIn(">6.9<", print_html)
+        self.assertIn(">3.5<", print_html)
         self.assertIn("Bằng chữ", print_html)
         self.assertIn("Trưởng đơn vị", print_html)
+        self.assertNotIn("Đề xuất nguyên liệu nl tinh", print_html)
         self.assertNotIn("NLT VÀNG VHÀN KQT", print_html)
+
+        xu_ly_html = self.client.get(
+            "/de-xuat-nguyen-lieu/print?"
+            "purpose=xu_ly&material_codes=31000820%0A32000090"
+            "&quantities=1%0A2&ngay=25&thang=07&nam=2026"
+        ).get_data(as_text=True)
+        self.assertIn("Đề xuất nguyên liệu làm hàng xử lí.", xu_ly_html)
+        self.assertIn("Vảy hàn 3330 (hội 334)", xu_ly_html)
+        self.assertIn("NL tinh bạc 8000", xu_ly_html)
 
 
 if __name__ == "__main__":
