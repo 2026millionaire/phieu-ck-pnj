@@ -203,7 +203,7 @@
                 {% for row in rows %}
                 <tr>
                     <td class="col-stt">{% if row.code %}{{ "%02d"|format(loop.index) }}{% endif %}</td>
-                    <td class="col-name">{{ row.code }}{% if row.code and row.short_name %} - {{ row.short_name }}{% endif %}</td>
+                    <td class="col-name">{{ row.code }}{% if row.code and row.raw_name %} - {{ row.raw_name }}{% endif %}</td>
                     <td class="col-unit">{{ row.unit }}</td>
                     <td class="col-qty">{{ row.quantity }}</td>
                     <td class="col-weight">{{ row.weight }}</td>

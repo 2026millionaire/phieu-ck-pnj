@@ -95,26 +95,28 @@ CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
 ).strip()
 BIEU_MAU_BP_FREE_UNIQUE_LOOKUPS = 3
 MATERIAL_PROPOSAL_CATALOG = {
-    "31000403": "NLT VÀNG VHÀN KQT TUỔI 3330 (hội 335)",
-    "31000820": "NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330(hội 334)",
     "31000404": "NLT VÀNG VHÀN KQT TUỔI 4160",
     "31000407": "NLT VÀNG VHÀN KQT TUỔI 5850",
+    "31000425": "NLT VÀNG VHÀN KQT TUỔI 7500",
     "31000204": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160",
     "31000237": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 5850",
     "31000217": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 7500",
     "31000243": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 7500",
     "32000090": "NLT BẠC VHÀN KQT TUỔI 8000",
+    "31000403": "NLT VÀNG VHÀN KQT TUỔI 3330 (hội 335)",
+    "31000820": "NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330 (hội 334)",
 }
 MATERIAL_PROPOSAL_SHORT_NAMES = {
-    "31000403": "Vảy hàn 3330 (hội 335)",
-    "31000820": "Vảy hàn 3330 (hội 334)",
-    "31000404": "Vảy hàn 4160",
-    "31000407": "Vảy hàn 5850",
-    "31000204": "NL tinh màu vàng 4160",
-    "31000237": "NL tinh màu trắng 5850",
-    "31000217": "NL tinh màu vàng 7500",
-    "31000243": "NL tinh màu trắng 7500",
-    "32000090": "NL tinh bạc 8000",
+    "31000404": "Vảy hàn 416",
+    "31000407": "Vảy hàn 585",
+    "31000425": "Vảy hàn 750",
+    "31000204": "NL tinh 416",
+    "31000237": "NL tinh 585",
+    "31000217": "NL tinh 750 (màu vàng)",
+    "31000243": "NL tinh 750 (màu trắng)",
+    "32000090": "Vảy hàn bạc",
+    "31000403": "Vảy hàn 333 (hội 335)",
+    "31000820": "Vảy hàn 333 (hội 334)",
 }
 _customer_lookup_store = None
 _customer_identity_store = None

@@ -28,6 +28,29 @@
 .bb-title { text-align: center; font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
 .btn-print { background: linear-gradient(135deg, #0ea5e9, #0369a1); border: none; color: #fff; padding: 10px 28px; border-radius: 8px; font-weight: 600; font-size: 1rem; }
 .btn-print:hover { background: linear-gradient(135deg, #0369a1, #024a75); color: #fff; }
+.material-button-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.material-pick-btn {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #1f2937;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.15;
+    min-width: 58px;
+    padding: 6px 8px;
+}
+.material-pick-btn.material-vh-gold { background: #fff3bf; border-color: #f4d35e; }
+.material-pick-btn.material-vh-silver { background: #e9ecef; border-color: #cbd5e1; }
+.material-pick-btn.material-nlt-gold { background: #d8f3dc; border-color: #95d5b2; }
+.material-pick-btn.active {
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.22);
+    outline: 2px solid #0d6efd;
+}
+.material-selected-name { color: #475569; font-size: 0.78rem; margin-top: 5px; }
+@media (max-width: 576px) {
+    .material-mobile-stt { display: none; }
+    .material-pick-btn { min-width: 52px; padding: 5px 7px; }
+}
 {% endblock %}
 
 {% block content %}
@@ -340,7 +363,7 @@
                         <table class="table table-sm table-bordered mb-0" style="font-size:0.86rem;">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width:52px;">STT</th>
+                                    <th class="material-mobile-stt" style="width:52px;">STT</th>
                                     <th>Nguyên liệu</th>
                                     <th style="width:110px;">Số lượng</th>
                                     <th style="width:52px;"></th>
@@ -349,7 +372,7 @@
                             <tbody id="materialProposalBody"></tbody>
                         </table>
                     </div>
-                    <small class="text-muted">Tên nguyên liệu trên đề xuất sẽ tự rút gọn theo nhóm NL tinh / Vảy hàn và tuổi.</small>
+                    <small class="text-muted">Bản in sẽ dùng tên SAP chuẩn của nguyên liệu đã chọn.</small>
                 </div>
             </div>
 
@@ -599,43 +622,60 @@ renderHmlRows();
 // ĐỀ XUẤT NGUYÊN LIỆU
 // ══════════════════════════════════════
 const materialCatalog = [
-    ['31000403', 'Vảy hàn 3330 (hội 335)'],
-    ['31000820', 'Vảy hàn 3330 (hội 334)'],
-    ['31000404', 'Vảy hàn 4160'],
-    ['31000407', 'Vảy hàn 5850'],
-    ['31000204', 'NL tinh màu vàng 4160'],
-    ['31000237', 'NL tinh màu trắng 5850'],
-    ['31000217', 'NL tinh màu vàng 7500'],
-    ['31000243', 'NL tinh màu trắng 7500'],
-    ['32000090', 'NL tinh bạc 8000']
+    { code: '31000404', shortName: 'Vảy hàn 416', buttonName: 'VH 416', group: 'vh-gold' },
+    { code: '31000407', shortName: 'Vảy hàn 585', buttonName: 'VH 585', group: 'vh-gold' },
+    { code: '31000425', shortName: 'Vảy hàn 750', buttonName: 'VH 750', group: 'vh-gold' },
+    { code: '31000204', shortName: 'NL tinh 416', buttonName: 'NLT 416', group: 'nlt-gold' },
+    { code: '31000237', shortName: 'NL tinh 585', buttonName: 'NLT 585', group: 'nlt-gold' },
+    { code: '31000217', shortName: 'NL tinh 750 (màu vàng)', buttonName: 'NLT 750', group: 'nlt-gold' },
+    { code: '31000243', shortName: 'NL tinh 750 (màu trắng)', buttonName: 'NLT 750 trắng', group: 'nlt-gold' },
+    { code: '32000090', shortName: 'Vảy hàn bạc', buttonName: 'VH bạc', group: 'vh-silver' },
+    { code: '31000403', shortName: 'Vảy hàn 333 (hội 335)', buttonName: 'VH 333', group: 'vh-gold' },
+    { code: '31000820', shortName: 'Vảy hàn 333 (hội 334)', buttonName: 'NLT 333', group: 'nlt-gold' }
 ];
 let materialRows = ['', '', ''];
 let materialQuantities = ['', '', ''];
 
-function materialOptionHtml(selectedCode) {
-    let html = '<option value="">-- Chọn nguyên liệu --</option>';
-    materialCatalog.forEach(function(item) {
-        const selected = item[0] === selectedCode ? ' selected' : '';
-        html += '<option value="' + item[0] + '"' + selected + '>' + item[0] + ' - ' + item[1] + '</option>';
+function materialByCode(code) {
+    return materialCatalog.find(function(item) { return item.code === code; });
+}
+
+function escapeMaterialText(value) {
+    return String(value || '').replace(/[&<>"']/g, function(char) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
     });
-    return html;
+}
+
+function materialButtonHtml(selectedCode, rowIdx) {
+    return materialCatalog.map(function(item) {
+        const active = item.code === selectedCode ? ' active' : '';
+        const label = escapeMaterialText(item.buttonName);
+        return '<button type="button" class="material-pick-btn material-' + item.group + active + '"'
+            + ' data-idx="' + rowIdx + '" data-code="' + item.code + '"'
+            + ' title="' + item.code + ' - ' + escapeMaterialText(item.shortName) + '">'
+            + label + '</button>';
+    }).join('');
 }
 
 function renderMaterialRows() {
     const tbody = document.getElementById('materialProposalBody');
     tbody.innerHTML = '';
     materialRows.forEach(function(code, idx) {
+        const selected = materialByCode(code);
+        const selectedText = selected ? (selected.code + ' - ' + selected.shortName) : 'Chưa chọn nguyên liệu';
         const tr = document.createElement('tr');
         tr.innerHTML =
-            '<td class="text-center align-middle">' + (idx + 1) + '</td>' +
-            '<td><select class="form-select form-select-sm material-code-select" data-idx="' + idx + '">' + materialOptionHtml(code) + '</select></td>' +
-            '<td><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + (materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
+            '<td class="text-center align-middle material-mobile-stt">' + (idx + 1) + '</td>' +
+            '<td><div class="material-button-grid">' + materialButtonHtml(code, idx) + '</div>' +
+            '<div class="material-selected-name">' + escapeMaterialText(selectedText) + '</div></td>' +
+            '<td><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + escapeMaterialText(materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
             '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 material-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
         tbody.appendChild(tr);
     });
-    tbody.querySelectorAll('.material-code-select').forEach(function(select) {
-        select.addEventListener('change', function() {
-            materialRows[parseInt(this.dataset.idx)] = this.value;
+    tbody.querySelectorAll('.material-pick-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            materialRows[parseInt(this.dataset.idx)] = this.dataset.code;
+            renderMaterialRows();
         });
     });
     tbody.querySelectorAll('.material-quantity-input').forEach(function(input) {

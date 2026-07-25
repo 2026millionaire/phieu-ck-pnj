@@ -199,22 +199,26 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn('id="btnPrintMaterialProposal"', html)
         self.assertIn('id="btnPdfMaterialProposal"', html)
         self.assertIn("31000404", html)
+        self.assertIn("31000425", html)
         self.assertIn("31000403", html)
-        self.assertIn("['31000403', 'Vảy hàn 3330 (hội 335)']", html)
-        self.assertIn("['31000820', 'Vảy hàn 3330 (hội 334)']", html)
-        self.assertIn("['31000204', 'NL tinh màu vàng 4160']", html)
-        self.assertIn("['32000090', 'NL tinh bạc 8000']", html)
-        self.assertIn("+ ' - ' + item[1]", html)
+        self.assertIn("buttonName: 'VH 416'", html)
+        self.assertIn("buttonName: 'VH bạc'", html)
+        self.assertIn("buttonName: 'NLT 333'", html)
+        self.assertIn("material-vh-gold", html)
+        self.assertIn("material-vh-silver", html)
+        self.assertIn("material-nlt-gold", html)
+        self.assertIn("material-mobile-stt", html)
         self.assertIn("material-quantity-input", html)
+        self.assertNotIn("material-code-select", html)
         self.assertNotIn("material-weight-input", html)
-        self.assertLess(html.index("['31000403', 'Vảy hàn"), html.index("['31000820', 'Vảy hàn"))
-        self.assertLess(html.index("['31000820', 'Vảy hàn"), html.index("['31000404', 'Vảy hàn"))
-        self.assertLess(html.index("['31000403', 'Vảy hàn"), html.index("['31000204', 'NL tinh"))
-        self.assertLess(html.index("['31000204', 'NL tinh"), html.index("['32000090', 'NL tinh bạc"))
+        self.assertLess(html.index("code: '31000404'"), html.index("code: '31000407'"))
+        self.assertLess(html.index("code: '31000407'"), html.index("code: '31000425'"))
+        self.assertLess(html.index("code: '31000425'"), html.index("code: '31000204'"))
+        self.assertLess(html.index("code: '32000090'"), html.index("code: '31000403'"))
 
         print_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"
-            "purpose=bao_hanh&material_codes=31000204%0A31000403"
+            "purpose=bao_hanh&material_codes=31000425%0A31000204"
             "&quantities=1.2%0A2.3&ngay=25&thang=07&nam=2026"
         ).get_data(as_text=True)
 
@@ -230,15 +234,14 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("Căn cứ theo:</span> Nhu cầu thực tế tại cửa hàng", print_html)
         self.assertIn("Xuất tại kho:</span> 1203", print_html)
         self.assertIn("Kho, đơn vị nhận:</span>1204", print_html)
-        self.assertIn("NL tinh màu vàng 4160", print_html)
-        self.assertIn("Vảy hàn 3330", print_html)
+        self.assertIn("31000425 - NLT VÀNG VHÀN KQT TUỔI 7500", print_html)
+        self.assertIn("31000204 - NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160", print_html)
         self.assertGreaterEqual(print_html.count("<tr>"), 5)
         self.assertIn("<strong>Tổng Cộng</strong>", print_html)
         self.assertIn(">3.5<", print_html)
         self.assertIn("Bằng chữ", print_html)
         self.assertIn("Trưởng đơn vị", print_html)
         self.assertNotIn("Đề xuất nguyên liệu nl tinh", print_html)
-        self.assertNotIn("NLT VÀNG VHÀN KQT", print_html)
 
         xu_ly_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"
@@ -246,8 +249,8 @@ class ErpBusinessPartnerTests(unittest.TestCase):
             "&quantities=1%0A2&ngay=25&thang=07&nam=2026"
         ).get_data(as_text=True)
         self.assertIn("Đề xuất nguyên liệu làm hàng xử lí.", xu_ly_html)
-        self.assertIn("Vảy hàn 3330 (hội 334)", xu_ly_html)
-        self.assertIn("NL tinh bạc 8000", xu_ly_html)
+        self.assertIn("31000820 - NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330 (hội 334)", xu_ly_html)
+        self.assertIn("32000090 - NLT BẠC VHÀN KQT TUỔI 8000", xu_ly_html)
 
 
 if __name__ == "__main__":
