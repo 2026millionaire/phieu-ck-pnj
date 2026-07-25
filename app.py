@@ -921,10 +921,13 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_section_ix_title"] = profile["section_ix_title"]
     p["planning_effectiveness_items"] = profile["effectiveness_items"]
     p["planning_option"] = classify_payment_planning_option(p.get("chung_tu", []), amounts["cash_amount"])
-    p["planning_option_text"] = "  ".join(
+    planning_option_entries = [
         f"{'☑' if p['planning_option'] == index else '☐'} {label}"
         for index, label in enumerate(profile["option_labels"], start=1)
-    )
+    ]
+    p["planning_option_line1"] = "  ".join(planning_option_entries[:2])
+    p["planning_option_line2"] = planning_option_entries[2]
+    p["planning_option_text"] = f"{p['planning_option_line1']}\n{p['planning_option_line2']}"
     p["planning_bk_numbers"] = ", ".join(bk_numbers) or p.get("so_bk") or "__________"
     p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
     p["show_payment_dates"] = 1 if int(p.get("show_payment_dates") or 0) else 0
