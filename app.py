@@ -2462,13 +2462,13 @@ def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
             "short_name": material_short_name(canonical, raw_name),
             "unit": "PHÂN",
             "quantity": quantity,
-            "weight": "",
+            "weight": quantity,
         })
     for _ in range(max(0, blank_rows, 3 - len(rows))):
         rows.append({"code": "", "raw_name": "", "short_name": "", "unit": "", "quantity": "", "weight": ""})
     return rows, {
         "quantity": _format_material_number(total_quantity) if has_quantity else "",
-        "weight": "",
+        "weight": _format_material_number(total_quantity) if has_quantity else "",
     }
 
 

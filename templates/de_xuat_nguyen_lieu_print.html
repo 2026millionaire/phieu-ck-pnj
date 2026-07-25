@@ -6,7 +6,7 @@
     <style>
         @page {
             size: A5 landscape;
-            margin: 8mm 9mm;
+            margin: 8mm 9mm 8mm 14mm;
         }
 
         * {
@@ -18,10 +18,10 @@
         }
 
         body {
-            font-size: 11px;
-            line-height: 1.25;
+            font-size: 12.5px;
+            line-height: 1.28;
             margin: 0 auto;
-            width: 192mm;
+            width: 187mm;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -71,7 +71,7 @@
             border: 1px solid #000;
             color: #000;
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             height: 24px;
             padding: 2px 8px;
@@ -92,14 +92,14 @@
             margin: 0 auto;
         }
         .title {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 700;
             margin-bottom: 4px;
             text-align: center;
             text-transform: uppercase;
         }
         .date-line {
-            font-size: 12px;
+            font-size: 13px;
             margin-bottom: 6px;
             text-align: center;
         }
@@ -117,7 +117,7 @@
 
         .material-table {
             border-collapse: collapse;
-            font-size: 10.5px;
+            font-size: 12px;
             margin: 6px 0 6px;
             width: 100%;
         }
@@ -137,16 +137,17 @@
             text-align: center;
         }
         .col-stt { text-align: center; width: 7%; }
-        .col-name { width: 31%; }
+        .col-name { width: 39%; }
         .col-unit { text-align: center; width: 9%; }
         .col-qty { text-align: center; width: 11%; }
-        .col-weight { text-align: center; width: 13%; }
-        .col-value { text-align: center; width: 14%; }
-        .col-approve { text-align: center; width: 15%; }
+        .col-weight { text-align: center; width: 12%; }
+        .col-value { text-align: center; width: 11%; }
+        .col-approve { text-align: center; width: 11%; }
 
         .amount-text {
-            margin: 6px 0 8px;
+            margin: 11px 0 8px;
         }
+        .total-number { font-weight: 700; }
         .signature-wrap {
             display: flex;
             justify-content: space-between;
@@ -219,8 +220,8 @@
                     <td class="col-stt"></td>
                     <td class="col-name"><strong>Tổng Cộng</strong></td>
                     <td class="col-unit"></td>
-                    <td class="col-qty">{{ totals.quantity }}</td>
-                    <td class="col-weight">{{ totals.weight }}</td>
+                    <td class="col-qty total-number">{{ totals.quantity }}</td>
+                    <td class="col-weight total-number">{{ totals.weight }}</td>
                     <td class="col-value"></td>
                     <td class="col-approve"></td>
                 </tr>
