@@ -1237,6 +1237,34 @@ def send_print_html_pdf(html, filename):
     return send_file(pdf, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 
+def form_download_date():
+    now = datetime.now()
+    ngay = str(request.args.get("ngay") or now.strftime("%d")).strip().zfill(2)
+    thang = str(request.args.get("thang") or now.strftime("%m")).strip().zfill(2)
+    nam = str(request.args.get("nam") or now.strftime("%Y")).strip()
+    if not re.fullmatch(r"\d{2}", ngay):
+        ngay = now.strftime("%d")
+    if not re.fullmatch(r"\d{2}", thang):
+        thang = now.strftime("%m")
+    if not re.fullmatch(r"\d{4}", nam):
+        nam = now.strftime("%Y")
+    return f"{ngay}.{thang}.{nam}"
+
+
+def random_file_suffix(length=4):
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def form_pdf_filename(short_name):
+    safe_name = str(short_name or "").strip().replace("Đ", "D").replace("đ", "d")
+    safe_name = unicodedata.normalize("NFD", safe_name)
+    safe_name = "".join(ch for ch in safe_name if unicodedata.category(ch) != "Mn")
+    safe_name = re.sub(r"[^A-Za-z0-9]+", " ", safe_name)
+    safe_name = re.sub(r"\s+", " ", safe_name).strip()[:50].strip() or "Bieu mau"
+    return f"{safe_name} & {form_download_date()}_{random_file_suffix()}.pdf"
+
+
 def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
     """
     Build VietQR image URL.
@@ -2923,8 +2951,7 @@ def render_bb_huy_print_html():
 @app.route("/bb-huy/pdf")
 def bb_huy_pdf():
     """BB Hủy Bảng Kê — PDF rendered from printable HTML."""
-    so_bk = ascii_filename_part(request.args.get("so_bk", ""), 20)
-    return send_print_html_pdf(render_bb_huy_print_html(), f"BB HUY BK {so_bk}.pdf")
+    return send_print_html_pdf(render_bb_huy_print_html(), form_pdf_filename("BB Huy BK"))
 
 
 @app.route("/doi-thongtin")
@@ -2956,8 +2983,7 @@ def render_doi_thongtin_f1_html():
 @app.route("/doi-thongtin/pdf-f1")
 def doi_thongtin_pdf_f1():
     """F1 — PDF rendered from printable HTML."""
-    name = ascii_filename_part(request.args.get("ten_cu") or request.args.get("ten_moi"), 30)
-    return send_print_html_pdf(render_doi_thongtin_f1_html(), f"F1 XLDL {name}.pdf")
+    return send_print_html_pdf(render_doi_thongtin_f1_html(), form_pdf_filename("F1 XLDL"))
 
 
 @app.route("/doi-thongtin/print-f2")
@@ -2981,8 +3007,7 @@ def render_doi_thongtin_f2_html():
 @app.route("/doi-thongtin/pdf-f2")
 def doi_thongtin_pdf_f2():
     """F2 — PDF rendered from printable HTML."""
-    name = ascii_filename_part(request.args.get("ho_ten") or request.args.get("ma_kh"), 30)
-    return send_print_html_pdf(render_doi_thongtin_f2_html(), f"F2 KHOA DULIEU {name}.pdf")
+    return send_print_html_pdf(render_doi_thongtin_f2_html(), form_pdf_filename("F2 Khoa DL"))
 
 
 @app.route("/cao-hml/print")
@@ -3011,9 +3036,7 @@ def render_cao_hml_print_html():
 @app.route("/cao-hml/pdf")
 def cao_hml_pdf():
     """CAO — Mẫu kiểm tra HML PDF rendered from printable HTML."""
-    store = ascii_filename_part(request.args.get("store", "CAO 27 HA NOI HUE"), 28)
-    plan = ascii_filename_part(request.args.get("plan", "2122"), 12)
-    return send_print_html_pdf(render_cao_hml_print_html(), f"CAO HML {store} PLAN {plan}.pdf")
+    return send_print_html_pdf(render_cao_hml_print_html(), form_pdf_filename("Kiem tra HML"))
 
 
 @app.route("/de-xuat-nguyen-lieu/print")
@@ -3045,9 +3068,7 @@ def render_de_xuat_nguyen_lieu_html():
 @app.route("/de-xuat-nguyen-lieu/pdf")
 def de_xuat_nguyen_lieu_pdf():
     """Đề xuất nguyên liệu PDF rendered from printable HTML."""
-    now = datetime.now()
-    filename = f"DE XUAT NGUYEN LIEU {now.strftime('%Y%m%d')}.pdf"
-    return send_print_html_pdf(render_de_xuat_nguyen_lieu_html(), filename)
+    return send_print_html_pdf(render_de_xuat_nguyen_lieu_html(), form_pdf_filename("De xuat NL"))
 
 
 @app.route("/eoffice")

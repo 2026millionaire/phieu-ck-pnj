@@ -1,6 +1,7 @@
 import json
 import io
 import os
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -181,16 +182,38 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertTrue(response.get_json()["captcha_required"])
 
     def test_bieu_mau_pdf_routes_render_from_print_html(self):
-        fake_pdf = io.BytesIO(b"%PDF-1.4\n")
-        fake_pdf.seek(0)
-        with mock.patch.object(app_module, "make_pdf_from_print_html", return_value=fake_pdf) as renderer:
-            response = self.client.get("/doi-thongtin/pdf-f1?ten_cu=TRAN%20VAN%20A")
+        def fake_pdf(*_args, **_kwargs):
+            pdf = io.BytesIO(b"%PDF-1.4\n")
+            pdf.seek(0)
+            return pdf
+
+        with mock.patch.object(app_module, "make_pdf_from_print_html", side_effect=fake_pdf) as renderer:
+            response = self.client.get("/doi-thongtin/pdf-f1?ten_cu=TRAN%20VAN%20A&ngay=25&thang=07&nam=2026")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "application/pdf")
+        self.assertRegex(
+            response.headers.get("Content-Disposition", ""),
+            r"F1 XLDL & 25\.07\.2026_[A-Za-z0-9]{4}\.pdf",
+        )
         self.assertGreater(renderer.call_count, 0)
         rendered_html = renderer.call_args.args[0]
         self.assertIn("TRAN VAN A", rendered_html)
+
+        routes = [
+            ("/bb-huy/pdf?ngay=25&thang=07&nam=2026", "BB Huy BK"),
+            ("/doi-thongtin/pdf-f2?ngay=25&thang=07&nam=2026", "F2 Khoa DL"),
+            ("/cao-hml/pdf?ngay=25&thang=07&nam=2026", "Kiem tra HML"),
+            ("/de-xuat-nguyen-lieu/pdf?ngay=25&thang=07&nam=2026", "De xuat NL"),
+        ]
+        with mock.patch.object(app_module, "make_pdf_from_print_html", side_effect=fake_pdf):
+            for route, prefix in routes:
+                response = self.client.get(route)
+                self.assertEqual(response.status_code, 200)
+                self.assertRegex(
+                    response.headers.get("Content-Disposition", ""),
+                    re.escape(prefix) + r" & 25\.07\.2026_[A-Za-z0-9]{4}\.pdf",
+                )
 
     def test_material_proposal_form_and_print_rules(self):
         html = self.client.get("/bieu-mau").get_data(as_text=True)
@@ -249,6 +272,9 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn(">3.5<", print_html)
         self.assertIn("Bằng chữ", print_html)
         self.assertIn("Trưởng đơn vị", print_html)
+        self.assertIn(".material-table tbody td", print_html)
+        self.assertIn("height: 32px", print_html)
+        self.assertIn("padding-right: 20mm; text-align: right", print_html)
         self.assertNotIn("Đề xuất nguyên liệu nl tinh", print_html)
 
         xu_ly_html = self.client.get(
