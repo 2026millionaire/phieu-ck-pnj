@@ -384,7 +384,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("18A TRAN BINH TRONG, HUE", html)
         self.assertIn("+ 84 (028) 39951703", html)
         self.assertIn("0900000001", html)
-        self.assertNotIn("Chi tiết Phương án lựa chọn", html)
+        self.assertIn("☑ Phương án 3 (lựa chọn kết hợp linh hoạt)", html)
+        self.assertIn("Chi tiết Phương án lựa chọn", html)
         self.assertIn("Khách Hàng", html)
         self.assertIn("ĐẠI DIỆN PNJ/NGƯỜI ĐƯỢC ỦY QUYỀN", html)
         self.assertIn('<div class="section-title">I. Thông tin các bên</div>', html)
@@ -395,7 +396,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('class="signature-block"', html)
         self.assertIn("signature-role-customer", html)
         self.assertIn('class="role-title role-title-pnj"', html)
-        self.assertIn("<td>22/07/2026</td>", html)
+        self.assertIn("<td>21/07/2026</td>", html)
         self.assertIn("<td>20/08/2026</td>", html)
         self.assertIn("Ngày ký: 21 / 07 / 2026", html)
 
@@ -413,18 +414,19 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(sheet["E8"].value, "18A TRAN BINH TRONG, HUE")
         self.assertEqual(sheet["B9"].value, "+ 84 (028) 39951703")
         self.assertEqual(sheet["E9"].value, "0900000001")
-        self.assertNotIn("Chi tiết Phương án lựa chọn", sheet["B17"].value)
+        self.assertIn("☑ Phương án 3 (lựa chọn kết hợp linh hoạt)", sheet["B17"].value)
+        self.assertIn("Chi tiết Phương án lựa chọn", sheet["B17"].value)
         self.assertEqual(sheet["B15"].value, 12000000)
         self.assertEqual(sheet["B18"].value, 6000000)
         self.assertEqual(sheet["B19"].value, "=B15-B18")
-        self.assertEqual(sheet["C28"].value, "22/07/2026")
+        self.assertEqual(sheet["C28"].value, "21/07/2026")
         self.assertEqual(sheet["C29"].value, "20/08/2026")
         self.assertEqual(sheet["C32"].value, "18/11/2026")
-        self.assertIn("0,01%/ngày", sheet["B39"].value)
-        self.assertIn("Khách Hàng", sheet["A58"].value)
-        self.assertIn("ĐẠI DIỆN PNJ", sheet["C58"].value)
-        self.assertIn("Cửa Hàng Trưởng", sheet["C58"].value)
-        self.assertIn("DAY(G2)", sheet["A59"].value)
+        self.assertIn("0,01%/ngày", sheet["B40"].value)
+        self.assertIn("Khách Hàng", sheet["A64"].value)
+        self.assertIn("ĐẠI DIỆN PNJ", sheet["C64"].value)
+        self.assertIn("Cửa Hàng Trưởng", sheet["C64"].value)
+        self.assertIn("DAY(G2)", sheet["A65"].value)
 
         manual_payload = {**payload, "force_create": True, "use_bk_ref": True, "so_bk": "4403000999"}
         manual = self.client.post("/api/save", json=manual_payload).get_json()
@@ -447,16 +449,56 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(self.client.get(f"/api/phieu/{dated_id}").get_json()["phieu"]["show_payment_dates"], 1)
 
         dated_html = self.client.get(f"/api/payment-planning/{dated_id}").get_data(as_text=True)
-        for expected_date in ("22/07/2026", "20/08/2026", "19/09/2026", "19/10/2026", "18/11/2026"):
+        for expected_date in ("21/07/2026", "20/08/2026", "19/09/2026", "19/10/2026", "18/11/2026"):
             self.assertIn(f"<td>{expected_date}</td>", dated_html)
 
         dated_xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{dated_id}")
         self.assertEqual(dated_xlsx_response.status_code, 200)
         dated_workbook = load_workbook(io.BytesIO(dated_xlsx_response.data), data_only=False)
         dated_sheet = dated_workbook["Payment Planning"]
-        self.assertEqual(dated_sheet["C28"].value, "22/07/2026")
+        self.assertEqual(dated_sheet["C28"].value, "21/07/2026")
         self.assertEqual(dated_sheet["C29"].value, "20/08/2026")
         self.assertEqual(dated_sheet["C32"].value, "18/11/2026")
+
+    def test_payment_planning_auto_selects_customer_option(self):
+        self.login(role="admin")
+        base_payload = {
+            "status": "draft",
+            "ngay_lap": "2026-07-23",
+            "ma_kh": "100000009",
+            "ten_kh": "KHACH HANG PA",
+            "dia_chi": "HUE",
+            "sdt": "0900000009",
+            "cccd": "012345678909",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG PA",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000009",
+            "tvv_code": "11358",
+            "tvv_name": "NGUYEN TVV",
+            "plant": "1305",
+            "nguoi_ki": "cht",
+        }
+
+        only_bk = self.client.post("/api/save", json={
+            **base_payload,
+            "tong_ck": 10000000,
+            "chung_tu": [{"loai": "Bảng kê", "so_ct": "4403000009", "gia_tri": 10000000}],
+        }).get_json()
+        only_bk_html = self.client.get(f"/api/payment-planning/{only_bk['id']}").get_data(as_text=True)
+        self.assertIn("☑ Phương án 2 (nhận tiền theo lộ trình thanh toán)", only_bk_html)
+
+        negative_cash = self.client.post("/api/save", json={
+            **base_payload,
+            "force_create": True,
+            "tong_ck": -2000000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000010", "gia_tri": 10000000},
+                {"loai": "Hóa đơn", "so_ct": "9010000010", "gia_tri": 12000000},
+            ],
+        }).get_json()
+        negative_html = self.client.get(f"/api/payment-planning/{negative_cash['id']}").get_data(as_text=True)
+        self.assertIn("☑ Phương án 1 (chuyển đổi sang sản phẩm PNJ)", negative_html)
 
     def test_bk_create_and_history_have_payment_planning_actions(self):
         self.login(role="admin")
@@ -575,17 +617,19 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("CH PNJ NEXT 27 Hà Nội, Huế - 2122_16:20_22/07/2026", print_html)
 
         planning_html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
-        self.assertIn("CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (CAF)", planning_html)
+        self.assertIn("CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (Sau đây gọi tắt là &#34;CAF&#34;)", planning_html)
         self.assertIn("0309279212", planning_html)
         self.assertIn("<td>HỒ THỊ HÀ MY</td>", planning_html)
         self.assertIn("TTKH 27 Hà Nội,Huế", planning_html)
         self.assertIn("+ 84 (028) 39951703", planning_html)
         self.assertIn("Khách Hàng đồng ý cho CAF thu đổi sản phẩm", planning_html)
+        self.assertIn('("BKML")', planning_html)
+        self.assertIn("☑ Phương án 3 (lựa chọn kết hợp linh hoạt)", planning_html)
         self.assertIn("Giá trị quy đổi sang sản phẩm CAF", planning_html)
         self.assertIn("ĐẠI DIỆN CAF/NGƯỜI ĐƯỢC ỦY QUYỀN", planning_html)
         self.assertIn("Cửa Hàng Trưởng", planning_html)
         self.assertNotIn("NGUYEN TVV", planning_html)
-        self.assertIn("Thỏa Thuận này chấm dứt", planning_html)
+        self.assertIn("IX. HIỆU LỰC VÀ ĐIỀU KHOẢN KHÁC", planning_html)
         self.assertNotIn("Ngày làm việc</td>", planning_html)
         self.assertNotIn("ngày làm việc thứ n", planning_html)
 
@@ -593,15 +637,16 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(xlsx_response.status_code, 200)
         workbook = load_workbook(io.BytesIO(xlsx_response.data), data_only=False)
         sheet = workbook["Payment Planning"]
-        self.assertEqual(sheet["B4"].value, "CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (CAF)")
+        self.assertEqual(sheet["B4"].value, 'CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (Sau đây gọi tắt là "CAF")')
         self.assertEqual(sheet["B6"].value, "0309279212")
         self.assertEqual(sheet["B7"].value, "HỒ THỊ HÀ MY")
         self.assertEqual(sheet["B8"].value, "TTKH 27 Hà Nội,Huế")
         self.assertEqual(sheet["A9"].value, "Điện thoại/Email CAF")
         self.assertEqual(sheet["B9"].value, "+ 84 (028) 39951703")
         self.assertIn("CAF thu đổi sản phẩm", sheet["B14"].value)
-        self.assertIn("Cửa Hàng Trưởng", sheet["C58"].value)
-        self.assertIn("ĐẠI DIỆN CAF/NGƯỜI ĐƯỢC ỦY QUYỀN", sheet["C58"].value)
+        self.assertIn("☑ Phương án 3 (lựa chọn kết hợp linh hoạt)", sheet["B17"].value)
+        self.assertIn("Cửa Hàng Trưởng", sheet["C64"].value)
+        self.assertIn("ĐẠI DIỆN CAF/NGƯỜI ĐƯỢC ỦY QUYỀN", sheet["C64"].value)
 
     def test_bank_eoffice_code_is_admin_only_on_create_forms(self):
         self.login(role="user", user_id=2)

@@ -211,13 +211,13 @@
             <tr>
                 <td class="label">Địa chỉ</td>
                 <td>{{ p.planning_pnj_address }}</td>
-                <td class="label">Họ và tên</td>
+                <td class="label">{{ p.planning_customer_name_label }}</td>
                 <td>{{ p.ten_kh }}</td>
             </tr>
             <tr>
                 <td class="label">Mã số doanh nghiệp</td>
                 <td>{{ p.planning_tax_code }}</td>
-                <td class="label">Số CCCD/Hộ chiếu</td>
+                <td class="label">{{ p.planning_customer_id_label }}</td>
                 <td>{{ p.cccd }}</td>
             </tr>
             <tr>
@@ -261,7 +261,7 @@
             </colgroup>
             <tr>
                 <td class="label">Sản phẩm thu đổi</td>
-                <td colspan="3">Khách Hàng đồng ý cho {{ p.planning_abbr }} thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: {{ p.planning_bk_numbers }} ngày {{ p.planning_sign_date }} theo phương án lựa chọn được ghi nhận tại Thoả Thuận này.</td>
+                <td colspan="3">Khách Hàng đồng ý cho {{ p.planning_abbr }} thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: {{ p.planning_bk_numbers }} ngày {{ p.planning_sign_date }} ("{{ p.planning_bk_alias }}") theo phương án lựa chọn được ghi nhận tại Thoả Thuận này. Thời điểm bàn giao Sản phẩm thu đổi là thời điểm các bên ký kết Thoả Thuận này.</td>
             </tr>
             <tr>
                 <td class="label">Tổng giá trị thu đổi (VNĐ)</td>
@@ -274,7 +274,7 @@
             </tr>
             <tr>
                 <td class="label">Phương án lựa chọn</td>
-                <td colspan="3">☐ Phương án 1 &nbsp;&nbsp; ☐ Phương án 2 &nbsp;&nbsp; ☐ Phương án 3</td>
+                <td colspan="3">{{ p.planning_option_text }}<br>(Chi tiết Phương án lựa chọn được đính kèm Thoả Thuận này)</td>
             </tr>
             <tr>
                 <td class="label">Giá trị quy đổi sang sản phẩm {{ p.planning_abbr }} (VNĐ)</td>
@@ -288,7 +288,7 @@
             </tr>
             <tr>
                 <td class="label">Nguyên tắc cấn trừ</td>
-                <td colspan="3">Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:<br>1. Phần Giá trị quy đổi sang sản phẩm {{ p.planning_abbr }} (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm {{ p.planning_abbr }} theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;<br>2. Phần Giá trị nhận bằng tiền (nếu có) được {{ p.planning_abbr }} thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;<br>3. Trường hợp sau khi cấn trừ, Giá trị quy đổi sang sản phẩm {{ p.planning_abbr }} thấp hơn giá thanh toán của sản phẩm {{ p.planning_abbr }}, Khách Hàng có trách nhiệm thanh toán cho {{ p.planning_abbr }} phần chênh lệch còn thiếu.</td>
+                <td colspan="3">Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:<br>1. Phần Giá trị quy đổi sang sản phẩm {{ p.planning_abbr }} (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm {{ p.planning_abbr }} theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;<br>2. Phần Giá trị nhận bằng tiền (nếu có) được {{ p.planning_abbr }} thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;<br>3. {{ p.planning_offsetting_rule }}</td>
             </tr>
         </table>
 
@@ -304,12 +304,6 @@
                 <td class="label">Ngày T</td>
                 <td colspan="3">{{ p.planning_definition_rows.ngay_t | replace('\n', '<br>') | safe }}</td>
             </tr>
-            {% if p.planning_has_working_day_definition %}
-            <tr>
-                <td class="label">Ngày làm việc</td>
-                <td colspan="3">{{ p.planning_definition_rows.ngay_lam_viec }}</td>
-            </tr>
-            {% endif %}
             <tr>
                 <td class="label">Cách tính T+n</td>
                 <td colspan="3">{{ p.planning_definition_rows.cach_tinh }}</td>
@@ -317,6 +311,10 @@
             <tr>
                 <td class="label">Hoàn tất thanh toán</td>
                 <td colspan="3">{{ p.planning_definition_rows.hoan_tat }}</td>
+            </tr>
+            <tr>
+                <td class="label">Hoàn tất bàn giao sản phẩm quy đổi</td>
+                <td colspan="3">{{ p.planning_definition_rows.ban_giao }}</td>
             </tr>
         </table>
 
@@ -380,11 +378,9 @@
                 <col style="width: 9%;">
                 <col style="width: 91%;">
             </colgroup>
-            <tr><td class="stt">1</td><td>Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.</td></tr>
-            <tr><td class="stt">2</td><td>{{ p.planning_abbr }} thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp {{ p.planning_abbr }} chậm thanh toán do lỗi của mình, trong trường hợp Khách Hàng yêu cầu lãi chậm thanh toán, {{ p.planning_abbr }} phải thanh toán cho Khách Hàng khoản lãi chậm thanh toán bằng 0,01%/ngày, tính trên số tiền chậm thanh toán và tương ứng với thời gian chậm thanh toán thực tế.</td></tr>
-            <tr><td class="stt">3</td><td>Khách Hàng chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, {{ p.planning_abbr }} thông báo để Khách Hàng điều chỉnh; thời hạn thanh toán được tính lại từ ngày {{ p.planning_abbr }} nhận đủ thông tin hợp lệ.<br>{{ p.planning_abbr }} không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Khách Hàng cung cấp.</td></tr>
-            <tr><td class="stt">4</td><td>Mọi sửa đổi, bổ sung của Thoả Thuận này phải được lập thành văn bản.</td></tr>
-            <tr><td class="stt">5</td><td>Các khoản phí do ngân hàng của Khách Hàng thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.</td></tr>
+            {% for item in p.planning_payment_principles %}
+            <tr><td class="stt">{{ loop.index }}</td><td>{{ item | replace('\n', '<br>') | safe }}</td></tr>
+            {% endfor %}
         </table>
 
         <div class="section-title">VII. Xác nhận và cam kết của Khách Hàng</div>
@@ -393,10 +389,9 @@
                 <col style="width: 9%;">
                 <col style="width: 91%;">
             </colgroup>
-            <tr><td class="stt">1</td><td>Khách Hàng xác nhận đã được {{ p.planning_abbr }} giải thích đầy đủ về phương án lựa chọn, giá trị thu đổi, nguyên tắc cấn trừ, kế hoạch thanh toán, phương thức thanh toán và các thông tin khác liên quan tới Thoả Thuận này trước khi ký kết.</td></tr>
-            <tr><td class="stt">2</td><td>Khách Hàng tự nguyện lựa chọn phương án nêu tại Thoả Thuận này; đã đọc, hiểu rõ và nhận một bản Thoả Thuận sau khi ký.</td></tr>
-            <tr><td class="stt">3</td><td>Khách Hàng cam kết thông tin cá nhân, liên hệ và tài khoản nhận thanh toán cung cấp cho {{ p.planning_abbr }} là chính xác, hợp pháp.</td></tr>
-            <tr><td class="stt">4</td><td>Bảo mật các thông tin liên quan tới Thoả Thuận này.</td></tr>
+            {% for item in p.planning_customer_commitments %}
+            <tr><td class="stt">{{ loop.index }}</td><td>{{ item | replace('\n', '<br>') | safe }}</td></tr>
+            {% endfor %}
         </table>
 
         <div class="section-title">VIII. Cam kết của {{ p.planning_abbr }}</div>
@@ -405,12 +400,12 @@
                 <col style="width: 9%;">
                 <col style="width: 91%;">
             </colgroup>
-            <tr><td class="stt">1</td><td>{{ p.planning_abbr }} cam kết bàn giao sản phẩm quy đổi của {{ p.planning_abbr }}, thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán nếu Khách Hàng yêu cầu.</td></tr>
-            <tr><td class="stt">2</td><td>{{ p.planning_abbr }} bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Khách Hàng đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của {{ p.planning_abbr }}.</td></tr>
-            <tr><td class="stt">3</td><td>{{ p.planning_abbr }} bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin phản ánh liên quan việc thực hiện kế hoạch thanh toán.</td></tr>
+            {% for item in p.planning_company_commitments %}
+            <tr><td class="stt">{{ loop.index }}</td><td>{{ item | replace('\n', '<br>') | safe }}</td></tr>
+            {% endfor %}
         </table>
 
-        <div class="section-title">IX. Hiệu lực, thứ tự ưu tiên và giải quyết phát sinh</div>
+        <div class="section-title">{{ p.planning_section_ix_title }}</div>
         <table>
             <colgroup>
                 <col style="width: 9%;">

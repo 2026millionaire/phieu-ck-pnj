@@ -273,43 +273,108 @@ PAYMENT_PLANNING_PROFILES = {
         "abbr": "PNJ",
         "representative_abbr": "PNJ",
         "company_name": 'CÔNG TY CỔ PHẦN VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN (Sau đây gọi tắt là "PNJ")',
+        "bk_alias": "BKMH",
+        "customer_name_label": "Họ và tên/Tên doanh nghiệp",
+        "customer_id_label": "Số CCCD/Hộ chiếu/Mã số DN",
         "store_name": PAYMENT_PLANNING_STORE_NAME,
         "tax_code": PAYMENT_PLANNING_TAX_CODE,
         "address": PAYMENT_PLANNING_PNJ_ADDRESS,
         "contact": PAYMENT_PLANNING_PNJ_CONTACT,
-        "has_working_day_definition": True,
+        "section_ix_title": "IX. HIỆU LỰC, THỨ TỰ ƯU TIÊN VÀ GIẢI QUYẾT PHÁT SINH",
         "definition_rows": {
             "ngay_t": "Là ngày PNJ hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Thoả Thuận này; Trường hợp các sự kiện này phát sinh vào các thời điểm khác nhau, Ngày T được xác định là ngày hoàn thành sự kiện cuối cùng.\nVD: BKML ký ngày 1/7, Thoả thuận thu đổi sản phẩm ký ngày 2/7, Tiếp nhận tài sản ngày 3/7. Như vậy T là ngày 3/7",
-            "ngay_lam_viec": "Là ngày từ thứ Hai đến thứ Sáu, không bao gồm ngày nghỉ hằng tuần, ngày nghỉ lễ, tết và ngày PNJ/ngân hàng phục vụ thanh toán không làm việc theo quy định hoặc thông báo hợp lệ.",
-            "cach_tinh": "“T+n” là ngày làm việc thứ n kể từ ngày liền sau Ngày T. Nếu ngày dự kiến thanh toán rơi vào ngày không phải Ngày làm việc, thời hạn được chuyển sang Ngày làm việc tiếp theo.",
+            "cach_tinh": "“T+n” là ngày thứ n kể từ ngày liền sau Ngày T. Nếu ngày đến hạn thanh toán rơi vào ngày nghỉ lễ theo quy định của pháp luật thì ngày đến hạn thanh toán được chuyển sang ngày làm việc liền kề tiếp theo.",
             "hoan_tat": "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là hoàn tất khi PNJ đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản nhận tiền của Khách Hàng ở phần đầu Thoả Thuận này; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc PNJ.",
+            "ban_giao": "Đối với phương án chuyển đổi sang sản phẩm PNJ, nghĩa vụ quy đổi của PNJ được xem là hoàn tất khi PNJ đã bàn giao sản phẩm quy đổi trên thực tế và xuất hóa đơn hợp lệ cho Khách Hàng.",
         },
+        "offsetting_rule": "Trường hợp sau khi cấn trừ, Giá trị quy đổi sang sản phẩm PNJ thấp hơn giá thanh toán của sản phẩm PNJ, Khách Hàng có trách nhiệm thanh toán cho PNJ phần chênh lệch còn thiếu.",
+        "option_labels": [
+            "Phương án 1 (chuyển đổi sang sản phẩm PNJ)",
+            "Phương án 2 (nhận tiền theo lộ trình thanh toán)",
+            "Phương án 3 (lựa chọn kết hợp linh hoạt)",
+        ],
+        "payment_principles": [
+            "Kế hoạch thanh toán và phương án nhận giá trị thu đổi được các bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.",
+            "PNJ thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Thỏa Thuận này. Trường hợp PNJ chưa thanh toán đầy đủ số tiền đến hạn của mỗi đợt thanh toán, số tiền còn thiếu sẽ được cộng dồn vào đợt thanh toán tiếp theo. Tổng thời gian gia hạn đối với số tiền còn lại chưa thanh toán không vượt quá 30 (ba mươi) ngày kể từ ngày đến hạn của đợt thanh toán cuối cùng. Hết thời hạn này mà PNJ vẫn chưa hoàn tất thanh toán, nếu khách hàng có yêu cầu bằng văn bản, PNJ phải chịu lãi chậm thanh toán bằng 0,01%/ngày trên số tiền còn lại chưa thanh toán cho đến ngày thanh toán đầy đủ.",
+            "Khách Hàng chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, PNJ thông báo để Khách Hàng điều chỉnh; thời hạn thanh toán được tính lại từ ngày PNJ nhận đủ thông tin hợp lệ. Trường hợp PNJ đã thực hiện đúng thông tin tài khoản do Khách Hàng cung cấp nhưng giao dịch bị chậm hoặc bị ngân hàng từ chối không do lỗi của PNJ thì không được xem là PNJ chậm thanh toán.",
+            "Mọi sửa đổi, bổ sung của Thoả Thuận này phải được lập thành văn bản.",
+            "Các khoản phí do ngân hàng của Khách Hàng thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi các bên có thỏa thuận khác bằng văn bản.",
+        ],
+        "customer_commitments": [
+            "Khách Hàng xác nhận đã được PNJ giải thích đầy đủ về phương án lựa chọn, giá trị thu đổi, nguyên tắc cấn trừ, kế hoạch thanh toán, phương thức thanh toán và các thông tin khác liên quan tới Thoả Thuận này trước khi ký kết.",
+            "Khách Hàng tự nguyện lựa chọn phương án nêu tại Thoả Thuận này; đã đọc, hiểu rõ và nhận một bản Thoả Thuận sau khi ký.",
+            "Khách Hàng cam kết thông tin cá nhân, liên hệ và tài khoản nhận thanh toán cung cấp cho PNJ là chính xác, hợp pháp. PNJ được sử dụng thông tin của Khách Hàng tại Thỏa Thuận này phù hợp theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.",
+            "Bảo mật các thông tin liên quan tới Thoả Thuận này.",
+            "Khách Hàng cam kết Sản phẩm thu đổi thuộc quyền sở hữu hợp pháp của mình, không có tranh chấp hoặc bị áp dụng biện pháp bảo đảm, đồng thời không liên quan đến bất kỳ hành vi vi phạm pháp luật nào.",
+            "Khách Hàng không được chuyển giao, chuyển nhượng hoặc ủy quyền cho bất kỳ bên thứ ba nào nhận khoản thanh toán theo Thỏa Thuận này. PNJ chỉ thực hiện thanh toán vào tài khoản ngân hàng đứng tên Khách Hàng đã được ghi nhận tại Mục I của Thỏa Thuận này.",
+        ],
+        "company_commitments": [
+            "PNJ cam kết bàn giao sản phẩm quy đổi của PNJ, thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch thanh toán đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán nếu Khách Hàng yêu cầu.",
+            "PNJ bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Khách Hàng đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của PNJ.",
+            "PNJ bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin và phản ánh liên quan đến việc thực hiện kế hoạch thanh toán.",
+        ],
         "effectiveness_items": [
-            "Thoả thuận này có hiệu lực từ ngày ký.",
-            "Trường hợp có sự khác biệt giữa Thỏa thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc các nội dung được điều chỉnh tại Thỏa thuận này, Thỏa thuận này được ưu tiên áp dụng.",
+            "Thỏa Thuận này có hiệu lực kể từ ngày các bên ký và chỉ chấm dứt khi xảy ra một trong các trường hợp sau:\n(a) PNJ đã hoàn tất việc thực hiện các nghĩa vụ theo Thỏa Thuận này; hoặc\n(b) Các Bên có thỏa thuận bằng văn bản về việc chấm dứt Thỏa Thuận này và Khách Hàng lựa chọn phương án thu đổi khác theo chính sách của PNJ. Việc thực hiện phương án thu đổi mới sẽ tuân theo thỏa thuận và các tài liệu được các Bên ký kết thay thế Thỏa Thuận này.",
+            "Quyền sở hữu đối với Sản phẩm thu đổi được chuyển giao từ Khách Hàng sang PNJ kể từ thời điểm các bên ký Biên bản Bàn giao và PNJ hoàn tất việc tiếp nhận Sản phẩm thu đổi trên thực tế. Việc chuyển giao quyền sở hữu không phụ thuộc vào tiến độ thanh toán theo Thỏa Thuận này.",
+            "PNJ không bị coi là vi phạm nghĩa vụ thanh toán nếu việc chậm thanh toán phát sinh do sự kiện bất khả kháng hoặc do yêu cầu của cơ quan nhà nước có thẩm quyền ảnh hưởng trực tiếp đến việc thực hiện thanh toán; PNJ phải thông báo cho Khách Hàng trong thời gian hợp lý và tiếp tục thực hiện nghĩa vụ ngay sau khi sự kiện chấm dứt.",
+            "Mỗi bên tự chịu các nghĩa vụ thuế, phí của mình theo quy định pháp luật, trừ trường hợp pháp luật quy định khác.",
+            "Trường hợp có sự khác biệt giữa Thỏa Thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc mọi nội dung có liên quan đến giao dịch thu đổi thì Thỏa Thuận này được ưu tiên áp dụng.",
             "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.",
-            "Phụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản",
+            "Thỏa Thuận được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản.",
         ],
     },
     "cao": {
         "abbr": "CAF",
         "representative_abbr": "CAF",
-        "company_name": 'CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (CAF)',
+        "company_name": 'CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN THỜI TRANG CAO (Sau đây gọi tắt là "CAF")',
+        "bk_alias": "BKML",
+        "customer_name_label": "Họ và tên/Tên doanh nghiệp",
+        "customer_id_label": "Số CCCD/Hộ chiếu/Mã số doanh nghiệp",
         "store_name": PAYMENT_PLANNING_STORE_NAME,
         "tax_code": "0309279212",
         "address": "170E Phan Đăng Lưu, Phường Đức Nhuận, Thành phố Hồ Chí Minh",
         "contact": PAYMENT_PLANNING_PNJ_CONTACT,
-        "has_working_day_definition": False,
+        "section_ix_title": "IX. HIỆU LỰC VÀ ĐIỀU KHOẢN KHÁC",
         "definition_rows": {
-            "ngay_t": "Là ngày CAF hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, hai bên ký xác nhận Bảng kê mua lại và Thoả Thuận này; Trường hợp các sự kiện này phát sinh vào các thời điểm khác nhau, Ngày T được xác định là ngày hoàn thành sự kiện cuối cùng.\nVD: BKML ký ngày 1/7, Thoả thuận thu đổi sản phẩm ký ngày 2/7, Tiếp nhận tài sản ngày 3/7. Như vậy T là ngày 3/7",
-            "cach_tinh": "“T+n” là ngày thứ n kể từ ngày liền sau Ngày T.",
+            "ngay_t": "Là ngày CAF hoàn tất tiếp nhận tài sản, hồ sơ/chứng từ hợp lệ, các bên ký xác nhận BKML và Thoả Thuận này; Trường hợp các sự kiện này phát sinh vào các thời điểm khác nhau, Ngày T được xác định là ngày hoàn thành sự kiện cuối cùng.\nVí dụ: BKML ký ngày 1/7, Thoả thuận thu đổi sản phẩm ký ngày 2/7, Tiếp nhận tài sản ngày 3/7. Như vậy T là ngày 3/7.",
+            "cach_tinh": "“T+n” là ngày thứ n kể từ ngày liền sau Ngày T. Nếu ngày đến hạn thanh toán rơi vào ngày nghỉ lễ theo quy định của pháp luật thì ngày đến hạn thanh toán được chuyển sang ngày làm việc liền kề tiếp theo.",
             "hoan_tat": "Đối với chuyển khoản, nghĩa vụ thanh toán được xem là hoàn tất khi CAF đã phát lệnh chuyển tiền hợp lệ đến đúng thông tin tài khoản nhận tiền của Khách Hàng ở phần đầu Thoả Thuận này; thời điểm tiền ghi Có phụ thuộc quy trình xử lý của ngân hàng, trừ trường hợp lỗi thuộc CAF.",
+            "ban_giao": "Đối với phương án chuyển đổi sang sản phẩm CAF, nghĩa vụ quy đổi của CAF được xem là hoàn tất khi CAF đã bàn giao sản phẩm quy đổi trên thực tế và xuất hóa đơn hợp lệ cho Khách Hàng.",
         },
+        "offsetting_rule": "Trường hợp sau khi cấn trừ mà Giá trị quy đổi sang sản phẩm CAF thấp hơn giá thanh toán của sản phẩm CAF, Khách Hàng có trách nhiệm thanh toán phần chênh lệch còn thiếu.",
+        "option_labels": [
+            "Phương án 1 (chuyển đổi sang sản phẩm CAF)",
+            "Phương án 2 (nhận tiền theo lộ trình thanh toán)",
+            "Phương án 3 (lựa chọn kết hợp linh hoạt)",
+        ],
+        "payment_principles": [
+            "Kế hoạch thanh toán và phương án nhận giá trị thu đổi được các bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.",
+            "CAF thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Thỏa Thuận này. Trường hợp CAF chưa thanh toán đầy đủ số tiền đến hạn của mỗi đợt thanh toán, số tiền còn thiếu sẽ được cộng dồn vào đợt thanh toán tiếp theo. Tổng thời gian gia hạn đối với số tiền còn lại chưa thanh toán không vượt quá 30 (ba mươi) ngày kể từ ngày đến hạn của đợt thanh toán cuối cùng. Hết thời hạn này mà CAF vẫn chưa hoàn tất thanh toán, nếu khách hàng có yêu cầu bằng văn bản, CAF phải chịu lãi chậm thanh toán bằng 0,01%/ngày trên số tiền còn lại chưa thanh toán cho đến ngày thanh toán đầy đủ.",
+            "Khách Hàng chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, CAF thông báo để Khách Hàng điều chỉnh; thời hạn thanh toán được tính lại từ ngày CAF nhận đủ thông tin hợp lệ. Trường hợp CAF đã thực hiện đúng thông tin tài khoản do Khách Hàng cung cấp nhưng giao dịch bị chậm hoặc bị ngân hàng từ chối không do lỗi của CAF thì không được xem là CAF chậm thanh toán.",
+            "Mọi sửa đổi, bổ sung của Thoả Thuận này phải được lập thành văn bản.",
+            "Các khoản phí do ngân hàng của Khách Hàng thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi các bên có thỏa thuận khác bằng văn bản.",
+        ],
+        "customer_commitments": [
+            "Khách Hàng xác nhận đã được CAF giải thích đầy đủ về phương án lựa chọn, giá trị thu đổi, nguyên tắc cấn trừ, kế hoạch thanh toán, phương thức thanh toán và các thông tin khác liên quan tới Thoả Thuận này trước khi ký kết.",
+            "Khách Hàng tự nguyện lựa chọn phương án nêu tại Thoả Thuận này; đã đọc, hiểu rõ và nhận một bản Thoả Thuận sau khi ký.",
+            "Khách Hàng cam kết thông tin cá nhân, liên hệ và tài khoản nhận thanh toán cung cấp cho CAF là chính xác, hợp pháp. CAF được sử dụng thông tin của Khách Hàng tại Thỏa Thuận này phù hợp theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của CAF.",
+            "Bảo mật các thông tin liên quan tới Thoả Thuận này.",
+            "Khách Hàng cam kết Sản phẩm thu đổi thuộc quyền sở hữu hợp pháp của mình, không có tranh chấp hoặc bị áp dụng biện pháp bảo đảm, đồng thời không liên quan đến bất kỳ hành vi vi phạm pháp luật nào.",
+            "Khách Hàng không được chuyển giao, chuyển nhượng hoặc ủy quyền cho bất kỳ bên thứ ba nào nhận khoản thanh toán theo Thỏa Thuận này. CAF chỉ thực hiện thanh toán vào tài khoản ngân hàng đứng tên Khách Hàng đã được ghi nhận tại Mục I của Thỏa Thuận này.",
+        ],
+        "company_commitments": [
+            "CAF cam kết bàn giao sản phẩm quy đổi của CAF, thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch thanh toán đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán nếu Khách Hàng yêu cầu.",
+            "CAF bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Khách Hàng đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của CAF.",
+            "CAF bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin và phản ánh liên quan đến việc thực hiện kế hoạch thanh toán.",
+        ],
         "effectiveness_items": [
-            "Thoả thuận này có hiệu lực từ ngày ký. Quyền sở hữu đối với Sản phẩm thu đổi được chuyển giao ngay lập tức và hoàn toàn từ Khách Hàng sang CAF kể từ thời điểm CAF nhận bàn giao Tài sản trên thực tế và hai bên ký Bảng Kê Mua lại/Thỏa Thuận Thu đổi sản phẩm",
-            "Trường hợp có sự khác biệt giữa Thỏa thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc các nội dung được điều chỉnh tại Thỏa thuận này, Thỏa thuận này được ưu tiên áp dụng.",
+            "Thỏa Thuận này có hiệu lực kể từ ngày các bên ký và chỉ chấm dứt khi xảy ra một trong các trường hợp sau:\n(a) CAF đã hoàn tất việc thực hiện các nghĩa vụ theo Thỏa Thuận này; hoặc\n(b) Các Bên có thỏa thuận bằng văn bản về việc chấm dứt Thỏa Thuận này và Khách Hàng lựa chọn phương án thu đổi khác theo chính sách của CAF. Việc thực hiện phương án thu đổi mới sẽ tuân theo thỏa thuận và các tài liệu được các Bên ký kết thay thế Thỏa Thuận này.",
+            "Quyền sở hữu đối với Sản phẩm thu đổi được chuyển giao từ Khách Hàng sang CAF kể từ thời điểm các bên ký Biên bản Bàn giao và CAF hoàn tất việc tiếp nhận Sản phẩm thu đổi trên thực tế. Việc chuyển giao quyền sở hữu không phụ thuộc vào tiến độ thanh toán theo Thỏa Thuận này.",
+            "CAF không bị coi là vi phạm nghĩa vụ thanh toán nếu việc chậm thanh toán phát sinh do sự kiện bất khả kháng hoặc do yêu cầu của cơ quan nhà nước có thẩm quyền ảnh hưởng trực tiếp đến việc thực hiện thanh toán; CAF phải thông báo cho Khách Hàng trong thời gian hợp lý và tiếp tục thực hiện nghĩa vụ ngay sau khi sự kiện chấm dứt.",
+            "Mỗi bên tự chịu các nghĩa vụ thuế, phí của mình theo quy định pháp luật, trừ trường hợp pháp luật quy định khác.",
+            "Trường hợp có sự khác biệt giữa Thỏa Thuận này và các tài liệu, chứng từ khác liên quan đến giao dịch thu đổi sản phẩm về phương thức thanh toán, thời hạn thanh toán hoặc mọi nội dung có liên quan đến giao dịch thu đổi thì Thỏa Thuận này được ưu tiên áp dụng.",
             "Các bên ưu tiên trao đổi, đối chiếu và thương lượng thiện chí khi phát sinh vướng mắc. Trường hợp không giải quyết được, tranh chấp được xử lý tại cơ quan có thẩm quyền theo quy định pháp luật.",
-            "Thỏa Thuận này chấm dứt khi xảy ra một trong các trường hợp sau:\n(a) CAF đã hoàn thành đầy đủ nghĩa vụ thanh toán theo Thỏa Thuận này; hoặc\n(b) Các Bên thống nhất bằng văn bản về việc không tiếp tục thực hiện Thỏa Thuận này và khách hàng lựa chọn phương án thu đổi sản phẩm khác theo chính sách của CAF.\nPhụ lục được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản",
+            "Thỏa Thuận được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản.",
         ],
     },
 }
@@ -744,7 +809,7 @@ PAYMENT_SCHEDULE_RATES = (
     ("T+90", 25),
     ("T+120", 20),
 )
-PAYMENT_SCHEDULE_DATE_OFFSETS = (1, 30, 60, 90, 120)
+PAYMENT_SCHEDULE_DATE_OFFSETS = (0, 30, 60, 90, 120)
 
 
 def build_payment_schedule(total_amount):
@@ -792,6 +857,20 @@ def payment_planning_amounts(chung_tu_list, cash_amount):
     }
 
 
+def classify_payment_planning_option(chung_tu_list, cash_amount):
+    """Chọn phương án thu đổi theo bộ chứng từ và số tiền nhận bằng tiền."""
+    items = [item for item in (chung_tu_list or []) if item.get("loai")]
+    cash = float(cash_amount or 0)
+    if cash < 0:
+        return 1
+    if items and all(item.get("loai") == "Bảng kê" for item in items):
+        return 2
+    has_offsetting_doc = any(item.get("loai") in {"Hóa đơn", "Thuế TNCN", "Phải thu khác"} for item in items)
+    if has_offsetting_doc and cash > 0:
+        return 3
+    return 2
+
+
 def payment_planning_profile_for_plant(plant):
     """Return the Payment Planning legal text profile for the saved store plant."""
     return PAYMENT_PLANNING_PROFILES["cao"] if str(plant or "").strip() == "2122" else PAYMENT_PLANNING_PROFILES["pnj"]
@@ -827,13 +906,25 @@ def prepare_payment_planning_for_output(row, settings=None):
     p["planning_abbr"] = profile["abbr"]
     p["planning_representative_abbr"] = profile["representative_abbr"]
     p["planning_company_name"] = profile["company_name"]
+    p["planning_bk_alias"] = profile["bk_alias"]
+    p["planning_customer_name_label"] = profile["customer_name_label"]
+    p["planning_customer_id_label"] = profile["customer_id_label"]
     p["planning_store_name"] = profile["store_name"]
     p["planning_tax_code"] = profile["tax_code"]
     p["planning_pnj_address"] = profile["address"]
     p["planning_pnj_contact"] = profile["contact"]
     p["planning_definition_rows"] = profile["definition_rows"]
-    p["planning_has_working_day_definition"] = profile["has_working_day_definition"]
+    p["planning_offsetting_rule"] = profile["offsetting_rule"]
+    p["planning_payment_principles"] = profile["payment_principles"]
+    p["planning_customer_commitments"] = profile["customer_commitments"]
+    p["planning_company_commitments"] = profile["company_commitments"]
+    p["planning_section_ix_title"] = profile["section_ix_title"]
     p["planning_effectiveness_items"] = profile["effectiveness_items"]
+    p["planning_option"] = classify_payment_planning_option(p.get("chung_tu", []), amounts["cash_amount"])
+    p["planning_option_text"] = "  ".join(
+        f"{'☑' if p['planning_option'] == index else '☐'} {label}"
+        for index, label in enumerate(profile["option_labels"], start=1)
+    )
     p["planning_bk_numbers"] = ", ".join(bk_numbers) or p.get("so_bk") or "__________"
     p["planning_sign_date"] = f"{p.get('ngay') or '__'} / {p.get('thang') or '__'} / {p.get('nam') or '____'}"
     p["show_payment_dates"] = 1 if int(p.get("show_payment_dates") or 0) else 0
@@ -4251,9 +4342,17 @@ def make_payment_planning_xlsx(p):
     abbr = p.get("planning_abbr") or "PNJ"
     representative_abbr = p.get("planning_representative_abbr") or abbr
     definitions = p.get("planning_definition_rows") or PAYMENT_PLANNING_PROFILES["pnj"]["definition_rows"]
-    has_working_day_definition = bool(p.get("planning_has_working_day_definition"))
+    payment_principles = list(p.get("planning_payment_principles") or PAYMENT_PLANNING_PROFILES["pnj"]["payment_principles"])
+    customer_commitments = list(p.get("planning_customer_commitments") or PAYMENT_PLANNING_PROFILES["pnj"]["customer_commitments"])
+    company_commitments = list(p.get("planning_company_commitments") or PAYMENT_PLANNING_PROFILES["pnj"]["company_commitments"])
     effectiveness_items = list(p.get("planning_effectiveness_items") or PAYMENT_PLANNING_PROFILES["pnj"]["effectiveness_items"])
-    while len(effectiveness_items) < 4:
+    while len(payment_principles) < 5:
+        payment_principles.append("")
+    while len(customer_commitments) < 6:
+        customer_commitments.append("")
+    while len(company_commitments) < 3:
+        company_commitments.append("")
+    while len(effectiveness_items) < 7:
         effectiveness_items.append("")
 
     wb = Workbook()
@@ -4321,11 +4420,11 @@ def make_payment_planning_xlsx(p):
         21: "III. ĐỊNH NGHĨA VÀ CÁCH XÁC ĐỊNH THỜI HẠN",
         26: "IV. KẾ HOẠCH THANH TOÁN",
         34: "V. HÌNH THỨC VÀ THÔNG TIN THANH TOÁN",
-        37: "VI. NGUYÊN TẮC THANH TOÁN",
-        43: "VII. XÁC NHẬN VÀ CAM KẾT CỦA KHÁCH HÀNG",
-        48: f"VIII. CAM KẾT CỦA {abbr}",
-        52: "IX. HIỆU LỰC, THỨ TỰ ƯU TIÊN VÀ GIẢI QUYẾT PHÁT SINH",
-        57: "X. XÁC NHẬN CỦA CÁC BÊN",
+        38: "VI. NGUYÊN TẮC THANH TOÁN",
+        44: "VII. XÁC NHẬN VÀ CAM KẾT CỦA KHÁCH HÀNG",
+        51: f"VIII. CAM KẾT CỦA {abbr}",
+        55: p.get("planning_section_ix_title") or "IX. HIỆU LỰC, THỨ TỰ ƯU TIÊN VÀ GIẢI QUYẾT PHÁT SINH",
+        63: "X. XÁC NHẬN CỦA CÁC BÊN",
     }
     for row, text in section_rows.items():
         merge(row, 1, 5, text, section_fill, bold, left)
@@ -4337,24 +4436,24 @@ def make_payment_planning_xlsx(p):
     ]
     rows = {
         4: ["DOANH NGHIỆP", p.get("planning_company_name", ""), "", "KHÁCH HÀNG", p.get("ma_kh", "")],
-        5: ["Địa chỉ", p.get("planning_pnj_address", ""), "", "Họ và tên", p.get("ten_kh", "")],
-        6: ["Mã số doanh nghiệp", p.get("planning_tax_code", ""), "", "Số CCCD/Hộ chiếu", p.get("cccd", "")],
+        5: ["Địa chỉ", p.get("planning_pnj_address", ""), "", p.get("planning_customer_name_label", "Họ và tên"), p.get("ten_kh", "")],
+        6: ["Mã số doanh nghiệp", p.get("planning_tax_code", ""), "", p.get("planning_customer_id_label", "Số CCCD/Hộ chiếu"), p.get("cccd", "")],
         7: ["Đại diện/Người tiếp nhận", p.get("planning_representative_name", ""), "", "Ngày cấp/Nơi cấp", ""],
         8: ["Cửa hàng/Đơn vị", p.get("planning_store_name", ""), "", "Địa chỉ liên hệ", p.get("dia_chi", "")],
         9: [f"Điện thoại/Email {abbr}", p.get("planning_pnj_contact", ""), "", "Điện thoại/Email", p.get("sdt", "")],
         11: ["Chủ tài khoản", p.get("ten_tk") or p.get("ten_kh", ""), "", "Số tài khoản", p.get("so_tk", "")],
         12: ["Ngân hàng", p.get("ngan_hang", ""), "", "", ""],
-        14: ["Sản phẩm thu đổi", f'="Khách Hàng đồng ý cho {abbr} thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)&" theo phương án lựa chọn được ghi nhận tại Thoả Thuận này."', "", "", ""],
+        14: ["Sản phẩm thu đổi", f'="Khách Hàng đồng ý cho {abbr} thu đổi sản phẩm với Thông tin chi tiết được xác định theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)&" (""{p.get("planning_bk_alias", "BKMH")}"") theo phương án lựa chọn được ghi nhận tại Thoả Thuận này. Thời điểm bàn giao Sản phẩm thu đổi là thời điểm các bên ký kết Thoả Thuận này."', "", "", ""],
         15: ["Tổng giá trị thu đổi (VNĐ)", p.get("total_trade", 0), "", "", ""],
         16: ["Bằng chữ", p.get("total_trade_words", ""), "", "", ""],
-        17: ["Phương án lựa chọn", "☐ Phương án 1  ☐ Phương án 2  ☐ Phương án 3", "", "", ""],
+        17: ["Phương án lựa chọn", f'{p.get("planning_option_text", "")}\n(Chi tiết Phương án lựa chọn được đính kèm Thoả Thuận này)', "", "", ""],
         18: [f"Giá trị quy đổi sang sản phẩm {abbr} (VNĐ)", p.get("product_conversion", 0), "", "", ""],
         19: ["Giá trị nhận bằng tiền (VNĐ)", "=B15-B18", "", "", ""],
-        20: ["Nguyên tắc cấn trừ", f"Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:\n1. Phần Giá trị quy đổi sang sản phẩm {abbr} (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm {abbr} theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;\n2. Phần Giá trị nhận bằng tiền (nếu có) được {abbr} thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;\n3. Trường hợp sau khi cấn trừ, Giá trị quy đổi sang sản phẩm {abbr} thấp hơn giá thanh toán của sản phẩm {abbr}, Khách Hàng có trách nhiệm thanh toán cho {abbr} phần chênh lệch còn thiếu.", "", "", ""],
+        20: ["Nguyên tắc cấn trừ", f"Việc sử dụng Tổng giá trị thu đổi được thực hiện theo phương án do Khách Hàng lựa chọn tại Thỏa thuận này. Theo đó:\n1. Phần Giá trị quy đổi sang sản phẩm {abbr} (nếu có) được cấn trừ trực tiếp vào giá mua sản phẩm {abbr} theo Hóa đơn bán hàng tương ứng đính kèm Thoả Thuận này;\n2. Phần Giá trị nhận bằng tiền (nếu có) được {abbr} thanh toán cho Khách Hàng theo Kế hoạch thanh toán quy định tại Mục IV của Thỏa thuận này;\n3. {p.get('planning_offsetting_rule', '')}", "", "", ""],
         22: ["Ngày T", definitions.get("ngay_t", ""), "", "", ""],
-        23: ["Ngày làm việc" if has_working_day_definition else "Cách tính T+n", definitions.get("ngay_lam_viec" if has_working_day_definition else "cach_tinh", ""), "", "", ""],
-        24: ["Cách tính T+n" if has_working_day_definition else "Hoàn tất thanh toán", definitions.get("cach_tinh" if has_working_day_definition else "hoan_tat", ""), "", "", ""],
-        25: ["Hoàn tất thanh toán" if has_working_day_definition else "", definitions.get("hoan_tat", "") if has_working_day_definition else "", "", "", ""],
+        23: ["Cách tính T+n", definitions.get("cach_tinh", ""), "", "", ""],
+        24: ["Hoàn tất thanh toán", definitions.get("hoan_tat", ""), "", "", ""],
+        25: ["Hoàn tất bàn giao sản phẩm quy đổi", definitions.get("ban_giao", ""), "", "", ""],
         27: ["Đợt", "Thời điểm dự kiến", "Ngày dự kiến", "Tỷ lệ", "Số tiền (VNĐ)"],
         28: [1, "T/T+1", schedule_dates[0], 0.1, "=ROUND($B$19*D28,0)"],
         29: [2, "T+30", schedule_dates[1], 0.2, "=ROUND($B$19*D29,0)"],
@@ -4364,28 +4463,33 @@ def make_payment_planning_xlsx(p):
         33: ["Tổng", "", "", 1, "=SUM(E28:E32)"],
         35: ["Hình thức", "☐ Chuyển khoản    ☐ Khác", "", "", ""],
         36: ["Nội dung chuyển khoản", "", "", "", ""],
-        38: [1, "Kế hoạch thanh toán và phương án nhận giá trị thu đổi được hai bên tự nguyện thỏa thuận trên cơ sở đã được cung cấp đầy đủ thông tin; không làm thay đổi tổng giá trị thu đổi đã xác nhận, trừ khi có thỏa thuận khác bằng văn bản.", "", "", ""],
-        39: [2, f"{abbr} thực hiện thanh toán đúng số tiền, thời hạn và phương thức đã xác nhận tại Phụ lục này. Trường hợp {abbr} chậm thanh toán do lỗi của mình, trong trường hợp Khách Hàng yêu cầu lãi chậm thanh toán, {abbr} phải thanh toán cho Khách Hàng khoản lãi chậm thanh toán bằng 0,01%/ngày, tính trên số tiền chậm thanh toán và tương ứng với thời gian chậm thanh toán thực tế.", "", "", ""],
-        40: [3, f"Khách Hàng chịu trách nhiệm kiểm tra và cung cấp chính xác thông tin tài khoản. Nếu thông tin sai hoặc tài khoản không hợp lệ, {abbr} thông báo để Khách Hàng điều chỉnh; thời hạn thanh toán được tính lại từ ngày {abbr} nhận đủ thông tin hợp lệ.\n{abbr} không chịu trách nhiệm đối với hậu quả phát sinh trực tiếp từ thông tin sai do Khách Hàng cung cấp.", "", "", ""],
-        41: [4, "Mọi sửa đổi, bổ sung của Thoả Thuận này phải được lập thành văn bản.", "", "", ""],
-        42: [5, "Các khoản phí do ngân hàng của Khách Hàng thu (nếu có) được thực hiện theo chính sách của ngân hàng, trừ khi hai bên có thỏa thuận khác bằng văn bản.", "", "", ""],
-        44: [1, f"Khách Hàng xác nhận đã được {abbr} giải thích đầy đủ về phương án lựa chọn, giá trị thu đổi, nguyên tắc cấn trừ, kế hoạch thanh toán, phương thức thanh toán và các thông tin khác liên quan tới Thoả Thuận này trước khi ký kết.", "", "", ""],
-        45: [2, "Khách Hàng tự nguyện lựa chọn phương án nêu tại Thoả Thuận này; đã đọc, hiểu rõ và nhận một bản Thoả Thuận sau khi ký.", "", "", ""],
-        46: [3, f"Khách Hàng cam kết thông tin cá nhân, liên hệ và tài khoản nhận thanh toán cung cấp cho {abbr} là chính xác, hợp pháp.", "", "", ""],
-        47: [4, "Bảo mật các thông tin liên quan tới Thoả Thuận này.", "", "", ""],
-        49: [1, f"{abbr} cam kết bàn giao sản phẩm quy đổi của {abbr}, thanh toán đúng tổng giá trị nhận bằng tiền và kế hoạch đã xác nhận, đồng thời cung cấp chứng từ hoặc thông tin đối chiếu thanh toán nếu Khách Hàng yêu cầu.", "", "", ""],
-        50: [2, f"{abbr} bảo mật và xử lý thông tin cá nhân, thông tin tài khoản của Khách Hàng đúng mục đích giao dịch, theo quy định pháp luật và chính sách bảo vệ dữ liệu cá nhân của {abbr}.", "", "", ""],
-        51: [3, f"{abbr} bố trí đầu mối tiếp nhận yêu cầu tra soát, điều chỉnh thông tin phản ánh liên quan việc thực hiện kế hoạch thanh toán.", "", "", ""],
-        53: [1, effectiveness_items[0], "", "", ""],
-        54: [2, effectiveness_items[1], "", "", ""],
-        55: [3, effectiveness_items[2], "", "", ""],
-        56: [4, effectiveness_items[3], "", "", ""],
-        58: [f"\nKhách Hàng\n(Ký, ghi rõ họ tên)\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN {representative_abbr}/NGƯỜI ĐƯỢC ỦY QUYỀN\n{p.get('buyer_signature_title', '')}\n(Ký, ghi rõ họ tên, chức danh)\n\n\n{p.get('buyer_signature_name', '')}", "", ""],
-        59: ['=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", '=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", ""],
+        39: [1, payment_principles[0], "", "", ""],
+        40: [2, payment_principles[1], "", "", ""],
+        41: [3, payment_principles[2], "", "", ""],
+        42: [4, payment_principles[3], "", "", ""],
+        43: [5, payment_principles[4], "", "", ""],
+        45: [1, customer_commitments[0], "", "", ""],
+        46: [2, customer_commitments[1], "", "", ""],
+        47: [3, customer_commitments[2], "", "", ""],
+        48: [4, customer_commitments[3], "", "", ""],
+        49: [5, customer_commitments[4], "", "", ""],
+        50: [6, customer_commitments[5], "", "", ""],
+        52: [1, company_commitments[0], "", "", ""],
+        53: [2, company_commitments[1], "", "", ""],
+        54: [3, company_commitments[2], "", "", ""],
+        56: [1, effectiveness_items[0], "", "", ""],
+        57: [2, effectiveness_items[1], "", "", ""],
+        58: [3, effectiveness_items[2], "", "", ""],
+        59: [4, effectiveness_items[3], "", "", ""],
+        60: [5, effectiveness_items[4], "", "", ""],
+        61: [6, effectiveness_items[5], "", "", ""],
+        62: [7, effectiveness_items[6], "", "", ""],
+        64: [f"\nKhách Hàng\n(Ký, ghi rõ họ tên)\n\n\n{p.get('seller_signature_name', '')}", "", f"ĐẠI DIỆN {representative_abbr}/NGƯỜI ĐƯỢC ỦY QUYỀN\n{p.get('buyer_signature_title', '')}\n(Ký, ghi rõ họ tên, chức danh)\n\n\n{p.get('buyer_signature_name', '')}", "", ""],
+        65: ['=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", '=" Ngày ký "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', "", ""],
     }
 
-    merge_rows = {14, 16, 17, 20, 22, 23, 24, 25, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56}
-    for row in range(4, 60):
+    merge_rows = {14, 16, 17, 20, 22, 23, 24, 25, 39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 52, 53, 54, 56, 57, 58, 59, 60, 61, 62}
+    for row in range(4, 66):
         if row in section_rows:
             continue
         values = rows.get(row, ["", "", "", "", ""])
@@ -4408,7 +4512,7 @@ def make_payment_planning_xlsx(p):
         ws.cell(row=row, column=4).alignment = center
         ws.cell(row=row, column=5).alignment = right
 
-    for row in list(range(38, 43)) + list(range(44, 48)) + list(range(49, 52)) + list(range(53, 57)):
+    for row in list(range(39, 44)) + list(range(45, 51)) + list(range(52, 55)) + list(range(56, 63)):
         ws.cell(row=row, column=1).alignment = center
 
     for row in (15, 18, 19, 28, 29, 30, 31, 32, 33):
@@ -4417,23 +4521,23 @@ def make_payment_planning_xlsx(p):
         ws.cell(row=row, column=4).number_format = '0%'
     for row in (28, 29, 30, 31, 32):
         ws.cell(row=row, column=3).number_format = 'dd/mm/yyyy'
-    for row in (58, 59):
+    for row in (64, 65):
         ws.cell(row=row, column=1).alignment = center
         ws.cell(row=row, column=3).alignment = center
         ws.cell(row=row, column=1).font = bold
         ws.cell(row=row, column=3).font = bold
-    ws.merge_cells("A58:B58")
-    ws.merge_cells("C58:E58")
-    ws.merge_cells("A59:B59")
-    ws.merge_cells("C59:E59")
+    ws.merge_cells("A64:B64")
+    ws.merge_cells("C64:E64")
+    ws.merge_cells("A65:B65")
+    ws.merge_cells("C65:E65")
 
-    for row in range(1, 60):
+    for row in range(1, 66):
         ws.row_dimensions[row].height = 18
-    for row in (14, 20, 22, 23, 24, 25, 38, 39, 40, 41, 42, 44, 45, 46, 47, 49, 50, 51, 53, 54, 55, 56):
+    for row in (14, 17, 20, 22, 23, 24, 25, 39, 40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 52, 53, 54, 56, 57, 58, 59, 60, 61, 62):
         ws.row_dimensions[row].height = 42
-    ws.row_dimensions[58].height = 104
+    ws.row_dimensions[64].height = 104
 
-    ws.print_area = "A1:E59"
+    ws.print_area = "A1:E65"
     ws.page_setup.orientation = "portrait"
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
