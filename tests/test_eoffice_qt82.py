@@ -417,6 +417,11 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('class="planning-title-bg"', colored_html)
         self.assertIn("background: #0b1f3a", colored_html)
         self.assertIn("background: #c9a227", colored_html)
+        self.assertIn("print-color-adjust: exact", colored_html)
+        self.assertIn('font-family: "Times New Roman", "Noto Serif", "DejaVu Serif", serif !important;', colored_html)
+        self.assertIn(".page-one table", colored_html)
+        self.assertIn("line-height: 1.04", colored_html)
+        self.assertIn("background-color: #0b1f3a !important", colored_html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
         self.assertEqual(xlsx_response.status_code, 200)
