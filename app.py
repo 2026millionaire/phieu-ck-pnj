@@ -4665,13 +4665,17 @@ def make_payment_planning_xlsx(p):
 
     thin = Side(style="thin", color="000000")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    title_fill = PatternFill("solid", fgColor="D9EAF7")
-    section_fill = PatternFill("solid", fgColor="FFF2CC")
+    title_bg_enabled = bool(p.get("planning_title_bg_enabled"))
+    title_fill = PatternFill("solid", fgColor="0B1F3A" if title_bg_enabled else "D9EAF7")
+    subtitle_fill = PatternFill("solid", fgColor="C9A227")
+    section_fill = PatternFill("solid", fgColor="0B1F3A" if title_bg_enabled else "FFF2CC")
     input_fill = PatternFill("solid", fgColor="FCE4D6")
     header_fill = PatternFill("solid", fgColor="E2F0D9")
     bold = Font(name="Times New Roman", size=11, bold=True)
+    section_font = Font(name="Times New Roman", size=11, bold=True, color="FFFFFF" if title_bg_enabled else "000000")
+    subtitle_font = Font(name="Times New Roman", size=11, bold=True)
     normal = Font(name="Times New Roman", size=11)
-    title_font = Font(name="Times New Roman", size=13, bold=True)
+    title_font = Font(name="Times New Roman", size=13, bold=True, color="FFFFFF" if title_bg_enabled else "000000")
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
     left = Alignment(horizontal="left", vertical="center", wrap_text=True)
     right = Alignment(horizontal="right", vertical="center", wrap_text=True)
@@ -4710,7 +4714,13 @@ def make_payment_planning_xlsx(p):
     ws.column_dimensions["G"].hidden = True
 
     merge(1, 1, 5, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM", title_fill, title_font, center)
-    merge(2, 1, 5, '="Kèm theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)', None, normal, center)
+    merge(
+        2, 1, 5,
+        '="Kèm theo Bảng kê mua lại tài sản số: "&G1&" ngày "&DAY(G2)&"/"&MONTH(G2)&"/"&YEAR(G2)',
+        subtitle_fill if title_bg_enabled else None,
+        subtitle_font if title_bg_enabled else normal,
+        center,
+    )
 
     section_rows = {
         3: "I. THÔNG TIN CÁC BÊN",
@@ -4726,7 +4736,7 @@ def make_payment_planning_xlsx(p):
         63: "X. XÁC NHẬN CỦA CÁC BÊN",
     }
     for row, text in section_rows.items():
-        merge(row, 1, 5, text, section_fill, bold, left)
+        merge(row, 1, 5, text, section_fill, section_font, left)
 
     schedule = p.get("planning_schedule") or []
     schedule_dates = [

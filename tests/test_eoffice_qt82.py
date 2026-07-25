@@ -415,6 +415,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(color_settings.status_code, 200)
         colored_html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn('class="planning-title-bg"', colored_html)
+        self.assertIn("background: #0b1f3a", colored_html)
+        self.assertIn("background: #c9a227", colored_html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
         self.assertEqual(xlsx_response.status_code, 200)
@@ -422,6 +424,10 @@ class EofficeQt82Tests(unittest.TestCase):
         workbook = load_workbook(io.BytesIO(xlsx_response.data), data_only=False)
         sheet = workbook["Payment Planning"]
         self.assertEqual(sheet["A1"].value, "PHỤ LỤC SỐ 01: THOẢ THUẬN THU ĐỔI SẢN PHẨM")
+        self.assertEqual(sheet["A1"].fill.fgColor.rgb, "000B1F3A")
+        self.assertEqual(sheet["A1"].font.color.rgb, "00FFFFFF")
+        self.assertEqual(sheet["A2"].fill.fgColor.rgb, "00C9A227")
+        self.assertEqual(sheet["A3"].fill.fgColor.rgb, "000B1F3A")
         self.assertIn("Bảng kê mua lại tài sản", sheet["A2"].value)
         self.assertEqual(sheet["G1"].value, "000551/07_1305, 000552/07_1305")
         self.assertEqual(sheet["B6"].value, "0300521758")
