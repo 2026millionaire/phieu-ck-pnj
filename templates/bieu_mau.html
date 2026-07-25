@@ -73,7 +73,6 @@
 .material-type-vh-gold { background: #fff3bf; border-color: #f4d35e; color: #92400e; }
 .material-type-vh-silver { background: #e9ecef; border-color: #cbd5e1; color: #334155; }
 .material-type-nlt-gold { background: #d8f3dc; border-color: #95d5b2; color: #166534; }
-.material-selected-name { color: #475569; font-size: 0.78rem; margin-top: 5px; }
 @media (max-width: 576px) {
     .material-mobile-stt { display: none; }
     .material-choice-menu { min-width: min(17rem, 86vw); }
@@ -372,13 +371,13 @@
                     <i class="bi bi-gem"></i> Đề xuất nguyên liệu
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label d-block">Nội dung</label>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                        <label class="form-label mb-0">Nội dung</label>
                         <div class="btn-group" role="group" aria-label="Nội dung đề xuất">
                             <input type="radio" class="btn-check" name="materialPurpose" id="materialPurposeXuLy" value="xu_ly" checked>
-                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeXuLy">Xử lý</label>
+                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeXuLy">Làm hàng xử lý</label>
                             <input type="radio" class="btn-check" name="materialPurpose" id="materialPurposeBaoHanh" value="bao_hanh">
-                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeBaoHanh">Bảo hành</label>
+                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeBaoHanh">Làm hàng bảo hành</label>
                         </div>
                     </div>
                     <div class="d-flex align-items-center justify-content-between mb-1">
@@ -650,16 +649,16 @@ renderHmlRows();
 // ĐỀ XUẤT NGUYÊN LIỆU
 // ══════════════════════════════════════
 const materialCatalog = [
-    { code: '31000404', shortName: 'Vảy hàn 416', buttonName: 'VH 416', group: 'vh-gold' },
-    { code: '31000407', shortName: 'Vảy hàn 585', buttonName: 'VH 585', group: 'vh-gold' },
-    { code: '31000425', shortName: 'Vảy hàn 750', buttonName: 'VH 750', group: 'vh-gold' },
+    { code: '31000820', shortName: 'NL tinh 333', buttonName: 'NLT 333', group: 'nlt-gold' },
     { code: '31000204', shortName: 'NL tinh 416', buttonName: 'NLT 416', group: 'nlt-gold' },
     { code: '31000237', shortName: 'NL tinh 585', buttonName: 'NLT 585', group: 'nlt-gold' },
     { code: '31000217', shortName: 'NL tinh 750 (màu vàng)', buttonName: 'NLT 750', group: 'nlt-gold' },
-    { code: '31000243', shortName: 'NL tinh 750 (màu trắng)', buttonName: 'NLT 750 trắng', group: 'nlt-gold' },
-    { code: '32000090', shortName: 'Vảy hàn bạc', buttonName: 'VH bạc', group: 'vh-silver' },
-    { code: '31000403', shortName: 'Vảy hàn 333 (hội 335)', buttonName: 'VH 333', group: 'vh-gold' },
-    { code: '31000820', shortName: 'Vảy hàn 333 (hội 334)', buttonName: 'NLT 333', group: 'nlt-gold' }
+    { code: '31000243', shortName: 'NL tinh 750 (màu trắng)', buttonName: 'NLT 750', group: 'nlt-gold' },
+    { code: '31000403', shortName: 'Vảy hàn 333', buttonName: 'VH 333', group: 'vh-gold' },
+    { code: '31000404', shortName: 'Vảy hàn 416', buttonName: 'VH 416', group: 'vh-gold' },
+    { code: '31000407', shortName: 'Vảy hàn 585', buttonName: 'VH 585', group: 'vh-gold' },
+    { code: '31000425', shortName: 'Vảy hàn 750', buttonName: 'VH 750', group: 'vh-gold' },
+    { code: '32000090', shortName: 'Vảy hàn bạc', buttonName: 'VH bạc', group: 'vh-silver' }
 ];
 let materialRows = ['', '', ''];
 let materialQuantities = ['', '', ''];
@@ -702,13 +701,10 @@ function renderMaterialRows() {
     const tbody = document.getElementById('materialProposalBody');
     tbody.innerHTML = '';
     materialRows.forEach(function(code, idx) {
-        const selected = materialByCode(code);
-        const selectedText = selected ? (selected.code + ' - ' + selected.shortName) : 'Chưa chọn nguyên liệu';
         const tr = document.createElement('tr');
         tr.innerHTML =
             '<td class="text-center align-middle material-mobile-stt">' + (idx + 1) + '</td>' +
-            '<td>' + materialButtonHtml(code, idx) +
-            '<div class="material-selected-name">' + escapeMaterialText(selectedText) + '</div></td>' +
+            '<td>' + materialButtonHtml(code, idx) + '</td>' +
             '<td><input type="text" class="form-control form-control-sm material-quantity-input" data-idx="' + idx + '" value="' + escapeMaterialText(materialQuantities[idx] || '') + '" inputmode="decimal"></td>' +
             '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 material-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
         tbody.appendChild(tr);

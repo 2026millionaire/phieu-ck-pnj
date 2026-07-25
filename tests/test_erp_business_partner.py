@@ -201,6 +201,8 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("31000404", html)
         self.assertIn("31000425", html)
         self.assertIn("31000403", html)
+        self.assertIn("Làm hàng xử lý", html)
+        self.assertIn("Làm hàng bảo hành", html)
         self.assertIn("buttonName: 'VH 416'", html)
         self.assertIn("buttonName: 'VH bạc'", html)
         self.assertIn("buttonName: 'NLT 333'", html)
@@ -212,13 +214,15 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("material-type-nlt-gold", html)
         self.assertIn("material-mobile-stt", html)
         self.assertIn("material-quantity-input", html)
+        self.assertNotIn("material-selected-name", html)
         self.assertNotIn("material-button-grid", html)
         self.assertNotIn("material-code-select", html)
         self.assertNotIn("material-weight-input", html)
-        self.assertLess(html.index("code: '31000404'"), html.index("code: '31000407'"))
-        self.assertLess(html.index("code: '31000407'"), html.index("code: '31000425'"))
-        self.assertLess(html.index("code: '31000425'"), html.index("code: '31000204'"))
-        self.assertLess(html.index("code: '32000090'"), html.index("code: '31000403'"))
+        self.assertLess(html.index("code: '31000820'"), html.index("code: '31000204'"))
+        self.assertLess(html.index("code: '31000204'"), html.index("code: '31000237'"))
+        self.assertLess(html.index("code: '31000243'"), html.index("code: '31000403'"))
+        self.assertLess(html.index("code: '31000403'"), html.index("code: '31000404'"))
+        self.assertLess(html.index("code: '31000425'"), html.index("code: '32000090'"))
 
         print_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"
