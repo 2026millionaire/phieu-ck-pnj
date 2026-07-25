@@ -128,10 +128,12 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         html = self.client.get("/bieu-mau").get_data(as_text=True)
 
         self.assertIn('id="f1_ma_kh"', html)
-        self.assertIn('id="f1BpStatus"', html)
+        self.assertNotIn('id="f1BpStatus"', html)
         self.assertIn("/api/erp-business-partner-profile", html)
         self.assertIn("fetchF1BusinessPartnerProfile", html)
+        self.assertIn("<Đang tải...>", html)
         self.assertIn("birth_date", html)
+        self.assertIn(r"text.match(/^(\d{4})(\d{2})(\d{2})$/)", html)
 
         print_start = html.index("document.getElementById('btnPrintF1')")
         print_end = html.index("document.getElementById('btnPrintF2')")
