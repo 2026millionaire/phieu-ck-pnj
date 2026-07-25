@@ -63,6 +63,12 @@
                         <strong>CAO</strong> — Mẫu kiểm tra HML
                     </label>
                 </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="radio" name="formType" id="rbMaterialProposal" value="material_proposal">
+                    <label class="form-check-label" for="rbMaterialProposal">
+                        <strong>ĐXNL</strong> — Đề xuất nguyên liệu
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -307,6 +313,57 @@
                 </button>
             </div>
         </div>
+
+        <!-- ═══ ĐXNL: Đề xuất nguyên liệu ═══ -->
+        <div id="sectionMaterialProposal" style="display:none;">
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-gem"></i> Đề xuất nguyên liệu
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label d-block">Nội dung</label>
+                        <div class="btn-group" role="group" aria-label="Nội dung đề xuất">
+                            <input type="radio" class="btn-check" name="materialPurpose" id="materialPurposeXuLy" value="xu_ly" checked>
+                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeXuLy">Xử lý</label>
+                            <input type="radio" class="btn-check" name="materialPurpose" id="materialPurposeBaoHanh" value="bao_hanh">
+                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeBaoHanh">Bảo hành</label>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <label class="form-label mb-0">Các dòng lựa chọn đề xuất</label>
+                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" id="btnAddMaterialRow">
+                            <i class="bi bi-plus-circle"></i> Thêm dòng
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0" style="font-size:0.86rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:52px;">STT</th>
+                                    <th>Nguyên liệu</th>
+                                    <th style="width:52px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="materialProposalBody"></tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted">Tên nguyên liệu trên đề xuất sẽ tự rút gọn theo nhóm NL tinh / Vảy hàn và tuổi.</small>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="button" class="btn btn-primary" id="btnPrintMaterialProposal">
+                    <i class="bi bi-printer"></i> In đề xuất
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnPdfMaterialProposal">
+                    <i class="bi bi-file-earmark-pdf"></i> Tải PDF
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="btnClearMaterialProposal">
+                    <i class="bi bi-eraser"></i> Xóa form
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -349,6 +406,7 @@ document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
         document.getElementById('sectionF1').style.display = this.value === 'f1' ? '' : 'none';
         document.getElementById('sectionF2').style.display = this.value === 'f2' ? '' : 'none';
         document.getElementById('sectionCaoHml').style.display = this.value === 'cao_hml' ? '' : 'none';
+        document.getElementById('sectionMaterialProposal').style.display = this.value === 'material_proposal' ? '' : 'none';
     });
 });
 
@@ -535,6 +593,62 @@ document.getElementById('btnAddHmlRow').addEventListener('click', function() {
 });
 
 renderHmlRows();
+
+// ══════════════════════════════════════
+// ĐỀ XUẤT NGUYÊN LIỆU
+// ══════════════════════════════════════
+const materialCatalog = [
+    ['31000204', 'NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160'],
+    ['31000217', 'NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 7500'],
+    ['31000237', 'NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 5850'],
+    ['31000243', 'NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 7500'],
+    ['31000403', 'NLT VÀNG VHÀN KQT TUỔI 3330 (hội 335)'],
+    ['31000407', 'NLT VÀNG VHÀN KQT TUỔI 5850'],
+    ['31000820', 'NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330(hội 334)'],
+    ['32000090', 'NLT BẠC VHÀN KQT TUỔI 8000']
+];
+let materialRows = ['', '', ''];
+
+function materialOptionHtml(selectedCode) {
+    let html = '<option value="">-- Chọn nguyên liệu --</option>';
+    materialCatalog.forEach(function(item) {
+        const selected = item[0] === selectedCode ? ' selected' : '';
+        html += '<option value="' + item[0] + '"' + selected + '>' + item[0] + ' - ' + item[1] + '</option>';
+    });
+    return html;
+}
+
+function renderMaterialRows() {
+    const tbody = document.getElementById('materialProposalBody');
+    tbody.innerHTML = '';
+    materialRows.forEach(function(code, idx) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td class="text-center align-middle">' + (idx + 1) + '</td>' +
+            '<td><select class="form-select form-select-sm material-code-select" data-idx="' + idx + '">' + materialOptionHtml(code) + '</select></td>' +
+            '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 material-del-row" data-idx="' + idx + '" title="Xóa dòng"><i class="bi bi-trash3"></i></button></td>';
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.material-code-select').forEach(function(select) {
+        select.addEventListener('change', function() {
+            materialRows[parseInt(this.dataset.idx)] = this.value;
+        });
+    });
+    tbody.querySelectorAll('.material-del-row').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            materialRows.splice(parseInt(this.dataset.idx), 1);
+            if (!materialRows.length) materialRows.push('');
+            renderMaterialRows();
+        });
+    });
+}
+
+document.getElementById('btnAddMaterialRow').addEventListener('click', function() {
+    materialRows.push('');
+    renderMaterialRows();
+});
+
+renderMaterialRows();
 
 // ══════════════════════════════════════
 // F1 + F2
@@ -780,6 +894,32 @@ document.getElementById('btnPdfCaoHml').addEventListener('click', function() {
     if (params) window.location.href = appUrl('/cao-hml/pdf') + '?' + params.toString();
 });
 
+function buildMaterialProposalParams() {
+    const codes = materialRows.filter(Boolean);
+    if (!codes.length) {
+        alert('Vui lòng chọn ít nhất một nguyên liệu.');
+        return null;
+    }
+    const d = document.getElementById('ngayLap').value.split('-');
+    const purpose = document.querySelector('input[name="materialPurpose"]:checked').value;
+    return new URLSearchParams({
+        purpose: purpose,
+        material_codes: codes.join('\n'),
+        ngay: d[2] || '',
+        thang: d[1] || '',
+        nam: d[0] || '',
+    });
+}
+
+document.getElementById('btnPrintMaterialProposal').addEventListener('click', function() {
+    const params = buildMaterialProposalParams();
+    if (params) window.open(appUrl('/de-xuat-nguyen-lieu/print') + '?' + params.toString(), '_blank');
+});
+document.getElementById('btnPdfMaterialProposal').addEventListener('click', function() {
+    const params = buildMaterialProposalParams();
+    if (params) window.location.href = appUrl('/de-xuat-nguyen-lieu/pdf') + '?' + params.toString();
+});
+
 document.getElementById('btnClearF1').addEventListener('click', function() {
     clearTimeout(f1BpProfileTimer);
     f1BpProfileInFlight = '';
@@ -796,6 +936,11 @@ document.getElementById('btnClearF2').addEventListener('click', function() {
 document.getElementById('btnClearCaoHml').addEventListener('click', function() {
     hmlRows = ['', '', ''];
     renderHmlRows();
+});
+document.getElementById('btnClearMaterialProposal').addEventListener('click', function() {
+    document.getElementById('materialPurposeXuLy').checked = true;
+    materialRows = ['', '', ''];
+    renderMaterialRows();
 });
 </script>
 {% endblock %}

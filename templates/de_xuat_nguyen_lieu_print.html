@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Đề xuất nguyên liệu</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 14mm 18mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            color: #000;
+            font-family: "Times New Roman", Times, serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-size: 14px;
+            line-height: 1.45;
+            margin: 0 auto;
+            width: 174mm;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        @media screen {
+            body { background: #d1d5db; padding: 12mm; }
+            .page {
+                background: #fff;
+                border-radius: 4px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+                min-height: 270mm;
+                padding: 14mm 18mm;
+            }
+        }
+
+        @media print {
+            body { background: #fff; padding: 0; }
+            .page { padding: 0; }
+            .no-print { display: none !important; }
+            div[style*="position: fixed"] { display: none !important; }
+        }
+
+        .action-bar {
+            font-family: "Segoe UI", sans-serif;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .action-bar .btn {
+            background: #0ea5e9;
+            border: 0;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 14px;
+            padding: 8px 24px;
+        }
+
+        .logo-header {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .logo-header img { height: 38px; }
+        .company-name {
+            color: #1a3a5c;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .company-sub {
+            color: #555;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+        }
+
+        .title {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .date-line {
+            font-style: italic;
+            margin-bottom: 12px;
+            text-align: right;
+        }
+        .body-text {
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        .label {
+            font-weight: 700;
+        }
+
+        .material-table {
+            border-collapse: collapse;
+            font-size: 13.5px;
+            margin: 10px 0 14px;
+            width: 100%;
+        }
+        .material-table th,
+        .material-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            vertical-align: middle;
+        }
+        .material-table th {
+            font-weight: 700;
+            text-align: center;
+        }
+        .col-stt { text-align: center; width: 12%; }
+        .col-code { text-align: center; width: 26%; }
+        .col-name { width: 62%; }
+
+        .note {
+            margin-bottom: 14px;
+            text-align: justify;
+        }
+        .signature-wrap {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        .signature {
+            text-align: center;
+            width: 48%;
+        }
+        .signature-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .signature-sub {
+            font-style: italic;
+            margin-bottom: 48px;
+        }
+    </style>
+</head>
+<body>
+    <div class="action-bar no-print">
+        <button class="btn" onclick="window.print()">&#128424; In đề xuất nguyên liệu</button>
+    </div>
+
+    <div class="page">
+        <div class="logo-header">
+            <img src="/static/logo_pnj.webp" alt="PNJ">
+            <div>
+                <div class="company-name">CÔNG TY CP VÀNG BẠC ĐÁ QUÝ PHÚ NHUẬN</div>
+                <div class="company-sub">PHU NHUAN JEWELRY JOINT STOCK COMPANY</div>
+            </div>
+        </div>
+
+        <div class="title">ĐỀ XUẤT NGUYÊN LIỆU</div>
+        <div class="date-line">Huế, ngày {{ ngay }} tháng {{ thang }} năm {{ nam }}</div>
+
+        <div class="body-text">
+            <span class="label">Nội dung:</span>
+            Đề xuất nguyên liệu để {{ purpose }} sản phẩm tại cửa hàng.
+        </div>
+
+        <table class="material-table">
+            <thead>
+                <tr>
+                    <th class="col-stt">STT</th>
+                    <th class="col-code">Mã NL</th>
+                    <th class="col-name">Tên nguyên liệu đề xuất</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td class="col-stt">{{ loop.index }}</td>
+                    <td class="col-code">{{ row.code }}</td>
+                    <td class="col-name">{{ row.short_name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="note">
+            Kính đề nghị bộ phận liên quan xem xét cấp nguyên liệu nêu trên để cửa hàng thực hiện đúng nhu cầu nghiệp vụ.
+        </div>
+
+        <div class="signature-wrap">
+            <div class="signature">
+                <div class="signature-title">Người đề xuất</div>
+                <div class="signature-sub">(Ký, ghi rõ họ tên)</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -192,6 +192,26 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         rendered_html = renderer.call_args.args[0]
         self.assertIn("TRAN VAN A", rendered_html)
 
+    def test_material_proposal_form_and_print_rules(self):
+        html = self.client.get("/bieu-mau").get_data(as_text=True)
+
+        self.assertIn('id="rbMaterialProposal"', html)
+        self.assertIn('id="btnPrintMaterialProposal"', html)
+        self.assertIn('id="btnPdfMaterialProposal"', html)
+        self.assertIn("31000403", html)
+        self.assertIn("NLT VÀNG VHÀN KQT TUỔI 3330", html)
+
+        print_html = self.client.get(
+            "/de-xuat-nguyen-lieu/print?"
+            "purpose=bao_hanh&material_codes=31000204%0A31000403%0A32000090&ngay=25&thang=07&nam=2026"
+        ).get_data(as_text=True)
+
+        self.assertIn("Đề xuất nguyên liệu để bảo hành sản phẩm", print_html)
+        self.assertIn("NL tinh vàng 4160", print_html)
+        self.assertIn("Vảy hàn 3330", print_html)
+        self.assertIn("Vảy hàn 8000", print_html)
+        self.assertNotIn("NLT VÀNG VHÀN KQT", print_html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -94,6 +94,16 @@ CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME = os.environ.get(
     "CUSTOMER_LOOKUP_TURNSTILE_HOSTNAME", ""
 ).strip()
 BIEU_MAU_BP_FREE_UNIQUE_LOOKUPS = 3
+MATERIAL_PROPOSAL_CATALOG = {
+    "31000204": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 4160",
+    "31000217": "NLT VÀNG ĐÚC R MÀU VÀNG TUỔI 7500",
+    "31000237": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 5850",
+    "31000243": "NLT VÀNG ĐÚC R MÀU TRẮNG TUỔI 7500",
+    "31000403": "NLT VÀNG VHÀN KQT TUỔI 3330 (hội 335)",
+    "31000407": "NLT VÀNG VHÀN KQT TUỔI 5850",
+    "31000820": "NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330(hội 334)",
+    "32000090": "NLT BẠC VHÀN KQT TUỔI 8000",
+}
 _customer_lookup_store = None
 _customer_identity_store = None
 _employee_lookup_store = None
@@ -1965,6 +1975,8 @@ def check_auth():
         "doi_thongtin_pdf_f2",
         "cao_hml_print",
         "cao_hml_pdf",
+        "de_xuat_nguyen_lieu_print",
+        "de_xuat_nguyen_lieu_pdf",
         "api_tvv",
         "api_lydo_huy",
         "api_erp_business_partner_profile",
@@ -2341,6 +2353,38 @@ def _assess_bieu_mau_bp_captcha(customer_code, turnstile_token):
         seen.append(digest)
         session["bieu_mau_bp_lookup_digests"] = seen[-20:]
     return None
+
+
+def short_material_name(raw_name):
+    text = re.sub(r"\s+", " ", str(raw_name or "").replace("Ð", "Đ").strip().upper())
+    age_match = re.search(r"TUỔI\s*([0-9]{4})", text)
+    age = age_match.group(1) if age_match else ""
+    if "VHÀN" in text:
+        base = "Vảy hàn"
+    elif "NLT VÀNG" in text:
+        base = "NL tinh vàng"
+    elif "NLT BẠC" in text:
+        base = "NL tinh bạc"
+    else:
+        base = text.title()
+    return f"{base} {age}".strip()
+
+
+def material_proposal_rows(material_codes, blank_rows=0):
+    rows = []
+    for code in material_codes:
+        canonical = remove_all_whitespace(code)
+        raw_name = MATERIAL_PROPOSAL_CATALOG.get(canonical)
+        if not raw_name:
+            continue
+        rows.append({
+            "code": canonical,
+            "raw_name": raw_name,
+            "short_name": short_material_name(raw_name),
+        })
+    for _ in range(max(0, blank_rows)):
+        rows.append({"code": "", "raw_name": "", "short_name": ""})
+    return rows
 
 
 def get_accessible_phieu(db, phieu_id):
@@ -2913,6 +2957,38 @@ def cao_hml_pdf():
     store = ascii_filename_part(request.args.get("store", "CAO 27 HA NOI HUE"), 28)
     plan = ascii_filename_part(request.args.get("plan", "2122"), 12)
     return send_print_html_pdf(render_cao_hml_print_html(), f"CAO HML {store} PLAN {plan}.pdf")
+
+
+@app.route("/de-xuat-nguyen-lieu/print")
+def de_xuat_nguyen_lieu_print():
+    """Đề xuất nguyên liệu printable HTML."""
+    return render_de_xuat_nguyen_lieu_html()
+
+
+def render_de_xuat_nguyen_lieu_html():
+    now = datetime.now()
+    raw_purpose = str(request.args.get("purpose") or "xu_ly").strip().lower()
+    purpose = "bảo hành" if raw_purpose in ("bao_hanh", "bảo hành", "baohanh") else "xử lý"
+    material_codes = request.args.get("material_codes", "").splitlines()
+    rows = material_proposal_rows(material_codes)
+    if not rows:
+        rows = material_proposal_rows([], 3)
+    return render_template(
+        "de_xuat_nguyen_lieu_print.html",
+        purpose=purpose,
+        rows=rows,
+        ngay=request.args.get("ngay", now.strftime("%d")),
+        thang=request.args.get("thang", now.strftime("%m")),
+        nam=request.args.get("nam", now.strftime("%Y")),
+    )
+
+
+@app.route("/de-xuat-nguyen-lieu/pdf")
+def de_xuat_nguyen_lieu_pdf():
+    """Đề xuất nguyên liệu PDF rendered from printable HTML."""
+    now = datetime.now()
+    filename = f"DE XUAT NGUYEN LIEU {now.strftime('%Y%m%d')}.pdf"
+    return send_print_html_pdf(render_de_xuat_nguyen_lieu_html(), filename)
 
 
 @app.route("/eoffice")
