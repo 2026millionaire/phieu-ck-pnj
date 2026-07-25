@@ -1262,7 +1262,7 @@ def form_pdf_filename(short_name):
     safe_name = "".join(ch for ch in safe_name if unicodedata.category(ch) != "Mn")
     safe_name = re.sub(r"[^A-Za-z0-9]+", " ", safe_name)
     safe_name = re.sub(r"\s+", " ", safe_name).strip()[:50].strip() or "Bieu mau"
-    return f"{safe_name} & {form_download_date()}_{random_file_suffix()}.pdf"
+    return f"{safe_name} {form_download_date()}_{random_file_suffix()}.pdf"
 
 
 def build_qr_url(ngan_hang, so_tk, amount=None, memo=None):
@@ -2460,7 +2460,7 @@ def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
             "code": canonical,
             "raw_name": raw_name,
             "short_name": material_short_name(canonical, raw_name),
-            "unit": "PHÂN",
+            "unit": "phân",
             "quantity": quantity,
             "weight": quantity,
         })
@@ -3048,7 +3048,15 @@ def de_xuat_nguyen_lieu_print():
 def render_de_xuat_nguyen_lieu_html():
     now = datetime.now()
     raw_purpose = str(request.args.get("purpose") or "xu_ly").strip().lower()
-    purpose = "bảo hành" if raw_purpose in ("bao_hanh", "bảo hành", "baohanh") else "xử lí"
+    if raw_purpose in ("bao_hanh", "bảo hành", "baohanh"):
+        purpose = "bảo hành"
+        custom_purpose = False
+    elif raw_purpose in ("custom", "tu_ghi", "tự ghi", "tu ghi"):
+        purpose = ""
+        custom_purpose = True
+    else:
+        purpose = "xử lý"
+        custom_purpose = False
     material_codes = request.args.get("material_codes", "").splitlines()
     quantities = request.args.get("quantities", "").splitlines()
     rows, totals = material_proposal_rows(material_codes, quantities)
@@ -3057,6 +3065,7 @@ def render_de_xuat_nguyen_lieu_html():
     return render_template(
         "de_xuat_nguyen_lieu_print.html",
         purpose=purpose,
+        custom_purpose=custom_purpose,
         rows=rows,
         totals=totals,
         ngay=request.args.get("ngay", now.strftime("%d")),

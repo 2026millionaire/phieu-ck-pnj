@@ -371,13 +371,21 @@
                     <i class="bi bi-gem"></i> Đề xuất nguyên liệu
                 </div>
                 <div class="card-body">
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
-                        <label class="form-label mb-0">Nội dung</label>
-                        <div class="btn-group" role="group" aria-label="Nội dung đề xuất">
-                            <input type="radio" class="btn-check" name="materialPurpose" id="materialPurposeXuLy" value="xu_ly" checked>
-                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeXuLy">Làm hàng xử lý</label>
-                            <input type="radio" class="btn-check" name="materialPurpose" id="materialPurposeBaoHanh" value="bao_hanh">
-                            <label class="btn btn-outline-primary btn-sm" for="materialPurposeBaoHanh">Làm hàng bảo hành</label>
+                    <div class="mb-3">
+                        <label class="form-label mb-1">Nội dung diễn giải</label>
+                        <div class="d-grid gap-1" role="radiogroup" aria-label="Nội dung đề xuất">
+                            <label class="form-check mb-0">
+                                <input class="form-check-input" type="radio" name="materialPurpose" id="materialPurposeXuLy" value="xu_ly" checked>
+                                <span class="form-check-label">Đề xuất nguyên liệu làm hàng <strong>xử lý</strong></span>
+                            </label>
+                            <label class="form-check mb-0">
+                                <input class="form-check-input" type="radio" name="materialPurpose" id="materialPurposeBaoHanh" value="bao_hanh">
+                                <span class="form-check-label">Đề xuất nguyên liệu làm hàng <strong>bảo hành</strong></span>
+                            </label>
+                            <label class="form-check mb-0">
+                                <input class="form-check-input" type="radio" name="materialPurpose" id="materialPurposeCustom" value="custom">
+                                <span class="form-check-label">................................................................................... (tự ghi)</span>
+                            </label>
                         </div>
                     </div>
                     <div class="d-flex align-items-center justify-content-between mb-1">

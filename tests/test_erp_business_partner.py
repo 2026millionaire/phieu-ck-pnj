@@ -209,7 +209,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertEqual(response.mimetype, "application/pdf")
         self.assertRegex(
             response.headers.get("Content-Disposition", ""),
-            r"F1 XLDL & 25\.07\.2026_[A-Za-z0-9]{4}\.pdf",
+            r"F1 XLDL 25\.07\.2026_[A-Za-z0-9]{4}\.pdf",
         )
         self.assertGreater(renderer.call_count, 0)
         rendered_html = renderer.call_args.args[0]
@@ -227,7 +227,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertRegex(
                     response.headers.get("Content-Disposition", ""),
-                    re.escape(prefix) + r" & 25\.07\.2026_[A-Za-z0-9]{4}\.pdf",
+                    re.escape(prefix) + r" 25\.07\.2026_[A-Za-z0-9]{4}\.pdf",
                 )
 
     def test_material_proposal_form_and_print_rules(self):
@@ -239,8 +239,10 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("31000404", html)
         self.assertIn("31000425", html)
         self.assertIn("31000403", html)
-        self.assertIn("Làm hàng xử lý", html)
-        self.assertIn("Làm hàng bảo hành", html)
+        self.assertIn("Đề xuất nguyên liệu làm hàng <strong>xử lý</strong>", html)
+        self.assertIn("Đề xuất nguyên liệu làm hàng <strong>bảo hành</strong>", html)
+        self.assertIn('id="materialPurposeCustom"', html)
+        self.assertIn("................................................................................... (tự ghi)", html)
         self.assertIn("buttonName: 'VH 416'", html)
         self.assertIn("buttonName: 'VH bạc'", html)
         self.assertIn("buttonName: 'NLT 333'", html)
@@ -278,6 +280,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("TRANG : 1/1", print_html)
         self.assertIn("Số: ...../1305-2026", print_html)
         self.assertIn("Đề xuất nguyên liệu làm hàng bảo hành.", print_html)
+        self.assertIn("<td class=\"col-unit\">phân</td>", print_html)
         self.assertIn("Căn cứ theo:</span> Nhu cầu thực tế tại cửa hàng", print_html)
         self.assertIn("Xuất tại kho:</span> 1203", print_html)
         self.assertIn("Kho, đơn vị nhận:</span>1204", print_html)
@@ -305,9 +308,16 @@ class ErpBusinessPartnerTests(unittest.TestCase):
             "purpose=xu_ly&material_codes=31000820%0A32000090"
             "&quantities=1%0A2&ngay=25&thang=07&nam=2026"
         ).get_data(as_text=True)
-        self.assertIn("Đề xuất nguyên liệu làm hàng xử lí.", xu_ly_html)
+        self.assertIn("Đề xuất nguyên liệu làm hàng xử lý.", xu_ly_html)
         self.assertIn("31000820 - NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330 (hội 334)", xu_ly_html)
         self.assertIn("32000090 - NLT BẠC VHÀN KQT TUỔI 8000", xu_ly_html)
+
+        custom_html = self.client.get(
+            "/de-xuat-nguyen-lieu/print?"
+            "purpose=custom&material_codes=31000820&quantities=1&ngay=25&thang=07&nam=2026"
+        ).get_data(as_text=True)
+        self.assertIn("Nội dung:</span> ...................................................................................", custom_html)
+        self.assertNotIn("Đề xuất nguyên liệu làm hàng .", custom_html)
 
 
 if __name__ == "__main__":
