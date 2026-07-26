@@ -1047,6 +1047,15 @@ textarea#sap_data {
                     <div class="row g-2 align-items-center">
                         <div class="col-auto"><label class="form-label mb-0"><i class="bi bi-calendar3"></i> Ngày lập</label></div>
                         <div class="col-md-4 col"><input type="date" class="form-control form-control-sm" id="ngayLap" name="ngay_lap"></div>
+                        <div class="col-auto"><label class="form-label mb-0">Thời gian thanh toán</label></div>
+                        <div class="col-md-5 col">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Thời gian thanh toán">
+                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT120" value="T120" checked>
+                                <label class="btn btn-outline-primary" for="paymentTimeT120">T120</label>
+                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT0" value="T0">
+                                <label class="btn btn-outline-primary" for="paymentTimeT0">T0</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1184,9 +1193,9 @@ textarea#sap_data {
 
                         <!-- Hiệu lực + TT + Lưu ý -->
                         <div style="font-size:0.42rem; margin-top:2px;">
-                            Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.
+                            Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản.
                         </div>
-                        <div style="font-size:0.42rem;">
+                        <div id="previewPaymentSchedule" style="font-size:0.42rem;">
                             <strong>Thời gian thanh toán:</strong><br>
                             1. T+0/1: 10% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="10">0</span> đồng</strong><br>
                             2. T+30: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong><br>
@@ -1194,7 +1203,7 @@ textarea#sap_data {
                             4. T+90: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
                             5. T+120: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong>
                         </div>
-                        <div style="font-size:0.4rem;">
+                        <div id="previewPaymentNote" style="font-size:0.4rem;">
                             * Liên hệ: <strong>0234 3847 588</strong>
                         </div>
 
@@ -2378,6 +2387,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loaiMap.forEach(l => loaiMetaMap[l.value] = l);
     const taxDocPrefix = '4800';
     const taxDocLength = 10;
+    const otherTransferType = 'Phải CK khác';
+    const otherTransferDefaultLabel = 'KH chuyển khoản thanh toán';
     const docTypePrefixes = {
         'Bảng kê': '{{ bk_prefix }}',
         'Hóa đơn': '{{ settings.get("invoice_prefix", "901") }}',
@@ -2390,6 +2401,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyLoaiDefaults(item, previousLoai) {
         if (item.loai !== 'Bảng kê') item.bk_ref = '';
+        if (item.loai === otherTransferType && !(item.label || '').trim()) {
+            item.label = otherTransferDefaultLabel;
+        }
+        if (previousLoai === otherTransferType && item.loai !== otherTransferType) {
+            item.label = '';
+        }
         const currentSoCt = (item.so_ct || '').trim();
         const previousPrefix = previousLoai ? docTypePrefixes[previousLoai] : '';
         const knownPrefixes = Object.values(docTypePrefixes).filter(Boolean);
@@ -2433,11 +2450,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return loaiMetaMap[loai] || loaiMap[0];
     }
 
+    function transactionDisplayLabel(item) {
+        if (item && item.loai === otherTransferType) {
+            return (item.label || '').trim() || otherTransferDefaultLabel;
+        }
+        return item && item.loai ? item.loai : '';
+    }
+
     function renderLoaiButton(item, idx) {
         const meta = getLoaiMeta(item.loai);
         const buttonId = 'sapDocType' + idx;
         const isMobile = window.matchMedia('(max-width: 360px)').matches;
-        const pickerLoaiOrder = ['Bảng kê', 'Hóa đơn', 'Biên nhận cọc', 'HBTL', 'Thuế TNCN'];
+        const pickerLoaiOrder = ['Bảng kê', 'Hóa đơn', 'Biên nhận cọc', 'HBTL', 'Phải CK khác', 'Thuế TNCN'];
         // A dropup renders from top to bottom, so reverse the normal picker order.
         const options = (isMobile ? pickerLoaiOrder.slice().reverse() : pickerLoaiOrder)
             .map(function(loai) { return getLoaiMeta(loai); });
@@ -2555,6 +2579,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderDocumentDocInput(item, idx) {
         const menuId = 'sapDocumentSuggestion' + idx;
+        if (item.loai === otherTransferType) {
+            return '<input type="text" class="form-control form-control-sm sap-edit sap-other-transfer-label-input" '
+                + 'data-idx="' + idx + '" data-field="label" value="' + escapeHtml((item.label || '').trim() || otherTransferDefaultLabel) + '" '
+                + 'placeholder="' + escapeHtml(otherTransferDefaultLabel) + '" maxlength="80" autocomplete="off">';
+        }
         const inputHtml = '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" '
             + 'data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" '
             + 'inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">';
@@ -2867,6 +2896,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showPaymentDatesEnabled() {
         return window.__appSettings.show_payment_dates_default === '1';
+    }
+
+    function selectedPaymentTimeMode() {
+        const checked = document.querySelector('input[name="payment_time_mode"]:checked');
+        return checked ? checked.value : 'T120';
+    }
+
+    function setPaymentTimeMode(mode) {
+        const normalized = mode === 'T0' ? 'T0' : 'T120';
+        const radio = document.querySelector('input[name="payment_time_mode"][value="' + normalized + '"]');
+        if (radio) radio.checked = true;
+        updatePaymentTimeModePreview();
+    }
+
+    function updatePaymentTimeModePreview() {
+        const showSchedule = selectedPaymentTimeMode() !== 'T0';
+        const scheduleEl = document.getElementById('previewPaymentSchedule');
+        const noteEl = document.getElementById('previewPaymentNote');
+        if (scheduleEl) scheduleEl.classList.toggle('d-none', !showSchedule);
+        if (noteEl) noteEl.classList.toggle('d-none', !showSchedule);
     }
 
     function autoFillTransactionsEnabled() {
@@ -3380,6 +3429,18 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
+        tbody.querySelectorAll('.sap-other-transfer-label-input').forEach(function(el) {
+            el.addEventListener('input', async function(event) {
+                if (!await handleTransactionManualIntent(event)) {
+                    renderSapTable(sapItems);
+                    return;
+                }
+                const idx = parseInt(this.dataset.idx);
+                if (sapItems[idx]) sapItems[idx].label = this.value;
+                updateSummary();
+            });
+        });
+
         tbody.querySelectorAll('.sap-amount-input').forEach(function(el) {
             el.addEventListener('blur', async function(event) {
                 if (!await handleTransactionManualIntent(event)) {
@@ -3446,7 +3507,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // Preview row
             const ptr = document.createElement('tr');
-            ptr.innerHTML = '<td>' + item.loai + '</td><td>' + item.so_ct + '</td>' +
+            ptr.innerHTML = '<td>' + escapeHtml(transactionDisplayLabel(item)) + '</td><td>' + escapeHtml(item.so_ct || '') + '</td>' +
                 '<td>' + formatNum(item.gia_tri) + '</td><td>' + (item.gio || '') + '</td>';
             previewTbody.appendChild(ptr);
         });
@@ -3543,6 +3604,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updatePaymentSchedulePreview(totalCK) {
+        updatePaymentTimeModePreview();
         const total = Math.max(0, Math.round(totalCK || 0));
         let allocated = 0;
         const items = Array.from(document.querySelectorAll('.pv-payment-schedule-amount'));
@@ -3637,6 +3699,10 @@ document.addEventListener('DOMContentLoaded', function() {
         hideDocumentSuggestions();
         schedulePurchaseOrderCustomerProfile();
         scheduleDocumentPrefetch();
+    });
+
+    document.querySelectorAll('input[name="payment_time_mode"]').forEach(function(radio) {
+        radio.addEventListener('change', updatePaymentTimeModePreview);
     });
 
     // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
@@ -3814,6 +3880,7 @@ document.addEventListener('DOMContentLoaded', function() {
             plant: document.getElementById('plant').value,
             use_bk_ref: useBkRefEnabled(),
             show_payment_dates: showPaymentDatesEnabled(),
+            payment_time_mode: selectedPaymentTimeMode(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -4051,6 +4118,7 @@ document.addEventListener('DOMContentLoaded', function() {
             plant: document.getElementById('plant').value,
             use_bk_ref: useBkRefEnabled(),
             show_payment_dates: showPaymentDatesEnabled(),
+            payment_time_mode: selectedPaymentTimeMode(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -4161,6 +4229,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const radio = document.querySelector('input[name="nguoi_ki"][value="' + p.nguoi_ki + '"]');
                     if (radio) radio.checked = true;
                 }
+                setPaymentTimeMode(p.payment_time_mode || 'T120');
                 if (p.created_at && p.created_at.length >= 10) {
                     document.getElementById('ngayLap').value = p.created_at.slice(0, 10);
                 }
@@ -4191,6 +4260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             autoFilledTransactionCacheKeys.clear();
             autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
+            setPaymentTimeMode('T120');
             setAddressLoadingPlaceholder(false);
             setTransactionAutoLoadStage('');
             document.getElementById('summaryBox').style.display = 'none';

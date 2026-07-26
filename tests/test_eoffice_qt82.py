@@ -370,6 +370,7 @@ class EofficeQt82Tests(unittest.TestCase):
 
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Thoả thuận thu đổi sản phẩm", html)
+        self.assertIn("margin: 4mm 5mm 4mm 15mm", html)
         self.assertIn("Tải thoả thuận PDF", html)
         self.assertIn("Tải thoả thuận Excel", html)
         self.assertIn("0,01%/ngày", html)
@@ -541,6 +542,12 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("sap-bk-ref-cell", index_html)
         self.assertIn("use_bk_ref: useBkRefEnabled()", index_html)
         self.assertIn("show_payment_dates: showPaymentDatesEnabled()", index_html)
+        self.assertIn("payment_time_mode: selectedPaymentTimeMode()", index_html)
+        self.assertIn('name="payment_time_mode"', index_html)
+        self.assertIn('value="T120"', index_html)
+        self.assertIn('value="T0"', index_html)
+        self.assertIn("'Phải CK khác'", index_html)
+        self.assertIn("sap-other-transfer-label-input", index_html)
         self.assertIn("use_bk_ref_default", index_html)
         self.assertIn("show_payment_dates_default", index_html)
         self.assertIn("sap-bk-ref-status", index_html)
@@ -612,6 +619,42 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(settings_json["use_bk_ref_default"], "0")
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
         self.assertEqual(settings_json["payment_planning_title_bg"], "1")
+
+    def test_t0_print_hides_payment_schedule_and_other_transfer_has_custom_label(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "force_create": True,
+            "payment_time_mode": "T0",
+            "ngay_lap": "2026-07-24",
+            "ma_kh": "100000019",
+            "ten_kh": "KHACH HANG T0",
+            "dia_chi": "HUE",
+            "sdt": "0900000019",
+            "cccd": "012345678919",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG T0",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000019",
+            "plant": "1305",
+            "nguoi_ki": "cht",
+            "tong_ck": 1200000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000019", "gia_tri": 1000000, "gio": "24/07/2026 09:00"},
+                {"loai": "Phải CK khác", "label": "KH chuyển khoản thanh toán", "so_ct": "", "gia_tri": 200000, "gio": "24/07/2026 09:10"},
+            ],
+        }
+        saved = self.client.post("/api/save", json=payload).get_json()
+        self.assertEqual(saved["tong_ck"], 1200000)
+        phieu = self.client.get(f"/api/phieu/{saved['id']}").get_json()["phieu"]
+        self.assertEqual(phieu["payment_time_mode"], "T0")
+        self.assertEqual(phieu["chung_tu"][1]["display_loai"], "KH chuyển khoản thanh toán")
+
+        print_html = self.client.get(f"/api/print/{saved['id']}").get_data(as_text=True)
+        self.assertIn("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản", print_html)
+        self.assertIn("KH chuyển khoản thanh toán", print_html)
+        self.assertNotIn("Thời gian thanh toán:", print_html)
+        self.assertNotIn("0234 3847 588", print_html)
 
     def test_cao_mode_uses_plant_2122_and_caf_payment_planning_text(self):
         self.login(role="admin")

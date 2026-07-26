@@ -520,7 +520,8 @@ def init_db():
             da_trinh        INTEGER DEFAULT 0,
             sap_document_override TEXT DEFAULT '',
             use_bk_ref      INTEGER DEFAULT 0,
-            show_payment_dates INTEGER DEFAULT 0
+            show_payment_dates INTEGER DEFAULT 0,
+            payment_time_mode TEXT DEFAULT 'T120'
         )
     """)
     # Add columns if missing (for existing DBs)
@@ -532,6 +533,7 @@ def init_db():
         ("dia_chi", "TEXT", "''"),
         ("use_bk_ref", "INTEGER", "0"),
         ("show_payment_dates", "INTEGER", "0"),
+        ("payment_time_mode", "TEXT", "'T120'"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -1090,6 +1092,27 @@ def calc_tong_ck(chung_tu_list):
     return total
 
 
+PAYMENT_TIME_MODE_DEFAULT = "T120"
+PAYMENT_TIME_MODES = {"T0", "T120"}
+OTHER_TRANSFER_TYPE = "Phải CK khác"
+OTHER_TRANSFER_DEFAULT_LABEL = "KH chuyển khoản thanh toán"
+
+
+def normalize_payment_time_mode(value):
+    mode = str(value or PAYMENT_TIME_MODE_DEFAULT).strip().upper()
+    return mode if mode in PAYMENT_TIME_MODES else PAYMENT_TIME_MODE_DEFAULT
+
+
+def transaction_display_label(item):
+    if not isinstance(item, dict):
+        return ""
+    loai = str(item.get("loai", "")).strip()
+    label = str(item.get("label", "")).strip()
+    if loai == OTHER_TRANSFER_TYPE:
+        return label or OTHER_TRANSFER_DEFAULT_LABEL
+    return loai
+
+
 def calc_ngay_tt(created_at_str=None):
     """
     Payment date rule:
@@ -1136,6 +1159,10 @@ def sanitize_chung_tu_list(chung_tu_list):
         row["so_ct"] = remove_all_whitespace(row.get("so_ct", ""))
         row["bk_ref"] = remove_all_whitespace(row.get("bk_ref", ""))
         row["gio"] = str(row.get("gio", "")).strip()
+        row["label"] = str(row.get("label", "")).strip()
+        if row["loai"] == OTHER_TRANSFER_TYPE and not row["label"]:
+            row["label"] = OTHER_TRANSFER_DEFAULT_LABEL
+        row["display_loai"] = transaction_display_label(row)
         cleaned.append(row)
     return cleaned
 
@@ -1797,7 +1824,11 @@ def prepare_phieu_for_output(row, settings=None):
         "kt2": settings.get("kt2_name", ""),
     }
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
-    d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
+    d["payment_time_mode"] = normalize_payment_time_mode(d.get("payment_time_mode"))
+    d["show_payment_time"] = (
+        d["payment_time_mode"] == "T120"
+        and settings.get("show_payment_time", "1") == "1"
+    )
     d["payment_schedule"] = build_payment_schedule(d.get("tong_ck", 0))
     d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
@@ -1951,7 +1982,7 @@ def make_phieu_pdf(p):
     table_data = [["Loại chứng từ", "Số chứng từ", "Giá trị", "Ngày giờ"]]
     for ct in p.get("chung_tu", []):
         table_data.append([
-            ct.get("loai", ""),
+            ct.get("display_loai") or transaction_display_label(ct),
             ct.get("so_ct", ""),
             f"{abs(float(ct.get('gia_tri') or 0)):,.0f}",
             ct.get("gio", ""),
@@ -1973,7 +2004,7 @@ def make_phieu_pdf(p):
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
     ]))
     story.append(ct_table)
-    story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực đến lúc khách nhận được tiền vào tài khoản.", normal))
+    story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản.", normal))
     if p.get("show_payment_time"):
         schedule_html = ["<b>Thời gian thanh toán:</b>"]
         for index, item in enumerate(p.get("payment_schedule") or build_payment_schedule(p.get("tong_ck", 0)), start=1):
@@ -1982,7 +2013,7 @@ def make_phieu_pdf(p):
                 f"<b>{int(item['amount']):,} đồng</b>"
             )
         story.append(Paragraph("<br/>".join(schedule_html), normal))
-    story.append(Paragraph("* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
+        story.append(Paragraph("* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
     story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
     story.append(Spacer(1, 4 * mm))
     story.append(Table([
@@ -4189,6 +4220,7 @@ def api_save():
     show_payment_dates = settings_flag(
         data, "show_payment_dates", settings.get("show_payment_dates_default", "1")
     )
+    payment_time_mode = normalize_payment_time_mode(data.get("payment_time_mode"))
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
@@ -4237,7 +4269,8 @@ def api_save():
                 noi_dung = ?,
                 nguoi_ki = ?,
                 use_bk_ref = ?,
-                show_payment_dates = ?
+                show_payment_dates = ?,
+                payment_time_mode = ?
             WHERE id = ?
         """, (
             created_at,
@@ -4263,6 +4296,7 @@ def api_save():
             nguoi_ki,
             use_bk_ref,
             show_payment_dates,
+            payment_time_mode,
             target_phieu_id,
         ))
         db.commit()
@@ -4306,8 +4340,8 @@ def api_save():
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
              chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
-             user_id, use_bk_ref, show_payment_dates)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             user_id, use_bk_ref, show_payment_dates, payment_time_mode)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         ma_kh,
@@ -4333,6 +4367,7 @@ def api_save():
         user_id,
         use_bk_ref,
         show_payment_dates,
+        payment_time_mode,
     ))
     db.commit()
     new_id = cursor.lastrowid
