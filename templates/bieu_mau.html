@@ -5,6 +5,9 @@
 {% block page_title %}Biểu Mẫu{% endblock %}
 
 {% block head %}
+{% if admin %}
+<link rel="stylesheet" href="{{ url_for('static', filename='uy_quyen_nhan_hang.css', v='uq01-4') }}">
+{% endif %}
 {% if customer_lookup_turnstile_sitekey %}
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
 {% endif %}
@@ -85,7 +88,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-7">
+    <div class="col-lg-7{% if admin %} uq01-page-column{% endif %}">
         <!-- Chọn biểu mẫu -->
         <div class="card mb-3">
             <div class="card-header py-2">
@@ -122,11 +125,19 @@
                         <strong>ĐXNL</strong> — Đề xuất nguyên liệu
                     </label>
                 </div>
+                {% if admin %}
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="radio" name="formType" id="rbUQ01" value="uq01">
+                    <label class="form-check-label" for="rbUQ01">
+                        <strong>UQ-01</strong> — Giấy ủy quyền nhận hàng theo STO
+                    </label>
+                </div>
+                {% endif %}
             </div>
         </div>
 
         <!-- Ngày tháng năm -->
-        <div class="card mb-3">
+        <div class="card mb-3" id="commonDocumentDateCard">
             <div class="card-body py-2">
                 <div class="row g-2 align-items-center">
                     <div class="col-auto"><label class="form-label mb-0"><i class="bi bi-calendar3"></i> Ngày</label></div>
@@ -425,6 +436,10 @@
                 </button>
             </div>
         </div>
+
+        {% if admin %}
+        {% include "uy_quyen_nhan_hang_form.html" %}
+        {% endif %}
     </div>
 </div>
 
@@ -468,6 +483,10 @@ document.querySelectorAll('input[name="formType"]').forEach(function(rb) {
         document.getElementById('sectionF2').style.display = this.value === 'f2' ? '' : 'none';
         document.getElementById('sectionCaoHml').style.display = this.value === 'cao_hml' ? '' : 'none';
         document.getElementById('sectionMaterialProposal').style.display = this.value === 'material_proposal' ? '' : 'none';
+        {% if admin %}
+        document.getElementById('sectionUQ01').style.display = this.value === 'uq01' ? '' : 'none';
+        document.getElementById('commonDocumentDateCard').style.display = this.value === 'uq01' ? 'none' : '';
+        {% endif %}
     });
 });
 
@@ -1167,4 +1186,7 @@ document.getElementById('btnClearMaterialProposal').addEventListener('click', fu
     renderMaterialRows();
 });
 </script>
+{% if admin %}
+<script src="{{ url_for('static', filename='uy_quyen_nhan_hang.js', v='uq01-4') }}"></script>
+{% endif %}
 {% endblock %}

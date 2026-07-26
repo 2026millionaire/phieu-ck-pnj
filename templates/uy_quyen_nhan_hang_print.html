@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UQ-01 - Giấy ủy quyền nhận hàng</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='uq01_document.css') }}">
+</head>
+<body>
+    <div class="uq01-toolbar no-print">
+        <div class="uq01-toolbar-copy">
+            <strong>UQ-01 · Bản xem trước A4</strong>
+            {% if warnings %}
+            <span class="uq01-toolbar-warning">{{ warnings|length }} cảnh báo dữ liệu cần kiểm tra.</span>
+            {% else %}
+            <span>Dữ liệu không có cảnh báo chính.</span>
+            {% endif %}
+            <span class="uq01-toolbar-warning" id="uq01OverflowMessage" hidden>
+                Nội dung đang vượt mục tiêu 1 trang A4; biểu mẫu sẽ xuống trang và không tự giảm cỡ chữ.
+            </span>
+        </div>
+        <button type="button" onclick="window.print()">In biểu mẫu</button>
+    </div>
+
+    <main class="uq01-sheet{% if item_rows|length >= 4 %} uq01-sheet-dense{% endif %}" id="uq01Document">
+        <table class="uq01-form-header" aria-label="Thông tin kiểm soát biểu mẫu">
+            <tr>
+                <td class="uq01-logo-cell">
+                    <img class="uq01-logo" src="{{ url_for('static', filename='logo_pnj.webp') }}" alt="PNJ">
+                </td>
+                <td>MS: {{ payload.form_code }}</td>
+                <td>LSX: 00</td>
+                <td>NHL: 14/11/2016</td>
+                <td>TRANG: 1/1</td>
+            </tr>
+        </table>
+
+        <p class="uq01-document-no">Số: <strong>{{ payload.document_no }}</strong></p>
+        <h1 class="uq01-title">GIẤY ỦY QUYỀN</h1>
+        <p class="uq01-issue-date">
+            {{ payload.issue_place }}, ngày {{ issue_date_parts.day }}
+            tháng {{ issue_date_parts.month }} năm {{ issue_date_parts.year }}
+        </p>
+
+        <section class="uq01-party">
+            <h2 class="uq01-section-title">Người ủy quyền:</h2>
+            <div class="uq01-party-row">
+                <span class="uq01-label">Họ và tên:</span>
+                <span class="uq01-value uq01-name">
+                    {{ payload.authorizer.full_name }}
+                </span>
+            </div>
+            <div class="uq01-party-row">
+                <span class="uq01-label">Chức vụ:</span>
+                <span class="uq01-value">
+                    {{ payload.authorizer.job_title }}
+                    {% if payload.authorizer.employee_code %}
+                    (Mã NV: {{ payload.authorizer.employee_code }})
+                    {% endif %}
+                </span>
+            </div>
+            <div class="uq01-party-row">
+                <span class="uq01-label">Đơn vị:</span>
+                <span class="uq01-value">
+                    {% if payload.authorizer.unit_code %}{{ payload.authorizer.unit_code }}{% endif %}
+                    {% if payload.authorizer.unit_code and payload.authorizer.unit_name %} - {% endif %}
+                    {{ payload.authorizer.unit_name }}
+                </span>
+            </div>
+        </section>
+
+        <section class="uq01-party">
+            <h2 class="uq01-section-title">Người được ủy quyền:</h2>
+            <div class="uq01-party-row">
+                <span class="uq01-label">Họ và tên:</span>
+                <span class="uq01-value uq01-name">
+                    {{ payload.authorized_person.full_name }}
+                </span>
+            </div>
+            <div class="uq01-party-row">
+                <span class="uq01-label">{{ payload.authorized_person.id_type }}:</span>
+                <span class="uq01-value">
+                    {{ payload.authorized_person.id_number }}
+                    {% if authorized_person_issue_date %}
+                    · Ngày cấp: {{ authorized_person_issue_date }}
+                    {% endif %}
+                    {% if payload.authorized_person.issue_place %}
+                    · Nơi cấp: {{ payload.authorized_person.issue_place }}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="uq01-party-row">
+                <span class="uq01-label">Chức vụ:</span>
+                <span class="uq01-value">
+                    {{ payload.authorized_person.job_title }}
+                    {% if payload.authorized_person.employee_code %}
+                    (Mã NV: {{ payload.authorized_person.employee_code }})
+                    {% endif %}
+                </span>
+            </div>
+            <div class="uq01-party-row">
+                <span class="uq01-label">Đơn vị:</span>
+                <span class="uq01-value">
+                    {% if payload.authorized_person.unit_code %}{{ payload.authorized_person.unit_code }}{% endif %}
+                    {% if payload.authorized_person.unit_code and payload.authorized_person.unit_name %} - {% endif %}
+                    {{ payload.authorized_person.unit_name }}
+                </span>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="uq01-section-title">Nội dung ủy quyền:</h2>
+            <p class="uq01-content">{{ content }}</p>
+            {% if payload.authorization.additional_notes %}
+            <p class="uq01-clause"><strong>Ghi chú:</strong> {{ payload.authorization.additional_notes }}</p>
+            {% endif %}
+        </section>
+
+        {% if item_rows %}
+        <section class="uq01-items-wrap">
+            <h2 class="uq01-section-title">Danh sách hàng hóa:</h2>
+            <table class="uq01-items">
+                <thead>
+                    <tr>
+                        <th class="uq01-col-code">Mã sản phẩm</th>
+                        <th class="uq01-col-name">Tên sản phẩm</th>
+                        <th class="uq01-col-quantity">Số lượng</th>
+                        <th class="uq01-col-unit">Đơn vị</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in item_rows %}
+                    <tr>
+                        <td class="uq01-col-code">{{ item.material_code }}</td>
+                        <td class="uq01-col-name">{{ item.description }}</td>
+                        <td class="uq01-col-quantity">{{ item.display_quantity }}</td>
+                        <td class="uq01-col-unit">{{ item.unit }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
+        <p class="uq01-clause">{{ payload.authorization.responsibility_clause }}</p>
+        <p class="uq01-validity">
+            <strong>Thời gian ủy quyền:</strong>
+            {% if valid_from_text and valid_to_text %}
+                Từ ngày {{ valid_from_text }} đến hết ngày {{ valid_to_text }}.
+            {% elif valid_from_text %}
+                Ngày {{ valid_from_text }}.
+            {% elif valid_to_text %}
+                Đến hết ngày {{ valid_to_text }}.
+            {% endif %}
+        </p>
+        <p class="uq01-clause">
+            Giấy ủy quyền được lập thành {{ "%02d"|format(payload.copies) }} bản có giá trị như nhau.
+            {% if payload.copies == 2 %}
+            Người ủy quyền giữ 01 (một) bản, người được ủy quyền giữ 01 (một) bản.
+            {% endif %}
+        </p>
+
+        <section class="uq01-signatures">
+            <div>
+                <div class="uq01-signature-title">NGƯỜI ĐƯỢC ỦY QUYỀN</div>
+                <div class="uq01-signature-space"></div>
+                <div class="uq01-signature-name">{{ payload.authorized_person.full_name }}</div>
+            </div>
+            <div>
+                <div class="uq01-signature-title">NGƯỜI ỦY QUYỀN</div>
+                <div class="uq01-signature-space"></div>
+                <div class="uq01-signature-name">{{ payload.authorizer.full_name }}</div>
+            </div>
+        </section>
+
+        <table class="uq01-security-footer" aria-label="Cấp độ bảo mật">
+            <tr>
+                <td>Cấp độ bảo mật</td>
+                <td>Thông tin nội bộ</td>
+                <td>Trang: 1|1</td>
+            </tr>
+        </table>
+    </main>
+
+    <script>
+    (function() {
+        function measureDocument() {
+            const sheet = document.getElementById('uq01Document');
+            const message = document.getElementById('uq01OverflowMessage');
+            if (!sheet) return;
+            const a4HeightPx = 297 / 25.4 * 96;
+            const overflow = sheet.getBoundingClientRect().height > a4HeightPx + 4;
+            if (message) message.hidden = !overflow;
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'uq01-preview-metrics',
+                    overflow: overflow,
+                    height: Math.ceil(sheet.getBoundingClientRect().height)
+                }, window.location.origin);
+            }
+        }
+        window.addEventListener('load', measureDocument);
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(measureDocument);
+        }
+    })();
+    </script>
+</body>
+</html>

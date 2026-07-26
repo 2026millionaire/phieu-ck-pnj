@@ -1,0 +1,313 @@
+:root {
+    --uq01-ink: #111;
+    --uq01-line: #222;
+    --uq01-paper: #fff;
+    --uq01-stage: #d9dee5;
+    --uq01-warning: #9a5a00;
+}
+
+@page {
+    size: A4 portrait;
+    margin: 0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+}
+
+body {
+    background: var(--uq01-stage);
+    color: var(--uq01-ink);
+    font-family: "Times New Roman", Times, serif;
+}
+
+.uq01-toolbar {
+    align-items: center;
+    background: #17212b;
+    color: #fff;
+    display: flex;
+    font-family: "Segoe UI", sans-serif;
+    gap: 12px;
+    justify-content: space-between;
+    margin: 0;
+    min-height: 48px;
+    padding: 8px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.uq01-toolbar-copy {
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.uq01-toolbar-copy strong {
+    display: block;
+}
+
+.uq01-toolbar-warning {
+    color: #ffd47a;
+}
+
+.uq01-toolbar button {
+    background: #f3b61f;
+    border: 0;
+    border-radius: 5px;
+    color: #17120a;
+    cursor: pointer;
+    flex: 0 0 auto;
+    font-size: 14px;
+    font-weight: 700;
+    min-height: 34px;
+    padding: 6px 16px;
+}
+
+.uq01-sheet {
+    background: var(--uq01-paper);
+    display: flex;
+    flex-direction: column;
+    font-size: 12pt;
+    line-height: 1.28;
+    margin: 12px auto 24px;
+    min-height: 297mm;
+    padding: 12.35mm 4.59mm 4.94mm 12.35mm;
+    width: 210mm;
+}
+
+.uq01-form-header {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.uq01-form-header td {
+    border: 1px solid var(--uq01-line);
+    font-size: 8.5pt;
+    font-weight: 700;
+    height: 13mm;
+    padding: 1.2mm 1.5mm;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.uq01-form-header .uq01-logo-cell {
+    padding: 1mm 2mm;
+    width: 38%;
+}
+
+.uq01-logo {
+    display: block;
+    height: 10.5mm;
+    margin: 0 auto;
+    max-width: 55mm;
+    object-fit: contain;
+    width: auto;
+}
+
+.uq01-document-no {
+    margin: 3mm 0 0;
+}
+
+.uq01-title {
+    font-size: 15pt;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 1.5mm 0 0;
+    text-align: center;
+}
+
+.uq01-issue-date {
+    font-style: italic;
+    margin: 1mm 0 2mm;
+    text-align: right;
+}
+
+.uq01-party {
+    break-inside: avoid;
+    margin-top: 1.2mm;
+}
+
+.uq01-section-title {
+    font-size: 12.5pt;
+    font-weight: 700;
+    margin: 1.8mm 0 0.8mm;
+}
+
+.uq01-party-row {
+    display: grid;
+    gap: 2mm;
+    grid-template-columns: 31mm minmax(0, 1fr);
+    margin: 0.4mm 0;
+}
+
+.uq01-label {
+    white-space: nowrap;
+}
+
+.uq01-value {
+    min-width: 0;
+}
+
+.uq01-name {
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.uq01-content {
+    margin: 0.8mm 0 1.5mm;
+    text-align: justify;
+    white-space: pre-line;
+}
+
+.uq01-reference {
+    margin: 0.8mm 0 1.5mm;
+}
+
+.uq01-items-wrap {
+    break-inside: auto;
+    margin: 1.5mm 0 1.8mm;
+}
+
+.uq01-items {
+    border-collapse: collapse;
+    font-size: 11pt;
+    line-height: 1.18;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.uq01-items th,
+.uq01-items td {
+    border: 1px solid var(--uq01-line);
+    overflow-wrap: anywhere;
+    padding: 0.8mm;
+    vertical-align: middle;
+}
+
+.uq01-items th {
+    font-weight: 700;
+    text-align: center;
+}
+
+.uq01-items thead {
+    display: table-header-group;
+}
+
+.uq01-items tr {
+    break-inside: avoid;
+}
+
+.uq01-items .uq01-col-code {
+    overflow-wrap: normal;
+    white-space: nowrap;
+    width: 45mm;
+}
+
+.uq01-items .uq01-col-name {
+    width: auto;
+}
+
+.uq01-items .uq01-col-quantity {
+    text-align: center;
+    width: 23mm;
+}
+
+.uq01-items .uq01-col-unit {
+    text-align: center;
+    width: 22mm;
+}
+
+.uq01-clause {
+    margin: 0.7mm 0;
+    text-align: justify;
+}
+
+.uq01-validity {
+    margin: 0.7mm 0;
+}
+
+.uq01-signatures {
+    break-inside: avoid;
+    display: grid;
+    gap: 8mm;
+    grid-template-columns: 1fr 1fr;
+    margin: 3mm 7mm 2mm;
+    text-align: center;
+}
+
+.uq01-signature-title {
+    font-weight: 700;
+}
+
+.uq01-signature-space {
+    height: 20mm;
+}
+
+.uq01-sheet-dense .uq01-signatures {
+    margin-bottom: 1mm;
+    margin-top: 2mm;
+}
+
+.uq01-sheet-dense .uq01-signature-space {
+    height: 15mm;
+}
+
+.uq01-signature-name {
+    font-weight: 700;
+    min-height: 6mm;
+    text-transform: uppercase;
+}
+
+.uq01-security-footer {
+    border-collapse: collapse;
+    break-inside: avoid;
+    font-size: 8.5pt;
+    margin-top: auto;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.uq01-security-footer td {
+    border: 1px solid var(--uq01-line);
+    font-weight: 700;
+    padding: 1.2mm 1.5mm;
+    text-align: center;
+}
+
+.uq01-security-footer td:nth-child(1) {
+    width: 30%;
+}
+
+.uq01-security-footer td:nth-child(2) {
+    width: 45%;
+}
+
+@media print {
+    html,
+    body {
+        background: #fff !important;
+        height: auto;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .uq01-sheet {
+        box-shadow: none;
+        margin: 0;
+    }
+}
+
+@media screen {
+    .uq01-sheet {
+        box-shadow: 0 10px 32px rgba(15, 23, 42, 0.22);
+    }
+}

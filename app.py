@@ -38,6 +38,16 @@ import erp_deposits
 import erp_purchase_orders
 import erp_supplier_line_items
 from de_xuat import create_de_xuat_blueprint, initialize_schema
+from uq01 import (
+    build_uq01_context,
+    build_uq01_document_identity,
+    ensure_uq01_profile_seeds,
+    initialize_uq01_schema,
+    normalize_uq01_profile,
+    plant_context,
+    uq01_plant_directory,
+    uq01_profile_from_row,
+)
 
 try:
     from customer_lookup import (
@@ -701,6 +711,7 @@ def init_db():
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
+    initialize_uq01_schema(conn)
     initialize_schema(conn)
     conn.commit()
     conn.close()
@@ -1141,8 +1152,8 @@ def ascii_filename_part(value, max_length=32):
 
 def print_html_for_pdf(html):
     """Chuẩn hóa HTML in trực tiếp để renderer server xuất PDF từ cùng template."""
-    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static").replace("\\", "/")
-    static_url = "file:///" + static_dir.lstrip("/")
+    static_dir = Path(os.path.dirname(os.path.abspath(__file__))) / "static"
+    static_url = static_dir.as_uri()
     html = html.replace('src="/static/', f'src="{static_url}/')
     html = html.replace("src='/static/", f"src='{static_url}/")
     html = html.replace('href="/static/', f'href="{static_url}/')
@@ -2932,12 +2943,327 @@ def bieu_mau_page():
     """Biểu Mẫu — merged page: BB Hủy BK, F1, F2."""
     settings = get_settings()
     bk_prefix = settings.get("bk_prefix", "4403")
+    admin = is_admin()
+    uq01_document = None
+    uq01_plants = None
+    uq01_default_destination = None
+    if admin:
+        uq01_document = build_uq01_document_identity(
+            settings.get("plant", "1305")
+        )
+        uq01_plants = uq01_plant_directory()
+        uq01_default_destination = plant_context("1305")
     return render_template(
         "bieu_mau.html",
         settings=settings,
         bk_prefix=bk_prefix,
+        admin=admin,
+        uq01_document=uq01_document,
+        uq01_plants=uq01_plants,
+        uq01_default_destination=uq01_default_destination,
         customer_lookup_turnstile_sitekey=CUSTOMER_LOOKUP_TURNSTILE_SITEKEY,
     )
+
+
+def uq01_request_payload():
+    """Read a bounded UQ-01 payload without logging or persisting personal data."""
+    if request.method == "GET":
+        return {}
+    if request.content_length is not None and request.content_length > 128 * 1024:
+        raise ValueError("PAYLOAD_TOO_LARGE")
+    if request.is_json:
+        payload = request.get_json(silent=True)
+    else:
+        raw_payload = request.form.get("payload", "")
+        try:
+            payload = json.loads(raw_payload)
+        except (TypeError, ValueError):
+            payload = None
+    if not isinstance(payload, dict):
+        raise ValueError("INVALID_PAYLOAD")
+    return payload
+
+
+def render_uq01_print_document():
+    context = build_uq01_context(uq01_request_payload())
+    html = render_template("uy_quyen_nhan_hang_print.html", **context)
+    return html, context
+
+
+def uq01_scope():
+    context = plant_context(get_settings().get("plant", "1305"))
+    return int(current_user_id()), context["plant"]
+
+
+def uq01_profile_request_data():
+    if request.content_length is not None and request.content_length > 16 * 1024:
+        raise ValueError("Yêu cầu cập nhật hồ sơ vượt quá 16 KB.")
+    if not request.is_json or not _customer_lookup_is_same_origin():
+        raise ValueError("Yêu cầu cập nhật hồ sơ không hợp lệ.")
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValueError("Dữ liệu hồ sơ không hợp lệ.")
+    return data
+
+
+def uq01_profile_row(db, profile_id, user_id, plant):
+    return db.execute(
+        """
+        SELECT *
+        FROM uq01_personnel_profiles
+        WHERE id = ? AND user_id = ? AND plant = ?
+        """,
+        (profile_id, user_id, plant),
+    ).fetchone()
+
+
+def uq01_pdf_filename(document_no):
+    safe_document_no = re.sub(
+        r"[^A-Za-z0-9_.-]+",
+        "-",
+        str(document_no or "").strip().replace(":", "-"),
+    ).strip("-")
+    return f"UQ-01_{safe_document_no or '1305'}.pdf"
+
+
+@app.route("/api/uq01/document-identity")
+@login_required
+def api_uq01_document_identity():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    _, plant = uq01_scope()
+    return _customer_lookup_json(
+        {"ok": True, "document": build_uq01_document_identity(plant)}
+    )
+
+
+@app.route("/api/uq01/personnel-profiles")
+@login_required
+def api_uq01_personnel_profiles():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    role = str(request.args.get("role") or "all").strip().lower()
+    if role not in {"all", "authorizer", "recipient"}:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Vai trò hồ sơ không hợp lệ."}, 400
+        )
+    user_id, plant = uq01_scope()
+    db = get_db()
+    ensure_uq01_profile_seeds(db, user_id, plant)
+    db.commit()
+    where_role = {
+        "all": "",
+        "authorizer": " AND can_authorize = 1",
+        "recipient": " AND can_receive = 1",
+    }[role]
+    rows = db.execute(
+        f"""
+        SELECT *
+        FROM uq01_personnel_profiles
+        WHERE user_id = ? AND plant = ?{where_role}
+        ORDER BY
+            CASE seed_code
+                WHEN '1305-store-manager' THEN 0
+                WHEN '1305-store-accountant' THEN 1
+                WHEN '1305-security-ha-van-rin' THEN 2
+                WHEN '1305-security-tran-xuan-hai' THEN 3
+                WHEN '1305-security-tran-quang-trinh' THEN 4
+                ELSE 5
+            END,
+            full_name COLLATE NOCASE,
+            id
+        """,
+        (user_id, plant),
+    ).fetchall()
+    return _customer_lookup_json(
+        {
+            "ok": True,
+            "plant": plant,
+            "profiles": [uq01_profile_from_row(row) for row in rows],
+        }
+    )
+
+
+@app.route("/api/uq01/personnel-profiles", methods=["POST"])
+@login_required
+def api_uq01_personnel_profile_create():
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    try:
+        profile, warnings = normalize_uq01_profile(uq01_profile_request_data())
+    except ValueError as exc:
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+
+    user_id, plant = uq01_scope()
+    db = get_db()
+    duplicate = db.execute(
+        """
+        SELECT id
+        FROM uq01_personnel_profiles
+        WHERE user_id = ? AND plant = ? AND full_name = ? COLLATE NOCASE
+        """,
+        (user_id, plant, profile["full_name"]),
+    ).fetchone()
+    if duplicate:
+        return _customer_lookup_json(
+            {
+                "ok": False,
+                "error": "Đã có hồ sơ cùng họ tên trong đơn vị này. Vui lòng sửa hồ sơ hiện có.",
+            },
+            409,
+        )
+
+    timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+    cursor = db.execute(
+        """
+        INSERT INTO uq01_personnel_profiles (
+            user_id, plant, seed_code, salutation, full_name, job_title,
+            employee_code, unit_code, unit_name, id_type, id_number,
+            id_issue_date, id_issue_place, can_authorize, can_receive,
+            created_at, updated_at
+        ) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            plant,
+            profile["salutation"],
+            profile["full_name"],
+            profile["job_title"],
+            profile["employee_code"],
+            profile["unit_code"],
+            profile["unit_name"],
+            profile["id_type"],
+            profile["id_number"],
+            profile["id_issue_date"],
+            profile["id_issue_place"],
+            int(profile["can_authorize"]),
+            int(profile["can_receive"]),
+            timestamp,
+            timestamp,
+        ),
+    )
+    db.commit()
+    saved = uq01_profile_row(db, cursor.lastrowid, user_id, plant)
+    return _customer_lookup_json(
+        {
+            "ok": True,
+            "profile": uq01_profile_from_row(saved),
+            "warnings": warnings,
+        },
+        201,
+    )
+
+
+@app.route("/api/uq01/personnel-profiles/<int:profile_id>", methods=["PUT"])
+@login_required
+def api_uq01_personnel_profile_update(profile_id):
+    denied = _customer_lookup_admin_required()
+    if denied:
+        return denied
+    try:
+        profile, warnings = normalize_uq01_profile(uq01_profile_request_data())
+    except ValueError as exc:
+        return _customer_lookup_json({"ok": False, "error": str(exc)}, 400)
+
+    user_id, plant = uq01_scope()
+    db = get_db()
+    existing = uq01_profile_row(db, profile_id, user_id, plant)
+    if not existing:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Không tìm thấy hồ sơ trong phạm vi của bạn."},
+            404,
+        )
+    duplicate = db.execute(
+        """
+        SELECT id
+        FROM uq01_personnel_profiles
+        WHERE user_id = ? AND plant = ? AND full_name = ? COLLATE NOCASE
+              AND id <> ?
+        """,
+        (user_id, plant, profile["full_name"], profile_id),
+    ).fetchone()
+    if duplicate:
+        return _customer_lookup_json(
+            {"ok": False, "error": "Đã có hồ sơ khác cùng họ tên trong đơn vị này."},
+            409,
+        )
+
+    db.execute(
+        """
+        UPDATE uq01_personnel_profiles
+        SET salutation = ?, full_name = ?, job_title = ?, employee_code = ?,
+            unit_code = ?, unit_name = ?, id_type = ?, id_number = ?,
+            id_issue_date = ?, id_issue_place = ?, can_authorize = ?,
+            can_receive = ?, updated_at = ?
+        WHERE id = ? AND user_id = ? AND plant = ?
+        """,
+        (
+            profile["salutation"],
+            profile["full_name"],
+            profile["job_title"],
+            profile["employee_code"],
+            profile["unit_code"],
+            profile["unit_name"],
+            profile["id_type"],
+            profile["id_number"],
+            profile["id_issue_date"],
+            profile["id_issue_place"],
+            int(profile["can_authorize"]),
+            int(profile["can_receive"]),
+            datetime.now().astimezone().isoformat(timespec="seconds"),
+            profile_id,
+            user_id,
+            plant,
+        ),
+    )
+    db.commit()
+    saved = uq01_profile_row(db, profile_id, user_id, plant)
+    return _customer_lookup_json(
+        {
+            "ok": True,
+            "profile": uq01_profile_from_row(saved),
+            "warnings": warnings,
+        }
+    )
+
+
+@app.route("/uy-quyen-nhan-hang/print", methods=["GET", "POST"])
+def uy_quyen_nhan_hang_print():
+    """UQ-01 goods authorization preview and browser-print page."""
+    if not is_admin():
+        return "Bạn không có quyền sử dụng biểu mẫu UQ-01.", 403
+    try:
+        html, _ = render_uq01_print_document()
+    except ValueError as exc:
+        status = 413 if str(exc) == "PAYLOAD_TOO_LARGE" else 400
+        return "Dữ liệu UQ-01 không hợp lệ.", status
+    response = app.make_response(html)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@app.route("/uy-quyen-nhan-hang/pdf", methods=["GET", "POST"])
+def uy_quyen_nhan_hang_pdf():
+    """UQ-01 PDF rendered from the same HTML/CSS as preview and browser print."""
+    if not is_admin():
+        return "Bạn không có quyền sử dụng biểu mẫu UQ-01.", 403
+    try:
+        html, context = render_uq01_print_document()
+    except ValueError as exc:
+        status = 413 if str(exc) == "PAYLOAD_TOO_LARGE" else 400
+        return "Dữ liệu UQ-01 không hợp lệ.", status
+    response = send_print_html_pdf(
+        html,
+        uq01_pdf_filename(context["payload"]["document_no"]),
+    )
+    if hasattr(response, "headers"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.route("/bb-huy")

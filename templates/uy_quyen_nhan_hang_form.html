@@ -1,0 +1,435 @@
+<div id="sectionUQ01" class="uq01-section" style="display:none;"
+     data-plant="{{ uq01_document.plant }}"
+     data-document-no="{{ uq01_document.document_no }}"
+     data-created-at="{{ uq01_document.created_at }}"
+     data-issue-date="{{ uq01_document.issue_date }}"
+     data-issue-place="{{ uq01_document.issue_place }}">
+    <script id="uqPlantDirectoryData" type="application/json">{{ uq01_plants|tojson }}</script>
+    <div class="uq01-intro">
+        <div>
+            <span class="uq01-kicker">UQ-01 · Nhận hàng theo STO</span>
+            <h2>Giấy ủy quyền nhận hàng</h2>
+            <p>Số phiếu và ngày lập được tạo tự động. Hồ sơ nhân sự chỉ lưu trong CSDL nội bộ theo tài khoản và plant.</p>
+        </div>
+        <div class="uq01-intro-actions">
+            <div class="uq01-source-chip">
+                <span class="uq01-source-dot"></span>
+                Số phiếu tự động
+            </div>
+            <button class="btn uq01-new-document" id="btnNewUq01" type="button">
+                <i class="bi bi-file-earmark-plus"></i> Tạo phiếu mới
+            </button>
+        </div>
+    </div>
+
+    <div class="uq01-workspace">
+        <div class="uq01-editor">
+            <section class="card uq01-card uq01-personnel-card">
+                <div class="card-header uq01-personnel-header">
+                    <span>
+                        <i class="bi bi-people"></i>
+                        Chọn nhân sự ký nhận
+                    </span>
+                    <button class="btn btn-outline-primary btn-sm" id="btnManageUqPersonnel" type="button">
+                        <i class="bi bi-person-gear"></i> Cập nhật dữ liệu nhân sự
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="uq01-profile-grid">
+                        <div class="uq01-profile-picker">
+                            <div class="uq01-profile-title">
+                                <span class="uq01-step">02</span>
+                                <label for="uqAuthorizerProfile">Người ủy quyền</label>
+                            </div>
+                            <select class="form-select" id="uqAuthorizerProfile">
+                                <option value="">Đang tải hồ sơ...</option>
+                            </select>
+                            <div class="uq01-profile-summary" id="uqAuthorizerSummary" aria-live="polite">
+                                Chọn một hồ sơ để tự điền thông tin.
+                            </div>
+                        </div>
+
+                        <div class="uq01-profile-picker">
+                            <div class="uq01-profile-title">
+                                <span class="uq01-step">03</span>
+                                <label for="uqRecipientProfile">Người được ủy quyền</label>
+                            </div>
+                            <select class="form-select" id="uqRecipientProfile">
+                                <option value="">Đang tải hồ sơ...</option>
+                            </select>
+                            <div class="uq01-profile-summary" id="uqRecipientSummary" aria-live="polite">
+                                Chọn một hồ sơ để tự điền thông tin.
+                            </div>
+                            <div class="uq01-profile-warning" id="uqRecipientProfileWarning" hidden>
+                                <span><i class="bi bi-exclamation-circle"></i> Hồ sơ chưa có số giấy tờ.</span>
+                                <button class="btn btn-sm btn-link" id="btnCompleteRecipientProfile" type="button">
+                                    Bổ sung ngay
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card uq01-card">
+                <div class="card-header">
+                    <span class="uq01-step">04</span>
+                    Phạm vi và hành trình nhận hàng
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="uqAuthorizationAction">Hành động được ủy quyền</label>
+                        <input class="form-control" id="uqAuthorizationAction" type="text"
+                               value="ký/thực hiện nhận gói/hộp niêm phong và giao hàng">
+                    </div>
+
+                    <div class="uq01-location-block">
+                        <div class="uq01-location-heading">
+                            <strong>Nơi nhận hàng</strong>
+                            <select class="form-select form-select-sm" id="uqPickupType" aria-label="Loại nơi nhận">
+                                <option value="cửa hàng">Cửa hàng</option>
+                                <option value="DC">DC</option>
+                                <option value="khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4" id="uqPickupPlantField">
+                                <label class="form-label" for="uqPickupPlant">Cửa hàng nhận</label>
+                                <select class="form-select" id="uqPickupPlant"></select>
+                            </div>
+                            <div class="col-md-4" id="uqPickupCodeField" hidden>
+                                <label class="form-label" for="uqPickupCode">Mã</label>
+                                <input class="form-control uq01-uppercase" id="uqPickupCode" type="text">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="uqPickupName">Tên địa điểm</label>
+                                <input class="form-control" id="uqPickupName" type="text" readonly>
+                            </div>
+                            <div class="col-12 uq01-location-summary" id="uqPickupPlantSummary" hidden>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="uqPickupAddress">Địa chỉ <span class="text-muted">(tùy chọn)</span></label>
+                                <input class="form-control" id="uqPickupAddress" type="text">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="uq01-route-arrow" aria-hidden="true">
+                        <span></span>
+                    </div>
+
+                    <div class="uq01-location-block uq01-location-destination">
+                        <div class="uq01-location-heading"><strong>Nơi giao hàng</strong></div>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label" for="uqDestinationPlant">Cửa hàng giao</label>
+                                <select class="form-select" id="uqDestinationPlant"></select>
+                            </div>
+                            <div class="col-md-4" id="uqDestinationCodeField" hidden>
+                                <label class="form-label" for="uqDestinationCode">Mã</label>
+                                <input class="form-control uq01-uppercase" id="uqDestinationCode" type="text"
+                                       value="{{ uq01_default_destination.plant }}">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="uqDestinationName">Tên địa điểm</label>
+                                <input class="form-control" id="uqDestinationName" type="text"
+                                       value="{{ uq01_default_destination.unit_name }}" readonly>
+                            </div>
+                            <div class="col-12 uq01-location-summary" id="uqDestinationPlantSummary">
+                                {{ uq01_default_destination.plant }} - {{ uq01_default_destination.unit_name }}
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="uqDestinationAddress">Địa chỉ <span class="text-muted">(tùy chọn)</span></label>
+                                <input class="form-control" id="uqDestinationAddress" type="text">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-5 col-md-3">
+                            <label class="form-label" for="uqPackageCount">Số gói/hộp</label>
+                            <input class="form-control" id="uqPackageCount" type="number" value="1" min="1" max="99">
+                        </div>
+                        <div class="col-7 col-md-4 d-flex align-items-end">
+                            <div class="form-check form-switch uq01-switch">
+                                <input class="form-check-input" id="uqSealedPackage" type="checkbox" checked>
+                                <label class="form-check-label" for="uqSealedPackage">Có niêm phong</label>
+                            </div>
+                        </div>
+                        <div class="col-md-5"></div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="uqValidFrom">Hiệu lực từ ngày</label>
+                            <input class="form-control" id="uqValidFrom" type="date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="uqValidTo">Đến ngày <span class="text-muted">(tùy chọn)</span></label>
+                            <input class="form-control" id="uqValidTo" type="date">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="uqResponsibilityClause">Cam kết trách nhiệm</label>
+                            <textarea class="form-control" id="uqResponsibilityClause" rows="2">Người ủy quyền hoàn toàn chịu trách nhiệm về việc ủy quyền này.</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="uqAdditionalNotes">Ghi chú bổ sung <span class="text-muted">(tùy chọn)</span></label>
+                            <textarea class="form-control" id="uqAdditionalNotes" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card uq01-card">
+                <div class="card-header">
+                    <span class="uq01-step">05</span>
+                    Dữ liệu STO và hàng hóa
+                </div>
+                <div class="card-body">
+                    <div class="uq01-source-mode">
+                        <label class="uq01-source-option active">
+                            <input type="radio" name="uqSourceMode" value="manual" checked>
+                            <span>
+                                <strong>Nhập tay</strong>
+                                <small>Dùng trong pha 1</small>
+                            </span>
+                        </label>
+                        <label class="uq01-source-option disabled" title="Chưa kết nối ERP trong pha 1">
+                            <input type="radio" name="uqSourceMode" value="erp" disabled>
+                            <span>
+                                <strong>ERP PNJ</strong>
+                                <small>Sắp phát triển · không gọi thật</small>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-3">
+                            <label class="form-label" for="uqReferenceType">Loại tham chiếu</label>
+                            <select class="form-select" id="uqReferenceType">
+                                <option value="STO">STO</option>
+                                <option value="PXK">PXK</option>
+                                <option value="KHÁC">Khác</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label" for="uqReferenceNumber">Số tham chiếu</label>
+                            <input class="form-control uq01-uppercase" id="uqReferenceNumber" type="text" inputmode="numeric">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="uqApprovedDate">Ngày duyệt <span class="text-muted">(tùy chọn)</span></label>
+                            <input class="form-control" id="uqApprovedDate" type="date">
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between gap-2 mt-4 mb-2">
+                        <div>
+                            <h3 class="uq01-subheading mb-0">Danh sách hàng hóa</h3>
+                            <small class="text-muted">Nhập mã, tên, số lượng và đơn vị của từng sản phẩm.</small>
+                        </div>
+                        <button class="btn btn-outline-success btn-sm uq01-add-item" id="btnAddUqItem" type="button">
+                            <i class="bi bi-plus-circle"></i> Thêm dòng
+                        </button>
+                    </div>
+
+                    <div id="uqItemsList" class="uq01-items-list"></div>
+                </div>
+            </section>
+
+            <section class="card uq01-card">
+                <div class="card-header uq01-custom-header">
+                    <span>
+                        <span class="uq01-step">06</span>
+                        Nội dung tùy chỉnh
+                    </span>
+                    <span class="badge uq01-content-status" id="uqContentStatus">Đang sinh từ dữ liệu</span>
+                </div>
+                <div class="card-body">
+                    <label class="form-label" for="uqContentOverride">Nội dung ủy quyền trên biểu mẫu</label>
+                    <textarea class="form-control uq01-content-editor" id="uqContentOverride" rows="7"></textarea>
+                    <div class="uq01-custom-actions">
+                        <p class="uq01-field-note mb-0">
+                            Khi sửa tay, nội dung sẽ được giữ nguyên dù các trường cấu trúc thay đổi.
+                        </p>
+                        <button class="btn btn-outline-secondary btn-sm" id="btnRegenerateUqContent" type="button">
+                            <i class="bi bi-arrow-counterclockwise"></i> Tạo lại từ dữ liệu
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div class="uq01-validation" id="uqWarnings" role="status" aria-live="polite"></div>
+            <div class="uq01-overflow-alert" id="uqOverflowAlert" hidden>
+                <i class="bi bi-exclamation-triangle"></i>
+                Nội dung vượt mục tiêu 1 trang A4. Bản in sẽ xuống trang có kiểm soát và không tự giảm cỡ chữ.
+            </div>
+
+            <div class="uq01-actions">
+                <button class="btn btn-outline-dark" id="btnPreviewUQ01" type="button">
+                    <i class="bi bi-arrow-repeat"></i> Cập nhật xem trước
+                </button>
+                <button class="btn btn-primary" id="btnPrintUQ01" type="button">
+                    <i class="bi bi-printer"></i> In biểu mẫu
+                </button>
+                <button class="btn btn-outline-primary" id="btnPdfUQ01" type="button">
+                    <i class="bi bi-file-earmark-pdf"></i> Tải PDF
+                </button>
+            </div>
+        </div>
+
+        <aside class="uq01-preview-panel">
+            <div class="uq01-preview-heading">
+                <div>
+                    <span class="uq01-kicker">Nguồn sự thật duy nhất</span>
+                    <h3>Xem trước A4</h3>
+                </div>
+                <span class="uq01-preview-state" id="uqPreviewState">Chưa tải</span>
+            </div>
+            <div class="uq01-preview-scroll">
+                <iframe id="uqPreviewFrame" name="uq01PreviewFrame" title="Xem trước giấy ủy quyền UQ-01"></iframe>
+            </div>
+        </aside>
+    </div>
+
+    <form id="uqPreviewPostForm" method="post" target="uq01PreviewFrame" hidden>
+        <input type="hidden" name="payload" id="uqPreviewPayload">
+    </form>
+    <form id="uqPdfPostForm" method="post" target="_blank" hidden>
+        <input type="hidden" name="payload" id="uqPdfPayload">
+    </form>
+
+    <div class="modal fade uq01-personnel-modal" id="uqPersonnelModal" tabindex="-1"
+         aria-labelledby="uqPersonnelModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <span class="uq01-kicker">Hồ sơ dùng riêng theo tài khoản và plant</span>
+                        <h3 class="modal-title fs-5" id="uqPersonnelModalTitle">Cập nhật dữ liệu nhân sự</h3>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="uq01-profile-form-message" id="uqProfileFormMessage" role="alert" hidden></div>
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <div class="uq01-profile-list-heading">
+                                <strong>Hồ sơ hiện có</strong>
+                                <button class="btn btn-outline-primary btn-sm" id="btnUqNewProfile" type="button">
+                                    <i class="bi bi-person-plus"></i> Thêm hồ sơ
+                                </button>
+                            </div>
+                            <div class="uq01-profile-list" id="uqProfileList"></div>
+                        </div>
+                        <div class="col-lg-8">
+                            <form id="uqPersonnelForm" autocomplete="off" novalidate>
+                                <input type="hidden" id="uqProfileId">
+                                <div class="uq01-profile-form-title" id="uqProfileFormTitle">Thêm hồ sơ</div>
+
+                                <fieldset class="uq01-role-fieldset">
+                                    <legend>Vai trò sử dụng</legend>
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="uqProfileCanAuthorize" type="checkbox">
+                                        <label class="form-check-label" for="uqProfileCanAuthorize">Người ủy quyền</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="uqProfileCanReceive" type="checkbox">
+                                        <label class="form-check-label" for="uqProfileCanReceive">Người được ủy quyền</label>
+                                    </div>
+                                </fieldset>
+
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label" for="uqProfileFullName">Họ và tên</label>
+                                        <input class="form-control uq01-uppercase" id="uqProfileFullName" type="text" required>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label" for="uqProfileJobTitle">Chức vụ</label>
+                                        <input class="form-control" id="uqProfileJobTitle" type="text" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="uqProfileEmployeeCode">Mã NV <span class="text-muted">(tùy chọn)</span></label>
+                                        <input class="form-control uq01-uppercase" id="uqProfileEmployeeCode" type="text">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="uqProfileUnitCode">Mã đơn vị</label>
+                                        <input class="form-control uq01-uppercase" id="uqProfileUnitCode" type="text" required>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label" for="uqProfileUnitName">Tên đơn vị</label>
+                                        <input class="form-control" id="uqProfileUnitName" type="text" required>
+                                    </div>
+                                </div>
+
+                                <div class="uq01-identity-fields">
+                                    <div class="uq01-identity-heading">
+                                        <strong>Giấy tờ người được ủy quyền</strong>
+                                        <small>Không bắt buộc với hồ sơ chỉ dùng làm người ủy quyền.</small>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label" for="uqProfileIdType">Loại giấy tờ</label>
+                                            <select class="form-select" id="uqProfileIdType">
+                                                <option value="CCCD">CCCD</option>
+                                                <option value="CMND">CMND</option>
+                                                <option value="Khác">Khác</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label" for="uqProfileIdNumber">Số giấy tờ</label>
+                                            <input class="form-control" id="uqProfileIdNumber" type="text" inputmode="numeric">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="uqProfileIdIssueDate">Ngày cấp <span class="text-muted">(tùy chọn)</span></label>
+                                            <input class="form-control" id="uqProfileIdIssueDate" type="date">
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label" for="uqProfileIdIssuePlace">Nơi cấp <span class="text-muted">(tùy chọn)</span></label>
+                                            <input class="form-control" id="uqProfileIdIssuePlace" type="text">
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="uq01-privacy-note">
+                                    <i class="bi bi-shield-lock"></i>
+                                    Thông tin giấy tờ chỉ lưu trong CSDL runtime nội bộ, không lưu vào trình duyệt và không ghi vào log.
+                                </p>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" id="btnUqSaveProfile">
+                        <i class="bi bi-check2-circle"></i> Lưu hồ sơ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <template id="uqItemTemplate">
+        <article class="uq01-item-card">
+            <div class="uq01-item-heading">
+                <strong>Dòng <span data-uq-item-number></span></strong>
+                <button class="btn btn-sm btn-outline-danger" type="button" data-uq-remove-item aria-label="Xóa dòng hàng">
+                    <i class="bi bi-trash3"></i>
+                </button>
+            </div>
+            <div class="row g-2">
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Mã sản phẩm</label>
+                    <input class="form-control uq01-uppercase" type="text" data-uq-field="material_code">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Tên sản phẩm</label>
+                    <input class="form-control" type="text" data-uq-field="description">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Số lượng</label>
+                    <input class="form-control" type="number" min="0.001" step="0.001" value="1" data-uq-field="quantity">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Đơn vị</label>
+                    <input class="form-control" type="text" value="món" data-uq-field="unit">
+                </div>
+            </div>
+        </article>
+    </template>
+</div>
