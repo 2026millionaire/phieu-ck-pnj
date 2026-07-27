@@ -422,7 +422,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('font-family: "Times New Roman", "Noto Serif", "DejaVu Serif", serif !important;', colored_html)
         self.assertIn(".page-one table", colored_html)
         self.assertIn("line-height: 1.04", colored_html)
-        self.assertIn("transform: scale(0.868)", colored_html)
+        self.assertIn("font-size: 11.2px", colored_html)
+        self.assertIn("transform: scale(0.892)", colored_html)
         self.assertIn("background-color: #0b1f3a !important", colored_html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")
