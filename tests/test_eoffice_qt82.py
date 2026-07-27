@@ -370,7 +370,7 @@ class EofficeQt82Tests(unittest.TestCase):
 
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Thoả thuận thu đổi sản phẩm", html)
-        self.assertIn("margin: 15mm 15mm 15mm 30mm", html)
+        self.assertIn("margin: 12mm 15mm 12mm 30mm", html)
         self.assertIn("Tải thoả thuận PDF", html)
         self.assertIn("Tải thoả thuận Excel", html)
         self.assertIn("0,01%/ngày", html)
