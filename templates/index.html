@@ -2388,7 +2388,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const taxDocPrefix = '4800';
     const taxDocLength = 10;
     const otherTransferType = 'Phải CK khác';
-    const otherTransferDefaultLabel = 'KH chuyển khoản thanh toán';
+    const otherTransferDefaultLabel = 'Giấy Báo Có\n(KH CK thanh toán)';
     const docTypePrefixes = {
         'Bảng kê': '{{ bk_prefix }}',
         'Hóa đơn': '{{ settings.get("invoice_prefix", "901") }}',
@@ -2579,11 +2579,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderDocumentDocInput(item, idx) {
         const menuId = 'sapDocumentSuggestion' + idx;
-        if (item.loai === otherTransferType) {
-            return '<input type="text" class="form-control form-control-sm sap-edit sap-other-transfer-label-input" '
-                + 'data-idx="' + idx + '" data-field="label" value="' + escapeHtml((item.label || '').trim() || otherTransferDefaultLabel) + '" '
-                + 'placeholder="' + escapeHtml(otherTransferDefaultLabel) + '" maxlength="80" autocomplete="off">';
-        }
         const inputHtml = '<input type="text" class="form-control form-control-sm font-monospace sap-edit sap-doc-number-input" '
             + 'data-idx="' + idx + '" data-field="so_ct" value="' + escapeHtml(item.so_ct || '') + '" '
             + 'inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">';
@@ -3429,18 +3424,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        tbody.querySelectorAll('.sap-other-transfer-label-input').forEach(function(el) {
-            el.addEventListener('input', async function(event) {
-                if (!await handleTransactionManualIntent(event)) {
-                    renderSapTable(sapItems);
-                    return;
-                }
-                const idx = parseInt(this.dataset.idx);
-                if (sapItems[idx]) sapItems[idx].label = this.value;
-                updateSummary();
-            });
-        });
-
         tbody.querySelectorAll('.sap-amount-input').forEach(function(el) {
             el.addEventListener('blur', async function(event) {
                 if (!await handleTransactionManualIntent(event)) {
@@ -3507,7 +3490,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // Preview row
             const ptr = document.createElement('tr');
-            ptr.innerHTML = '<td>' + escapeHtml(transactionDisplayLabel(item)) + '</td><td>' + escapeHtml(item.so_ct || '') + '</td>' +
+            ptr.innerHTML = '<td>' + escapeHtml(transactionDisplayLabel(item)).replace(/\n/g, '<br>') + '</td><td>' + escapeHtml(item.so_ct || '') + '</td>' +
                 '<td>' + formatNum(item.gia_tri) + '</td><td>' + (item.gio || '') + '</td>';
             previewTbody.appendChild(ptr);
         });

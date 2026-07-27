@@ -547,7 +547,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('value="T120"', index_html)
         self.assertIn('value="T0"', index_html)
         self.assertIn("'Phải CK khác'", index_html)
-        self.assertIn("sap-other-transfer-label-input", index_html)
+        self.assertIn("Giấy Báo Có\\n(KH CK thanh toán)", index_html)
+        self.assertNotIn("sap-other-transfer-label-input", index_html)
         self.assertIn("use_bk_ref_default", index_html)
         self.assertIn("show_payment_dates_default", index_html)
         self.assertIn("sap-bk-ref-status", index_html)
@@ -620,7 +621,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
         self.assertEqual(settings_json["payment_planning_title_bg"], "1")
 
-    def test_t0_print_hides_payment_schedule_and_other_transfer_has_custom_label(self):
+    def test_t0_print_hides_payment_schedule_and_other_transfer_uses_credit_notice_label(self):
         self.login(role="admin")
         payload = {
             "status": "printed",
@@ -641,18 +642,20 @@ class EofficeQt82Tests(unittest.TestCase):
             "tong_ck": 1200000,
             "chung_tu": [
                 {"loai": "Bảng kê", "so_ct": "4403000019", "gia_tri": 1000000, "gio": "24/07/2026 09:00"},
-                {"loai": "Phải CK khác", "label": "KH chuyển khoản thanh toán", "so_ct": "", "gia_tri": 200000, "gio": "24/07/2026 09:10"},
+                {"loai": "Phải CK khác", "label": "KH chuyển khoản thanh toán", "so_ct": "1600123456", "gia_tri": 200000, "gio": "24/07/2026 09:10"},
             ],
         }
         saved = self.client.post("/api/save", json=payload).get_json()
         self.assertEqual(saved["tong_ck"], 1200000)
         phieu = self.client.get(f"/api/phieu/{saved['id']}").get_json()["phieu"]
         self.assertEqual(phieu["payment_time_mode"], "T0")
-        self.assertEqual(phieu["chung_tu"][1]["display_loai"], "KH chuyển khoản thanh toán")
+        self.assertEqual(phieu["chung_tu"][1]["display_loai"], "Giấy Báo Có\n(KH CK thanh toán)")
+        self.assertEqual(phieu["chung_tu"][1]["so_ct"], "1600123456")
 
         print_html = self.client.get(f"/api/print/{saved['id']}").get_data(as_text=True)
         self.assertIn("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản", print_html)
-        self.assertIn("KH chuyển khoản thanh toán", print_html)
+        self.assertIn("Giấy Báo Có<br>(KH CK thanh toán)", print_html)
+        self.assertIn("<td class=\"center\">1600123456</td>", print_html)
         self.assertNotIn("Thời gian thanh toán:", print_html)
         self.assertNotIn("0234 3847 588", print_html)
 

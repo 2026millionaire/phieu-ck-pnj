@@ -1095,7 +1095,7 @@ def calc_tong_ck(chung_tu_list):
 PAYMENT_TIME_MODE_DEFAULT = "T120"
 PAYMENT_TIME_MODES = {"T0", "T120"}
 OTHER_TRANSFER_TYPE = "Phải CK khác"
-OTHER_TRANSFER_DEFAULT_LABEL = "KH chuyển khoản thanh toán"
+OTHER_TRANSFER_DEFAULT_LABEL = "Giấy Báo Có\n(KH CK thanh toán)"
 
 
 def normalize_payment_time_mode(value):
@@ -1107,9 +1107,8 @@ def transaction_display_label(item):
     if not isinstance(item, dict):
         return ""
     loai = str(item.get("loai", "")).strip()
-    label = str(item.get("label", "")).strip()
     if loai == OTHER_TRANSFER_TYPE:
-        return label or OTHER_TRANSFER_DEFAULT_LABEL
+        return OTHER_TRANSFER_DEFAULT_LABEL
     return loai
 
 
@@ -1981,8 +1980,9 @@ def make_phieu_pdf(p):
     story.append(Paragraph("<b>Thông tin chứng từ:</b>", bold_style))
     table_data = [["Loại chứng từ", "Số chứng từ", "Giá trị", "Ngày giờ"]]
     for ct in p.get("chung_tu", []):
+        ct_label = (ct.get("display_loai") or transaction_display_label(ct)).replace("\n", "<br/>")
         table_data.append([
-            ct.get("display_loai") or transaction_display_label(ct),
+            Paragraph(ct_label, normal),
             ct.get("so_ct", ""),
             f"{abs(float(ct.get('gia_tri') or 0)):,.0f}",
             ct.get("gio", ""),

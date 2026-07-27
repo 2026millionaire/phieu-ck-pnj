@@ -449,7 +449,7 @@
         <tbody>
             {% for ct in p.chung_tu %}
             <tr>
-                <td class="center">{{ ct.display_loai or ct.label or ct.loai }}</td>
+                <td class="center">{{ ((ct.display_loai or ct.label or ct.loai) | replace('\n', '<br>')) | safe }}</td>
                 <td class="center">{{ ct.so_ct }}</td>
                 <td class="num">{{ "{:,.0f}".format(ct.gia_tri | float | abs) }}</td>
                 <td class="center">{{ ct.gio }}</td>
