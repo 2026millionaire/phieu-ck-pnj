@@ -370,7 +370,7 @@ class EofficeQt82Tests(unittest.TestCase):
 
         html = self.client.get(f"/api/payment-planning/{phieu_id}").get_data(as_text=True)
         self.assertIn("Thoả thuận thu đổi sản phẩm", html)
-        self.assertIn("margin: 4mm 5mm 4mm 15mm", html)
+        self.assertIn("margin: 20mm 15mm 20mm 30mm", html)
         self.assertIn("Tải thoả thuận PDF", html)
         self.assertIn("Tải thoả thuận Excel", html)
         self.assertIn("0,01%/ngày", html)
@@ -422,6 +422,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('font-family: "Times New Roman", "Noto Serif", "DejaVu Serif", serif !important;', colored_html)
         self.assertIn(".page-one table", colored_html)
         self.assertIn("line-height: 1.04", colored_html)
+        self.assertIn("transform: scale(0.868)", colored_html)
         self.assertIn("background-color: #0b1f3a !important", colored_html)
 
         xlsx_response = self.client.get(f"/api/payment-planning-xlsx/{phieu_id}")

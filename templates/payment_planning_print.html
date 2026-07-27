@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 4mm 5mm 4mm 15mm;
+            margin: 20mm 15mm 20mm 30mm;
         }
         * {
             box-sizing: border-box;
@@ -240,14 +240,20 @@
         @media print {
             html,
             body {
-                width: auto;
+                width: 190mm;
                 padding: 0;
                 background: #fff !important;
                 color: #000;
                 font-family: "Times New Roman", "Noto Serif", "DejaVu Serif", serif !important;
                 font-size: 10.8px;
+                line-height: 1.04;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+            }
+            .doc {
+                width: 190mm;
+                transform: scale(0.868);
+                transform-origin: top left;
             }
             .planning-title-bg .title,
             .planning-title-bg .section-title,
