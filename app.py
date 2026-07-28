@@ -1858,7 +1858,10 @@ def prepare_phieu_for_output(row, settings=None):
     d["green_flow"] = settings_flag(d, "green_flow", "0")
     d["payment_time_mode"] = normalize_payment_time_mode(d.get("payment_time_mode"))
     d["payment_time_label"] = "T/T+1 ngày" if d["green_flow"] else "T+120 ngày"
-    d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
+    d["show_payment_time"] = (
+        d["payment_time_mode"] == "T120"
+        and settings.get("show_payment_time", "1") == "1"
+    )
     d["payment_schedule"] = build_payment_schedule(d.get("tong_ck", 0))
     d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
@@ -2037,7 +2040,14 @@ def make_phieu_pdf(p):
     story.append(ct_table)
     story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản.", normal))
     if p.get("show_payment_time"):
-        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('payment_time_label') or 'T+120 ngày'}", normal))
+        schedule_html = ["<b>Thời gian thanh toán:</b>"]
+        for index, item in enumerate(p.get("payment_schedule") or build_payment_schedule(p.get("tong_ck", 0)), start=1):
+            schedule_html.append(
+                f"{index}. {item['label']}: {item['percent']}% - tương ứng số tiền "
+                f"<b>{int(item['amount']):,} đồng</b>"
+            )
+        story.append(Paragraph("<br/>".join(schedule_html), normal))
+        story.append(Paragraph("* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
     story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
     story.append(Spacer(1, 4 * mm))
     story.append(Table([

@@ -629,7 +629,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
         self.assertEqual(settings_json["payment_planning_title_bg"], "1")
 
-    def test_green_flow_print_uses_short_payment_time_and_credit_notice_label(self):
+    def test_green_flow_print_hides_payment_schedule_and_uses_credit_notice_label(self):
         self.login(role="admin")
         payload = {
             "status": "printed",
@@ -665,7 +665,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản", print_html)
         self.assertIn("Giấy Báo Có<br>(KH CK thanh toán)", print_html)
         self.assertIn("<td class=\"center\">1600123456</td>", print_html)
-        self.assertIn("Thời gian thanh toán: T/T+1 ngày", print_html)
+        self.assertNotIn("Thời gian thanh toán:", print_html)
         self.assertNotIn("T+30: 20%", print_html)
         self.assertNotIn("0234 3847 588", print_html)
 
@@ -1083,15 +1083,21 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn(f'href="/api/pdf/{phieu_id}?token=', html)
         self.assertNotIn(f"/api/print/{phieu_id}", f"/p/{token}?print=1")
 
-    def test_print_uses_short_default_t120_payment_time(self):
+    def test_default_print_uses_five_stage_payment_schedule(self):
         self.login(role="admin")
         phieu_id = self.create_phieu(amount=143271123)
 
         html = self.client.get(f"/api/print/{phieu_id}").get_data(as_text=True)
 
-        self.assertIn("Thời gian thanh toán: T+120 ngày", html)
-        self.assertNotIn("1. T/T+1: 10% - tương ứng số tiền", html)
-        self.assertNotIn("2. T+30: 20% - tương ứng số tiền", html)
+        self.assertIn("1. T/T+1: 10% - tương ứng số tiền", html)
+        self.assertIn("<strong>14,327,112 đồng</strong>", html)
+        self.assertIn("2. T+30: 20% - tương ứng số tiền", html)
+        self.assertIn("<strong>28,654,225 đồng</strong>", html)
+        self.assertIn("3. T+60: 25% - tương ứng số tiền", html)
+        self.assertIn("<strong>35,817,781 đồng</strong>", html)
+        self.assertIn("4. T+90: 25% - tương ứng số tiền", html)
+        self.assertIn("5. T+120: 20% - tương ứng số tiền", html)
+        self.assertIn("0234 3847 588", html)
         self.assertNotIn("Thanh toán trong ngày (T)", html)
         self.assertNotIn("Thanh toán vào ngày kế tiếp (T+1)", html)
 

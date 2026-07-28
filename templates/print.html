@@ -473,7 +473,18 @@
     <!-- ===== THỜI GIAN THANH TOÁN ===== -->
     {% if p.show_payment_time %}
     <div class="payment-time">
-        <div class="schedule-title">Thời gian thanh toán: {{ p.payment_time_label }}</div>
+        <div class="schedule-title">Thời gian thanh toán:</div>
+        {% for item in p.payment_schedule %}
+        <div class="schedule-line">
+            {{ loop.index }}. {{ item.label }}: {{ item.percent }}% - tương ứng số tiền
+            <strong>{{ "{:,.0f}".format(item.amount | float) }} đồng</strong>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ===== LƯU Ý ===== -->
+    <div class="notes">
+        <div class="contact">* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <strong>0234 3847 588</strong></div>
     </div>
     {% endif %}
 
