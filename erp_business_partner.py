@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -83,14 +84,48 @@ def _flatten_profile_record(payload: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
+def _normalize_compare_text(value: Any) -> str:
+    text = _clean_text(value).upper()
+    text = "".join(
+        char for char in unicodedata.normalize("NFD", text)
+        if unicodedata.category(char) != "Mn"
+    )
+    text = re.sub(r"[^A-Z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _split_region_parts(value: Any) -> list[str]:
+    text = _clean_text(value)
+    if not text:
+        return []
+    return [chunk for chunk in re.split(r"\s*[-,;/|]\s*", text) if _normalize_compare_text(chunk)]
+
+
+def _is_redundant_region(region: Any, existing_parts: list[str]) -> bool:
+    normalized_region = _normalize_compare_text(region)
+    if not normalized_region:
+        return True
+    normalized_existing = [_normalize_compare_text(part) for part in existing_parts if _normalize_compare_text(part)]
+    if normalized_region in normalized_existing:
+        return True
+    region_chunks = [_normalize_compare_text(chunk) for chunk in _split_region_parts(region)]
+    if not region_chunks:
+        return False
+    return all(
+        any(chunk == existing or chunk in existing or existing in chunk for existing in normalized_existing)
+        for chunk in region_chunks
+    )
+
+
 def format_address(record: dict[str, Any]) -> str:
-    parts = [
-        _first(record, "StreetName", "Street", "StreetAddressName", "HouseNumberAndStreet"),
-        _first(record, "Ward", "DistrictName3"),
-        _district(record),
-        _first(record, "CityName", "City"),
-        _first(record, "RegionName", "Region"),
-    ]
+    street = _first(record, "StreetName", "Street", "StreetAddressName", "HouseNumberAndStreet")
+    ward = _first(record, "Ward", "DistrictName3")
+    district = _district(record)
+    city = _first(record, "CityName", "City")
+    region = _first(record, "RegionName", "Region")
+    parts = [street, ward, district, city]
+    if region and not _is_redundant_region(region, parts):
+        parts.append(region)
     seen = set()
     output = []
     for part in parts:

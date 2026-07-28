@@ -235,8 +235,9 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(payload["detailDocuments"], ["4403000001"])
         self.assertEqual(
             payload["requestContent"],
-            "1305_CK BK 4403000001 ngày 2026-07-16 cho KHACH HANG TEST - 1.500.000 VND",
+            "1305_CK BK 4403000001 ngày 2026-07-16 cho KHACH HANG TEST - 1.500.000 VNĐ",
         )
+        self.assertNotIn(" VND", payload["requestContent"])
         self.assertEqual(payload["formUrl"], app_module.DEFAULT_QT82_FORM_URL)
 
     def test_admin_can_override_sap_document_for_qt82(self):
@@ -744,6 +745,7 @@ class EofficeQt82Tests(unittest.TestCase):
         eoffice_html = self.client.get(f"/eoffice/{saved['id']}").get_data(as_text=True)
         qt82_payload = self.payload_from_html(eoffice_html)
         self.assertEqual(qt82_payload["requestContent"], expected)
+        self.assertNotIn(" VND", qt82_payload["requestContent"])
 
     def test_cao_mode_uses_plant_2122_and_caf_payment_planning_text(self):
         self.login(role="admin")

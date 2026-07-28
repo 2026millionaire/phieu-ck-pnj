@@ -1355,7 +1355,7 @@ def build_noi_dung(plant, so_bk, ngay, ten_kh, tong_ck=None):
     base = f"{plant}_CK BK {so_bk} ngày {ngay} cho {ten_kh}"
     if tong_ck is None:
         return base
-    return f"{base} - {format_vnd_amount(tong_ck)} VND"
+    return f"{base} - {format_vnd_amount(tong_ck)} VNĐ"
 
 
 def has_credit_notice_transaction(chung_tu_list):

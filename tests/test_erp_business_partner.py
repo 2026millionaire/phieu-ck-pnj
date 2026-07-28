@@ -49,7 +49,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         path.write_text(json.dumps({"records": records}, ensure_ascii=False), encoding="utf-8")
         os.environ["PNJ_ERP_BP_FIXTURE_PATH"] = str(path)
 
-    def helper_maps_business_partner_profile_fields_legacy_expectation(self):
+    def test_maps_business_partner_profile_fields_with_unicode_input(self):
         profile = erp_business_partner.public_business_partner_profile(
             {
                 "BusinessPartner": "100065309",
@@ -71,9 +71,10 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertEqual(profile["phone"], "0983156393")
         self.assertEqual(profile["cccd"], "046166004673")
         self.assertEqual(profile["birth_date"], "1966-08-19")
+        self.assertEqual(profile["region"], "Hưng Yên-Xã Ngự Thiên")
         self.assertEqual(
             profile["address"],
-            "18A TRẦN BÌNH TRỌNG, THUẬN HÒA, TP HUẾ, THỪA THIÊN HUẾ",
+            "18A TRẦN BÌNH TRỌNG, THUẬN HÒA, TP HUẾ, THỪA THIÊN HUẾ, Hưng Yên-Xã Ngự Thiên",
         )
 
     def test_maps_business_partner_profile_fields(self):
@@ -162,6 +163,72 @@ class ErpBusinessPartnerTests(unittest.TestCase):
             profile["address"],
             "18A TRAN BINH TRONG, PHUONG THUAN HOA, TP HUE, THUA THIEN HUE, VIET NAM",
         )
+
+    def test_drops_region_when_it_only_repeats_existing_address_parts(self):
+        cases = [
+            (
+                {
+                    "StreetName": "00",
+                    "Ward": "PHƯỜNG THANH THỦY",
+                    "CityName": "THÀNH PHỐ HUẾ",
+                    "RegionName": "THÀNH PHỐ HUẾ-PHƯỜNG THANH THỦY",
+                },
+                "00, PHƯỜNG THANH THỦY, THÀNH PHỐ HUẾ",
+            ),
+            (
+                {
+                    "StreetName": "34 AN DƯƠNG VƯƠNG",
+                    "Ward": "PHƯỜNG THUẬN HÓA",
+                    "CityName": "THÀNH PHỐ HUẾ",
+                    "RegionName": "THÀNH PHỐ HUẾ - PHƯỜNG THUẬN HÓA",
+                },
+                "34 AN DƯƠNG VƯƠNG, PHƯỜNG THUẬN HÓA, THÀNH PHỐ HUẾ",
+            ),
+            (
+                {
+                    "StreetName": "THÔN BAO VINH",
+                    "Ward": "PHƯỜNG HÓA CHÂU",
+                    "CityName": "THÀNH PHỐ HUẾ",
+                    "RegionName": "PHƯỜNG HÓA CHÂU, THÀNH PHỐ HUẾ",
+                },
+                "THÔN BAO VINH, PHƯỜNG HÓA CHÂU, THÀNH PHỐ HUẾ",
+            ),
+            (
+                {
+                    "StreetName": "60NGÔ ĐỨC KẾ",
+                    "Ward": "PHƯỜNG THUẬN HÓA",
+                    "CityName": "THÀNH PHỐ HUẾ",
+                    "RegionName": "THÀNH PHỐ HUẾ/PHƯỜNG THUẬN HÓA",
+                },
+                "60NGÔ ĐỨC KẾ, PHƯỜNG THUẬN HÓA, THÀNH PHỐ HUẾ",
+            ),
+        ]
+
+        for record, expected in cases:
+            with self.subTest(region=record["RegionName"]):
+                profile = erp_business_partner.public_business_partner_profile(record)
+                self.assertEqual(profile["address"], expected)
+
+    def test_drops_redundant_region_from_nested_address_payload(self):
+        profile = erp_business_partner.public_business_partner_profile(
+            {
+                "d": {
+                    "BusinessPartner": "100000029",
+                    "to_Address": {
+                        "results": [
+                            {
+                                "HouseNumberAndStreet": "00",
+                                "DistrictName3": "PHƯỜNG THANH THỦY",
+                                "City": "THÀNH PHỐ HUẾ",
+                                "Region": "THÀNH PHỐ HUẾ-PHƯỜNG THANH THỦY",
+                            }
+                        ]
+                    },
+                }
+            }
+        )
+
+        self.assertEqual(profile["address"], "00, PHƯỜNG THANH THỦY, THÀNH PHỐ HUẾ")
 
     def test_api_returns_fixture_profile(self):
         self.write_fixture(
