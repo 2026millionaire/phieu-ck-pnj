@@ -246,6 +246,35 @@ textarea#sap_data {
     display: inline-flex;
 }
 
+.transaction-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.4rem;
+    min-height: 34px;
+}
+
+.transaction-option-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-left: 0;
+    min-height: 24px;
+}
+
+.transaction-option-check .form-check-input {
+    float: none;
+    margin: 0;
+}
+
+.transaction-payment-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 24px;
+    line-height: 1.2;
+}
+
 @media (max-width: 640px) {
     .transaction-loading-status {
         flex-basis: 100%;
@@ -996,12 +1025,12 @@ textarea#sap_data {
                         </button>
                     </div>
 
-                    <div class="d-flex flex-wrap align-items-center gap-3 mt-2">
-                        <div class="form-check mb-0">
+                    <div class="transaction-options mt-2">
+                        <div class="form-check mb-0 transaction-option-check">
                             <input class="form-check-input" type="checkbox" id="greenFlow" name="green_flow" value="1">
                             <label class="form-check-label" for="greenFlow">Luồng xanh</label>
                         </div>
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="transaction-payment-time">
                             <span class="form-label mb-0">Thời gian thanh toán:</span>
                             <strong id="paymentTimeDisplay">T+120 ngày</strong>
                         </div>
