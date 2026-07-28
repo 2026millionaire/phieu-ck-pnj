@@ -583,7 +583,10 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("await requestPurchaseOrderSuggestionsForKey(loadingKey, customerCode);", index_html)
         self.assertIn("auto_fill_transactions_default", index_html)
         self.assertIn("transactionLoadingStatus", index_html)
-        self.assertIn('id="sapTransactionDocumentNote"', transaction_block)
+        self.assertIn('id="sapTableBody"', transaction_block)
+        self.assertIn("renderAmountInput(item, idx)", index_html)
+        self.assertIn("sap-docno-status", index_html)
+        self.assertNotIn("sapTransactionDocumentNote", transaction_block)
         self.assertIn("<Đang tải bảng kê...>", index_html)
         self.assertIn("<Đang tải hoá đơn...>", index_html)
         self.assertIn("<Đang tải số hiệu BK...>", index_html)
@@ -699,7 +702,10 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("if (counts.hoaDon !== 0) return '';", template_text)
         self.assertIn("if (counts.bienNhanCoc !== 0) return '';", template_text)
         self.assertIn("if (counts.other !== 0) return '';", template_text)
-        self.assertIn("Số chứng từ SAP: ", template_text)
+        self.assertIn("function renderAmountInput(item, idx)", template_text)
+        self.assertIn("sap-docno-status", template_text)
+        self.assertIn("(Doc. No: ", template_text)
+        self.assertIn("return '<div class=\"sap-amount-field\">' + inputHtml + hintHtml + '</div>';", template_text)
         self.assertIn("normalizeSapTransactionDocumentNumber(data.sap_transaction_document || '')", template_text)
 
     def test_sap_transaction_note_is_ui_only_and_not_printed(self):
@@ -728,6 +734,7 @@ class EofficeQt82Tests(unittest.TestCase):
 
         self.assertNotIn("Số chứng từ SAP:", print_html)
         self.assertNotIn("sapTransactionDocumentNote", print_html)
+        self.assertNotIn("(Doc. No: ", print_html)
 
     def test_save_persists_sap_document_override_for_eoffice(self):
         self.login(role="admin")
@@ -780,6 +787,8 @@ class EofficeQt82Tests(unittest.TestCase):
         )
         self.assertIn("sap_document: resolvedSapTransactionDocumentForSave()", template_text)
         self.assertIn("function resolvedSapTransactionDocumentForSave()", template_text)
+        self.assertIn("'<td>' + renderAmountInput(item, idx) + '</td>'", template_text)
+        self.assertIn("renderAmountInput(item, idx) +", template_text)
         self.assertNotIn("loai: 'Số chứng từ SAP'", template_text)
 
     def test_green_flow_print_hides_payment_schedule_and_uses_credit_notice_label(self):

@@ -542,6 +542,22 @@ textarea#sap_data {
 .sap-bk-ref-status.loading {
     color: #b45309;
 }
+.sap-amount-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+    min-width: 0;
+}
+.sap-docno-status {
+    display: block;
+    min-height: 0.72rem;
+    color: #64748b;
+    font-size: 0.58rem;
+    line-height: 1.05;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .sap-table .sap-amount-input {
     letter-spacing: -0.035em;
 }
@@ -1048,7 +1064,6 @@ textarea#sap_data {
                         </div>
                     </div>
 
-                    <div class="small text-muted mt-2 d-none" id="sapTransactionDocumentNote"></div>
                     <!-- Hidden fields for chung_tu JSON -->
                     <input type="hidden" id="chung_tu_json" name="chung_tu_json" value="">
                     <input type="hidden" id="tong_bk" name="tong_bk" value="0">
@@ -2708,6 +2723,22 @@ document.addEventListener('DOMContentLoaded', function() {
             + (enabled ? '' : 'disabled') + '>';
     }
 
+    function sapTransactionDocumentHintHtml(item) {
+        if (!item || item.loai !== 'Bảng kê') return '';
+        const sapDocument = resolvedSapTransactionDocumentForSave();
+        if (!sapDocument) return '';
+        return '<small class="sap-docno-status">(Doc. No: ' + escapeHtml(sapDocument) + ')</small>';
+    }
+
+    function renderAmountInput(item, idx) {
+        const inputHtml = '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" '
+            + 'data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" '
+            + 'inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">';
+        const hintHtml = sapTransactionDocumentHintHtml(item);
+        if (!hintHtml) return inputHtml;
+        return '<div class="sap-amount-field">' + inputHtml + hintHtml + '</div>';
+    }
+
     function hideDocumentSuggestions() {
         document.querySelectorAll('.sap-invoice-suggestion-menu.show').forEach(function(menu) {
             menu.classList.remove('show');
@@ -3564,7 +3595,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<div class="sap-mobile-inputs">' +
                     renderDocumentDocInput(item, idx) +
                     (showBkRef ? renderBkRefInput(item, idx) : '') +
-                    '<input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off">' +
+                    renderAmountInput(item, idx) +
                     '</div>' +
                     '</div>' +
                     '</td>';
@@ -3573,7 +3604,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<td>' + renderLoaiButton(item, idx) + '</td>' +
                     '<td>' + renderDocumentDocInput(item, idx) + '</td>' +
                     '<td class="sap-bk-ref-cell">' + renderBkRefInput(item, idx) + '</td>' +
-                    '<td><input type="text" class="form-control form-control-sm text-end sap-edit sap-amount-input" data-idx="' + idx + '" data-field="gia_tri" value="' + (item.gia_tri ? formatNum(item.gia_tri) : '') + '" inputmode="numeric"></td>' +
+                    '<td>' + renderAmountInput(item, idx) + '</td>' +
                     '<td><input type="time" class="form-control form-control-sm sap-edit" data-idx="' + idx + '" data-field="gio" value="' + timeVal + '"></td>' +
                     '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 sap-del" data-idx="' + idx + '" title="Xóa"><i class="bi bi-trash3"></i></button></td>';
             }
