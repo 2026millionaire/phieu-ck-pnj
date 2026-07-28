@@ -996,6 +996,22 @@ textarea#sap_data {
                         </button>
                     </div>
 
+                    <div class="d-flex flex-wrap align-items-center gap-3 mt-2">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="greenFlow" name="green_flow" value="1">
+                            <label class="form-check-label" for="greenFlow">Luồng xanh</label>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <label class="form-label mb-0">Thời gian thanh toán</label>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Thời gian thanh toán">
+                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT120" value="T120" checked>
+                                <label class="btn btn-outline-primary" for="paymentTimeT120">T120</label>
+                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT0" value="T0">
+                                <label class="btn btn-outline-primary" for="paymentTimeT0">T0</label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="summary-box mt-2" id="summaryBox" style="display:none;">
                         <div id="summaryContent"></div>
                         <div class="mt-1">
@@ -1047,15 +1063,6 @@ textarea#sap_data {
                     <div class="row g-2 align-items-center">
                         <div class="col-auto"><label class="form-label mb-0"><i class="bi bi-calendar3"></i> Ngày lập</label></div>
                         <div class="col-md-4 col"><input type="date" class="form-control form-control-sm" id="ngayLap" name="ngay_lap"></div>
-                        <div class="col-auto"><label class="form-label mb-0">Thời gian thanh toán</label></div>
-                        <div class="col-md-5 col">
-                            <div class="btn-group btn-group-sm" role="group" aria-label="Thời gian thanh toán">
-                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT120" value="T120" checked>
-                                <label class="btn btn-outline-primary" for="paymentTimeT120">T120</label>
-                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT0" value="T0">
-                                <label class="btn btn-outline-primary" for="paymentTimeT0">T0</label>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1510,10 +1517,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
         const addressInput = document.getElementById('dia_chi');
         cacheCustomerProfileSuggestions(profile, requestedCode, 'bp');
-        if (!addressInput.value.trim() && profile.address) {
-            addressInput.value = profile.address;
-            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        if (addressInput && !addressInput.value.trim()) setAddressLoadingPlaceholder(false);
     }
 
     function applyPurchaseOrderCustomerProfile(profile, requestedCode) {
@@ -1522,10 +1526,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
         const addressInput = document.getElementById('dia_chi');
         cacheCustomerProfileSuggestions(profile, requestedCode, 'po');
-        if (!addressInput.value.trim() && profile.address) {
-            addressInput.value = profile.address;
-            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        if (addressInput && !addressInput.value.trim()) setAddressLoadingPlaceholder(false);
     }
 
     async function fetchCustomerLocalProfile(customerCode, turnstileToken) {
@@ -2898,6 +2899,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return checked ? checked.value : 'T120';
     }
 
+    function greenFlowEnabled() {
+        const checkbox = document.getElementById('greenFlow');
+        return !!(checkbox && checkbox.checked);
+    }
+
     function setPaymentTimeMode(mode) {
         const normalized = mode === 'T0' ? 'T0' : 'T120';
         const radio = document.querySelector('input[name="payment_time_mode"][value="' + normalized + '"]');
@@ -3864,6 +3870,7 @@ document.addEventListener('DOMContentLoaded', function() {
             use_bk_ref: useBkRefEnabled(),
             show_payment_dates: showPaymentDatesEnabled(),
             payment_time_mode: selectedPaymentTimeMode(),
+            green_flow: greenFlowEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -4102,6 +4109,7 @@ document.addEventListener('DOMContentLoaded', function() {
             use_bk_ref: useBkRefEnabled(),
             show_payment_dates: showPaymentDatesEnabled(),
             payment_time_mode: selectedPaymentTimeMode(),
+            green_flow: greenFlowEnabled(),
             tvv_code: document.getElementById('tvv_code').value,
             tvv_name_real: document.getElementById('tvv_name').value,
             tvv_name: document.getElementById('tvv_name').value,
@@ -4213,6 +4221,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (radio) radio.checked = true;
                 }
                 setPaymentTimeMode(p.payment_time_mode || 'T120');
+                const greenFlow = document.getElementById('greenFlow');
+                if (greenFlow) greenFlow.checked = !!Number(p.green_flow || 0);
                 if (p.created_at && p.created_at.length >= 10) {
                     document.getElementById('ngayLap').value = p.created_at.slice(0, 10);
                 }
@@ -4244,6 +4254,8 @@ document.addEventListener('DOMContentLoaded', function() {
             autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
             setPaymentTimeMode('T120');
+            const greenFlow = document.getElementById('greenFlow');
+            if (greenFlow) greenFlow.checked = false;
             setAddressLoadingPlaceholder(false);
             setTransactionAutoLoadStage('');
             document.getElementById('summaryBox').style.display = 'none';

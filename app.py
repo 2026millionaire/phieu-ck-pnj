@@ -521,7 +521,8 @@ def init_db():
             sap_document_override TEXT DEFAULT '',
             use_bk_ref      INTEGER DEFAULT 0,
             show_payment_dates INTEGER DEFAULT 0,
-            payment_time_mode TEXT DEFAULT 'T120'
+            payment_time_mode TEXT DEFAULT 'T120',
+            green_flow      INTEGER DEFAULT 0
         )
     """)
     # Add columns if missing (for existing DBs)
@@ -534,6 +535,7 @@ def init_db():
         ("use_bk_ref", "INTEGER", "0"),
         ("show_payment_dates", "INTEGER", "0"),
         ("payment_time_mode", "TEXT", "'T120'"),
+        ("green_flow", "INTEGER", "0"),
     ]:
         try:
             conn.execute(f"ALTER TABLE phieu ADD COLUMN {col} {ctype} DEFAULT {default}")
@@ -1354,6 +1356,36 @@ def build_noi_dung(plant, so_bk, ngay, ten_kh, tong_ck=None):
     if tong_ck is None:
         return base
     return f"{base} - {format_vnd_amount(tong_ck)} VND"
+
+
+def has_credit_notice_transaction(chung_tu_list):
+    return any(
+        isinstance(item, dict)
+        and str(item.get("loai", "")).strip() == OTHER_TRANSFER_TYPE
+        for item in chung_tu_list or []
+    )
+
+
+def build_green_flow_noi_dung(plant, so_bk, ngay_iso, ten_kh, tong_ck):
+    return (
+        f"{plant}_LX {ten_kh} đã CK 100% - BK {so_bk} "
+        f"ngày {ngay_iso} - {format_vnd_amount(tong_ck)} VNĐ"
+    )
+
+
+def build_qt82_noi_dung(
+    plant,
+    so_bk,
+    ngay,
+    ten_kh,
+    tong_ck=None,
+    green_flow=0,
+    chung_tu_list=None,
+    ngay_iso=None,
+):
+    if green_flow and has_credit_notice_transaction(chung_tu_list):
+        return build_green_flow_noi_dung(plant, so_bk, ngay_iso or ngay, ten_kh, tong_ck)
+    return build_noi_dung(plant, so_bk, ngay, ten_kh, tong_ck)
 
 
 def find_eoffice_bank_code(ngan_hang):
@@ -3554,7 +3586,17 @@ def eoffice_page(phieu_id):
     so_bk = d.get("so_bk", "")
 
     d["eo_ma_kh"] = d.get("ma_kh", "")
-    d["eo_noi_dung"] = build_noi_dung(plant, so_bk, ngay_str, d.get("ten_kh", ""), d.get("tong_ck"))
+    d["chung_tu"] = sanitize_chung_tu_list(d["chung_tu"])
+    d["eo_noi_dung"] = build_qt82_noi_dung(
+        plant,
+        so_bk,
+        ngay_str,
+        d.get("ten_kh", ""),
+        d.get("tong_ck"),
+        green_flow=settings_flag(d, "green_flow", "0"),
+        chung_tu_list=d["chung_tu"],
+        ngay_iso=ngay_str,
+    )
     d["eo_ten_tk"] = d.get("ten_tk", "")
     d["eo_so_tk"] = normalize_account_number(d.get("so_tk", ""))
     d["eo_ma_nh"] = find_eoffice_bank_code(d.get("ngan_hang", ""))
@@ -4221,13 +4263,25 @@ def api_save():
         data, "show_payment_dates", settings.get("show_payment_dates_default", "1")
     )
     payment_time_mode = normalize_payment_time_mode(data.get("payment_time_mode"))
+    green_flow = settings_flag(data, "green_flow", "0")
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
 
     # eOffice noi_dung
-    ngay_str = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-    noi_dung = build_noi_dung(plant, so_bk, ngay_str, ten_kh, tong_ck)
+    created_dt = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+    ngay_str = created_dt.strftime("%d/%m/%Y")
+    ngay_iso = created_dt.strftime("%Y-%m-%d")
+    noi_dung = build_qt82_noi_dung(
+        plant,
+        so_bk,
+        ngay_str,
+        ten_kh,
+        tong_ck,
+        green_flow=green_flow,
+        chung_tu_list=chung_tu_list,
+        ngay_iso=ngay_iso,
+    )
 
     nguoi_ki = data.get("nguoi_ki", "tvv")
 
@@ -4270,7 +4324,8 @@ def api_save():
                 nguoi_ki = ?,
                 use_bk_ref = ?,
                 show_payment_dates = ?,
-                payment_time_mode = ?
+                payment_time_mode = ?,
+                green_flow = ?
             WHERE id = ?
         """, (
             created_at,
@@ -4297,6 +4352,7 @@ def api_save():
             use_bk_ref,
             show_payment_dates,
             payment_time_mode,
+            green_flow,
             target_phieu_id,
         ))
         db.commit()
@@ -4340,8 +4396,8 @@ def api_save():
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
              chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
-             user_id, use_bk_ref, show_payment_dates, payment_time_mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             user_id, use_bk_ref, show_payment_dates, payment_time_mode, green_flow)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         ma_kh,
@@ -4368,6 +4424,7 @@ def api_save():
         use_bk_ref,
         show_payment_dates,
         payment_time_mode,
+        green_flow,
     ))
     db.commit()
     new_id = cursor.lastrowid

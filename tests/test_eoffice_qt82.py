@@ -548,9 +548,15 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('name="payment_time_mode"', index_html)
         self.assertIn('value="T120"', index_html)
         self.assertIn('value="T0"', index_html)
+        transaction_block = index_html.split("3. Thông tin giao dịch", 1)[1].split("Ngày lập", 1)[0]
+        self.assertIn('id="greenFlow"', transaction_block)
+        self.assertIn('id="paymentTimeT120"', transaction_block)
+        self.assertIn('id="paymentTimeT0"', transaction_block)
+        self.assertIn("green_flow: greenFlowEnabled()", index_html)
         self.assertIn("'Phải CK khác'", index_html)
         self.assertIn("Giấy Báo Có\\n(KH CK thanh toán)", index_html)
         self.assertNotIn("sap-other-transfer-label-input", index_html)
+        self.assertNotIn("addressInput.value = profile.address", index_html)
         self.assertIn("use_bk_ref_default", index_html)
         self.assertIn("show_payment_dates_default", index_html)
         self.assertIn("sap-bk-ref-status", index_html)
@@ -660,6 +666,40 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("<td class=\"center\">1600123456</td>", print_html)
         self.assertNotIn("Thời gian thanh toán:", print_html)
         self.assertNotIn("0234 3847 588", print_html)
+
+    def test_green_flow_credit_notice_changes_qt82_request_content(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "force_create": True,
+            "green_flow": True,
+            "ngay_lap": "2026-07-27",
+            "ma_kh": "100152794",
+            "ten_kh": "TRẦN THỊ THANH THÚY",
+            "sdt": "0905884656",
+            "cccd": "042172016161",
+            "so_tk": "123456789",
+            "ten_tk": "TRẦN THỊ THANH THÚY",
+            "ngan_hang": "OCB",
+            "so_bk": "4403927546",
+            "plant": "1305",
+            "tong_ck": 14074000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403927546", "gia_tri": 14074000, "gio": "27/07/2026 15:33"},
+                {"loai": "Phải CK khác", "so_ct": "", "gia_tri": 14074000, "gio": "27/07/2026 15:36"},
+            ],
+        }
+        saved = self.client.post("/api/save", json=payload).get_json()
+        expected = "1305_LX TRẦN THỊ THANH THÚY đã CK 100% - BK 4403927546 ngày 2026-07-27 - 14.074.000 VNĐ"
+        self.assertEqual(saved["noi_dung"], expected)
+
+        phieu = self.client.get(f"/api/phieu/{saved['id']}").get_json()["phieu"]
+        self.assertEqual(phieu["green_flow"], 1)
+        self.assertEqual(phieu["noi_dung"], expected)
+
+        eoffice_html = self.client.get(f"/eoffice/{saved['id']}").get_data(as_text=True)
+        qt82_payload = self.payload_from_html(eoffice_html)
+        self.assertEqual(qt82_payload["requestContent"], expected)
 
     def test_cao_mode_uses_plant_2122_and_caf_payment_planning_text(self):
         self.login(role="admin")
