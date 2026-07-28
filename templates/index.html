@@ -862,11 +862,9 @@ textarea#sap_data {
             <div class="card mb-3">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-person"></i> 1. Thông tin Khách Hàng</span>
-                    {% if admin %}
-                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" id="btnOcrClip" title="Quét ảnh BK từ clipboard (Ctrl+V)">
-                        <i class="bi bi-clipboard-pulse"></i> Quét BK
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" id="btnClearCustomerBlock" title="Xóa toàn bộ dữ liệu thông tin khách hàng">
+                        <i class="bi bi-x-circle"></i> Xoá hết
                     </button>
-                    {% endif %}
                 </div>
                 <div class="card-body">
                     <div class="row g-2">
@@ -1319,6 +1317,31 @@ textarea#sap_data {
         </div>
     </div>
 </div>
+<div class="modal fade" id="customerProfileConflictModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="customerProfileConflictTitle">Cập nhật thông tin khách hàng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2" id="customerProfileConflictMessage"></p>
+                <div class="small text-muted mb-1">Giá trị hiện tại</div>
+                <div class="border rounded px-2 py-1 mb-3 bg-light" id="customerProfileConflictCurrent"></div>
+                <div class="small text-muted mb-1">Giá trị BP đề xuất</div>
+                <div class="border rounded px-2 py-1" id="customerProfileConflictProposed"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-outline-secondary" id="btnKeepCustomerProfileField" data-bs-dismiss="modal">
+                    Giữ nguyên
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAcceptCustomerProfileField">
+                    Cập nhật
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1360,6 +1383,22 @@ document.addEventListener('DOMContentLoaded', function() {
             menu: document.getElementById('customerSuggestionCccd')
         }
     };
+    const customerProfileFieldConfigs = {
+        name: { inputId: 'ten_kh', profileKeys: ['name', 'full_name'], label: 'Tên KH' },
+        phone: { inputId: 'sdt', profileKeys: ['phone'], label: 'SĐT' },
+        cccd: { inputId: 'cccd', profileKeys: ['cccd'], label: 'CCCD' },
+        address: { inputId: 'dia_chi', profileKeys: ['address'], label: 'Địa chỉ' }
+    };
+    const customerProfileLoadingPlaceholder = '<Đang tải...>';
+    const customerProfileFieldStates = Object.fromEntries(
+        Object.keys(customerProfileFieldConfigs).map(field => [field, {
+            userDirty: false,
+            lastProgrammaticValue: '',
+            lastProgrammaticLookupKey: '',
+            lastProgrammaticSource: '',
+            pendingPromptToken: 0
+        }])
+    );
     const customerSuggestionCache = new Map();
     const customerSuggestionInFlight = new Set();
     const customerLocalProfileCache = new Map();
@@ -1370,6 +1409,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const captchaError = document.getElementById('customerLookupCaptchaError');
     const transactionAutoLoadChoiceElement = document.getElementById('transactionAutoLoadChoiceModal');
     const transactionAutoLoadChoiceModal = transactionAutoLoadChoiceElement ? new bootstrap.Modal(transactionAutoLoadChoiceElement) : null;
+    const customerProfileConflictElement = document.getElementById('customerProfileConflictModal');
+    const customerProfileConflictModal = customerProfileConflictElement ? new bootstrap.Modal(customerProfileConflictElement) : null;
     let pendingCaptchaLookup = null;
     let turnstileWidgetId = null;
     let transactionAutoLoadChoicePromise = null;
@@ -1381,6 +1422,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let purchaseOrderCustomerProfileTimer = null;
     let purchaseOrderCustomerProfileInFlight = '';
     let lastCustomerCodeLookupKey = '';
+    let customerProfileLookupSession = 0;
+    let activeCustomerProfileConflictPrompt = null;
+    let customerProfileConflictResolution = null;
+    const pendingCustomerProfileConflictPrompts = [];
     let transactionAutoLoadInFlight = false;
     let transactionAutoLoadStage = '';
     let transactionAutoLoadPromise = null;
@@ -1398,10 +1443,176 @@ document.addEventListener('DOMContentLoaded', function() {
             || /^E01(?:[MF][0-9]{4}|[0-9]{5})$/i.test(code);
     }
 
-    function setAddressLoadingPlaceholder(isLoading) {
-        const addressInput = document.getElementById('dia_chi');
-        if (!addressInput || addressInput.value.trim()) return;
-        addressInput.placeholder = isLoading ? '<Đang tải địa chỉ>' : '';
+    function customerProfileLookupKey(value) {
+        return String(value || '').trim().replace(/^0+/, '');
+    }
+
+    function isCurrentCustomerProfileLookupSession(session, customerCode) {
+        return session === customerProfileLookupSession
+            && customerProfileLookupKey(document.getElementById('ma_kh').value) === customerProfileLookupKey(customerCode);
+    }
+
+    function customerProfileFieldInput(field) {
+        const config = customerProfileFieldConfigs[field];
+        return config ? document.getElementById(config.inputId) : null;
+    }
+
+    function resolveCustomerProfileFieldValue(profile, field) {
+        const config = customerProfileFieldConfigs[field];
+        if (!config || !profile || typeof profile !== 'object') return '';
+        for (const key of config.profileKeys) {
+            const value = String(profile[key] || '').trim();
+            if (value) return value;
+        }
+        return '';
+    }
+
+    function normalizeCustomerProfileFieldValue(field, value) {
+        const text = String(value || '').trim().replace(/\s+/g, ' ');
+        if (field === 'phone' || field === 'cccd') return text.replace(/\D+/g, '');
+        if (field === 'name') return text.toUpperCase();
+        return text;
+    }
+
+    function displayCustomerProfileFieldValue(field, value) {
+        const text = String(value || '').trim().replace(/\s+/g, ' ');
+        if (field === 'name') return text.toUpperCase();
+        return text;
+    }
+
+    function initializeCustomerProfilePlaceholders() {
+        Object.keys(customerProfileFieldConfigs).forEach(function(field) {
+            const input = customerProfileFieldInput(field);
+            if (!input) return;
+            input.dataset.basePlaceholder = input.getAttribute('placeholder') || '';
+        });
+    }
+
+    function clearCustomerProfileFieldPlaceholder(field) {
+        const input = customerProfileFieldInput(field);
+        if (!input) return;
+        input.placeholder = input.dataset.basePlaceholder || '';
+    }
+
+    function setCustomerProfileFieldLoadingPlaceholder(field, isLoading) {
+        const input = customerProfileFieldInput(field);
+        if (!input) return;
+        if (!isLoading || input.value.trim()) {
+            clearCustomerProfileFieldPlaceholder(field);
+            return;
+        }
+        input.placeholder = customerProfileLoadingPlaceholder;
+    }
+
+    function clearAllCustomerProfileLoadingPlaceholders() {
+        Object.keys(customerProfileFieldConfigs).forEach(clearCustomerProfileFieldPlaceholder);
+    }
+
+    function resetCustomerProfileFieldState(field, preserveProgrammaticValue) {
+        const state = customerProfileFieldStates[field];
+        if (!state) return;
+        state.userDirty = false;
+        state.pendingPromptToken = 0;
+        if (!preserveProgrammaticValue) {
+            state.lastProgrammaticValue = '';
+            state.lastProgrammaticLookupKey = '';
+            state.lastProgrammaticSource = '';
+        }
+    }
+
+    function resetCustomerProfileConflictPrompts() {
+        pendingCustomerProfileConflictPrompts.length = 0;
+        activeCustomerProfileConflictPrompt = null;
+        customerProfileConflictResolution = null;
+        if (customerProfileConflictModal) customerProfileConflictModal.hide();
+    }
+
+    function resetCustomerProfileAutofillState(preserveProgrammaticValue) {
+        resetCustomerProfileConflictPrompts();
+        Object.keys(customerProfileFieldConfigs).forEach(function(field) {
+            resetCustomerProfileFieldState(field, preserveProgrammaticValue);
+            clearCustomerProfileFieldPlaceholder(field);
+        });
+    }
+
+    function resetCustomerLookupRequestState() {
+        customerSuggestionCache.clear();
+        customerLocalProfileCache.clear();
+        erpBusinessPartnerProfileCache.clear();
+        purchaseOrderCustomerProfileCache.clear();
+        customerSuggestionInFlight.clear();
+        customerLocalProfileInFlight = '';
+        erpBusinessPartnerProfileInFlight = '';
+        purchaseOrderCustomerProfileInFlight = '';
+        clearTimeout(customerLocalProfileTimer);
+        clearTimeout(erpBusinessPartnerProfileTimer);
+        clearTimeout(purchaseOrderCustomerProfileTimer);
+        pendingCaptchaLookup = null;
+        clearTurnstileWidget();
+        captchaModal?.hide();
+    }
+
+    function clearCustomerInfoFields(options) {
+        const preserveCustomerCode = !!(options && options.preserveCustomerCode);
+        const customerCodeValue = preserveCustomerCode ? document.getElementById('ma_kh').value : '';
+        ['ma_kh', 'ten_kh', 'sdt', 'cccd', 'dia_chi'].forEach(function(fieldId) {
+            const input = document.getElementById(fieldId);
+            if (!input) return;
+            const nextValue = (fieldId === 'ma_kh' && preserveCustomerCode) ? customerCodeValue : '';
+            if (input.value !== nextValue) {
+                input.value = nextValue;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                clearCustomerProfileFieldPlaceholder(
+                    Object.keys(customerProfileFieldConfigs).find(key => customerProfileFieldConfigs[key].inputId === fieldId) || ''
+                );
+            }
+        });
+    }
+
+    function resetCustomerLookupState(options) {
+        const preserveCustomerCode = !!(options && options.preserveCustomerCode);
+        const nextLookupKey = preserveCustomerCode
+            ? customerProfileLookupKey(document.getElementById('ma_kh').value)
+            : '';
+        lastCustomerCodeLookupKey = nextLookupKey;
+        customerProfileLookupSession += 1;
+        resetCustomerLookupRequestState();
+        resetCustomerProfileAutofillState(false);
+        hideCustomerSuggestions();
+        clearAllCustomerProfileLoadingPlaceholders();
+    }
+
+    function applyCustomerProfileLoadingPlaceholders(profile, requestedCode, lookupSession) {
+        if (!isCurrentCustomerProfileLookupSession(lookupSession, requestedCode)) return;
+        Object.keys(customerProfileFieldConfigs).forEach(function(field) {
+            const input = customerProfileFieldInput(field);
+            const localValue = normalizeCustomerProfileFieldValue(field, resolveCustomerProfileFieldValue(profile, field));
+            setCustomerProfileFieldLoadingPlaceholder(field, !localValue && input && !input.value.trim());
+        });
+    }
+
+    function clearCustomerProfileLoadingPlaceholdersForLookup(requestedCode, lookupSession) {
+        if (!isCurrentCustomerProfileLookupSession(lookupSession, requestedCode)) return;
+        clearAllCustomerProfileLoadingPlaceholders();
+    }
+
+    function applyProgrammaticCustomerProfileFieldValue(field, value, lookupKey, source) {
+        const input = customerProfileFieldInput(field);
+        if (!input) return;
+        const displayValue = displayCustomerProfileFieldValue(field, value);
+        const normalizedValue = normalizeCustomerProfileFieldValue(field, displayValue);
+        const state = customerProfileFieldStates[field];
+        input.value = displayValue;
+        clearCustomerProfileFieldPlaceholder(field);
+        state.lastProgrammaticValue = normalizedValue;
+        state.lastProgrammaticLookupKey = customerProfileLookupKey(lookupKey);
+        state.lastProgrammaticSource = source || '';
+        state.userDirty = false;
+        state.pendingPromptToken = 0;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function transactionAutoFillCacheKey() {
@@ -1549,91 +1760,174 @@ document.addEventListener('DOMContentLoaded', function() {
         return code.trim().replace(/^0+/, '') + '|' + lookupDateIso();
     }
 
-    function applyCustomerLocalProfile(profile, requestedCode) {
-        if (!profile || typeof profile !== 'object') return;
-        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
-        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
-        const nameInput = document.getElementById('ten_kh');
-        const phoneInput = document.getElementById('sdt');
-        const cccdInput = document.getElementById('cccd');
-        const profileName = profile.name || profile.full_name || '';
-        cacheCustomerProfileSuggestions(profile, requestedCode, 'local');
-        if (nameInput && !nameInput.value.trim() && profileName) {
-            nameInput.value = profileName;
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (phoneInput && !phoneInput.value.trim() && profile.phone) {
-            phoneInput.value = profile.phone;
-            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (cccdInput && !cccdInput.value.trim() && profile.cccd) {
-            cccdInput.value = profile.cccd;
-            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+    function invalidateCustomerProfileFieldPrompt(field, hideIfActive) {
+        const state = customerProfileFieldStates[field];
+        if (!state || !state.pendingPromptToken) return;
+        const token = state.pendingPromptToken;
+        state.pendingPromptToken = 0;
+        const queueIndex = pendingCustomerProfileConflictPrompts.findIndex(prompt => prompt.token === token);
+        if (queueIndex >= 0) pendingCustomerProfileConflictPrompts.splice(queueIndex, 1);
+        if (activeCustomerProfileConflictPrompt && activeCustomerProfileConflictPrompt.token === token) {
+            activeCustomerProfileConflictPrompt = null;
+            if (hideIfActive && customerProfileConflictModal) customerProfileConflictModal.hide();
         }
     }
 
-    function applyErpBusinessPartnerProfile(profile, requestedCode) {
-        if (!profile || typeof profile !== 'object') return;
-        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
-        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
-        const nameInput = document.getElementById('ten_kh');
-        const phoneInput = document.getElementById('sdt');
-        const cccdInput = document.getElementById('cccd');
-        const addressInput = document.getElementById('dia_chi');
-        const profileName = profile.name || profile.full_name || '';
-        cacheCustomerProfileSuggestions(profile, requestedCode, 'bp');
-        if (nameInput && !nameInput.value.trim() && profileName) {
-            nameInput.value = profileName;
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (phoneInput && !phoneInput.value.trim() && profile.phone) {
-            phoneInput.value = profile.phone;
-            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (cccdInput && !cccdInput.value.trim() && profile.cccd) {
-            cccdInput.value = profile.cccd;
-            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (addressInput && !addressInput.value.trim() && profile.address) {
-            addressInput.value = profile.address;
-            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (addressInput && !addressInput.value.trim()) setAddressLoadingPlaceholder(false);
+    function renderCustomerProfileConflictPrompt(prompt) {
+        const config = customerProfileFieldConfigs[prompt.field];
+        document.getElementById('customerProfileConflictTitle').textContent = 'Cập nhật ' + config.label;
+        document.getElementById('customerProfileConflictMessage').textContent =
+            config.label + ' hiện tại khác dữ liệu Business Partner mới nhất. Bạn muốn cập nhật không?';
+        document.getElementById('customerProfileConflictCurrent').textContent = prompt.currentValue || '(Đang trống)';
+        document.getElementById('customerProfileConflictProposed').textContent = prompt.proposedValue || '(Đang trống)';
     }
 
-    function applyPurchaseOrderCustomerProfile(profile, requestedCode) {
+    function showNextCustomerProfileConflictPrompt() {
+        if (activeCustomerProfileConflictPrompt || !pendingCustomerProfileConflictPrompts.length || !customerProfileConflictModal) return;
+        activeCustomerProfileConflictPrompt = pendingCustomerProfileConflictPrompts.shift();
+        renderCustomerProfileConflictPrompt(activeCustomerProfileConflictPrompt);
+        customerProfileConflictModal.show();
+    }
+
+    function resolveActiveCustomerProfileConflictPrompt(acceptChange) {
+        const prompt = activeCustomerProfileConflictPrompt;
+        activeCustomerProfileConflictPrompt = null;
+        if (!prompt) return;
+        const state = customerProfileFieldStates[prompt.field];
+        if (state && state.pendingPromptToken === prompt.token) {
+            state.pendingPromptToken = 0;
+        }
+        if (acceptChange && state && isCurrentCustomerProfileLookupSession(prompt.lookupSession, prompt.lookupKey)) {
+            const currentNormalized = normalizeCustomerProfileFieldValue(
+                prompt.field,
+                customerProfileFieldInput(prompt.field)?.value || ''
+            );
+            if (currentNormalized === prompt.expectedCurrentNormalized) {
+                applyProgrammaticCustomerProfileFieldValue(prompt.field, prompt.proposedValue, prompt.lookupKey, 'bp');
+            }
+        }
+        showNextCustomerProfileConflictPrompt();
+    }
+
+    function queueCustomerProfileConflictPrompt(field, currentValue, proposedValue, lookupKey, lookupSession) {
+        const state = customerProfileFieldStates[field];
+        const expectedCurrentNormalized = normalizeCustomerProfileFieldValue(field, currentValue);
+        if (!state || !expectedCurrentNormalized) return;
+        invalidateCustomerProfileFieldPrompt(field, false);
+        const prompt = {
+            token: Date.now() + Math.random(),
+            field,
+            currentValue: displayCustomerProfileFieldValue(field, currentValue),
+            proposedValue: displayCustomerProfileFieldValue(field, proposedValue),
+            expectedCurrentNormalized,
+            lookupKey,
+            lookupSession
+        };
+        state.pendingPromptToken = prompt.token;
+        pendingCustomerProfileConflictPrompts.push(prompt);
+        showNextCustomerProfileConflictPrompt();
+    }
+
+    function markCustomerProfileFieldDirtyFromUser(field, event) {
+        if (!event || !event.isTrusted) return;
+        clearCustomerProfileFieldPlaceholder(field);
+        const state = customerProfileFieldStates[field];
+        const currentNormalized = normalizeCustomerProfileFieldValue(field, customerProfileFieldInput(field)?.value || '');
+        if (currentNormalized !== state.lastProgrammaticValue || state.userDirty) {
+            state.userDirty = true;
+        }
+        invalidateCustomerProfileFieldPrompt(field, true);
+    }
+
+    function attachCustomerProfileDirtyTracking() {
+        Object.keys(customerProfileFieldConfigs).forEach(function(field) {
+            const input = customerProfileFieldInput(field);
+            if (!input) return;
+            ['input', 'change', 'blur'].forEach(function(eventName) {
+                input.addEventListener(eventName, function(event) {
+                    markCustomerProfileFieldDirtyFromUser(field, event);
+                });
+            });
+        });
+    }
+
+    function applyCustomerProfileFieldValue(field, value, options) {
+        const normalizedIncoming = normalizeCustomerProfileFieldValue(field, value);
+        if (!normalizedIncoming) return false;
+        const input = customerProfileFieldInput(field);
+        if (!input) return false;
+        const state = customerProfileFieldStates[field];
+        const currentValue = input.value || '';
+        const currentNormalized = normalizeCustomerProfileFieldValue(field, currentValue);
+        if (!currentNormalized) {
+            applyProgrammaticCustomerProfileFieldValue(field, value, options.lookupKey, options.source);
+            return true;
+        }
+        if (currentNormalized === normalizedIncoming) {
+            clearCustomerProfileFieldPlaceholder(field);
+            if (!state.userDirty && options.source === 'bp') {
+                state.lastProgrammaticValue = currentNormalized;
+                state.lastProgrammaticLookupKey = customerProfileLookupKey(options.lookupKey);
+                state.lastProgrammaticSource = options.source;
+            }
+            return false;
+        }
+        const canReplaceUntouched = !state.userDirty && currentNormalized === state.lastProgrammaticValue;
+        if (canReplaceUntouched) {
+            applyProgrammaticCustomerProfileFieldValue(field, value, options.lookupKey, options.source);
+            return true;
+        }
+        if (options.promptOnConflict && state.userDirty) {
+            queueCustomerProfileConflictPrompt(field, currentValue, value, options.lookupKey, options.lookupSession);
+        }
+        return false;
+    }
+
+    function applyCustomerProfile(profile, requestedCode, source, options) {
         if (!profile || typeof profile !== 'object') return;
-        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
-        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
-        const nameInput = document.getElementById('ten_kh');
-        const phoneInput = document.getElementById('sdt');
-        const cccdInput = document.getElementById('cccd');
-        const addressInput = document.getElementById('dia_chi');
-        const profileName = profile.name || profile.full_name || '';
-        cacheCustomerProfileSuggestions(profile, requestedCode, 'po');
-        if (nameInput && !nameInput.value.trim() && profileName) {
-            nameInput.value = profileName;
-            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (phoneInput && !phoneInput.value.trim() && profile.phone) {
-            phoneInput.value = profile.phone;
-            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (cccdInput && !cccdInput.value.trim() && profile.cccd) {
-            cccdInput.value = profile.cccd;
-            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (addressInput && !addressInput.value.trim() && profile.address) {
-            addressInput.value = profile.address;
-            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (addressInput && !addressInput.value.trim()) setAddressLoadingPlaceholder(false);
+        const currentCode = customerProfileLookupKey(document.getElementById('ma_kh').value);
+        const requestedLookupKey = customerProfileLookupKey(requestedCode);
+        if (requestedLookupKey && currentCode !== requestedLookupKey) return;
+        cacheCustomerProfileSuggestions(profile, requestedCode, source);
+        Object.keys(customerProfileFieldConfigs).forEach(function(field) {
+            const profileValue = resolveCustomerProfileFieldValue(profile, field);
+            if (!profileValue) return;
+            applyCustomerProfileFieldValue(field, profileValue, {
+                lookupKey: requestedCode,
+                lookupSession: options.lookupSession,
+                source: source,
+                promptOnConflict: !!options.promptOnConflict
+            });
+        });
+    }
+
+    function applyCustomerLocalProfile(profile, requestedCode, lookupSession) {
+        applyCustomerProfile(profile, requestedCode, 'local', {
+            lookupSession,
+            promptOnConflict: false
+        });
+    }
+
+    function applyErpBusinessPartnerProfile(profile, requestedCode, lookupSession) {
+        applyCustomerProfile(profile, requestedCode, 'bp', {
+            lookupSession,
+            promptOnConflict: true
+        });
+    }
+
+    function applyPurchaseOrderCustomerProfile(profile, requestedCode, lookupSession) {
+        applyCustomerProfile(profile, requestedCode, 'po', {
+            lookupSession,
+            promptOnConflict: false
+        });
     }
 
     async function fetchCustomerLocalProfile(customerCode, turnstileToken) {
         const key = customerLocalProfileCacheKey(customerCode);
+        const lookupSession = customerProfileLookupSession;
         if (!turnstileToken && customerLocalProfileCache.has(key)) {
-            applyCustomerLocalProfile(customerLocalProfileCache.get(key), customerCode);
+            applyCustomerLocalProfile(customerLocalProfileCache.get(key), customerCode, lookupSession);
+            applyCustomerProfileLoadingPlaceholders(customerLocalProfileCache.get(key), customerCode, lookupSession);
             return;
         }
         if (customerLocalProfileInFlight === key) return;
@@ -1656,9 +1950,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const profile = data && data.ok && data.profile ? data.profile : {};
             customerLocalProfileCache.set(key, profile);
-            applyCustomerLocalProfile(profile, customerCode);
+            applyCustomerLocalProfile(profile, customerCode, lookupSession);
+            applyCustomerProfileLoadingPlaceholders(profile, customerCode, lookupSession);
         } catch (error) {
             customerLocalProfileCache.set(key, {});
+            applyCustomerProfileLoadingPlaceholders({}, customerCode, lookupSession);
         } finally {
             if (customerLocalProfileInFlight === key) customerLocalProfileInFlight = '';
         }
@@ -1666,14 +1962,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function fetchErpBusinessPartnerProfile(customerCode) {
         const key = erpBusinessPartnerProfileCacheKey(customerCode);
+        const lookupSession = customerProfileLookupSession;
         if (erpBusinessPartnerProfileCache.has(key)) {
-            applyErpBusinessPartnerProfile(erpBusinessPartnerProfileCache.get(key), customerCode);
+            applyErpBusinessPartnerProfile(erpBusinessPartnerProfileCache.get(key), customerCode, lookupSession);
+            clearCustomerProfileLoadingPlaceholdersForLookup(customerCode, lookupSession);
             schedulePurchaseOrderCustomerProfile();
             return;
         }
         if (erpBusinessPartnerProfileInFlight === key) return;
         erpBusinessPartnerProfileInFlight = key;
-        setAddressLoadingPlaceholder(true);
+        applyCustomerProfileLoadingPlaceholders({}, customerCode, lookupSession);
         try {
             const response = await fetch(appUrl('/api/erp-business-partner-profile'), {
                 method: 'POST',
@@ -1687,14 +1985,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json().catch(() => ({ ok: false }));
             const profile = data && data.ok && data.profile ? data.profile : {};
             erpBusinessPartnerProfileCache.set(key, profile);
-            applyErpBusinessPartnerProfile(profile, customerCode);
+            if (!isCurrentCustomerProfileLookupSession(lookupSession, customerCode)) return;
+            applyErpBusinessPartnerProfile(profile, customerCode, lookupSession);
         } catch (error) {
             erpBusinessPartnerProfileCache.set(key, {});
         } finally {
-            setAddressLoadingPlaceholder(false);
+            clearCustomerProfileLoadingPlaceholdersForLookup(customerCode, lookupSession);
             if (erpBusinessPartnerProfileInFlight === key) erpBusinessPartnerProfileInFlight = '';
-            const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
-            if (currentCode === customerCode.replace(/^0+/, '')) {
+            const currentCode = customerProfileLookupKey(document.getElementById('ma_kh').value);
+            if (lookupSession === customerProfileLookupSession && currentCode === customerProfileLookupKey(customerCode)) {
                 schedulePurchaseOrderCustomerProfile();
             }
         }
@@ -1702,13 +2001,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function fetchPurchaseOrderCustomerProfile(customerCode) {
         const key = purchaseOrderCustomerProfileCacheKey(customerCode);
+        const lookupSession = customerProfileLookupSession;
         if (purchaseOrderCustomerProfileCache.has(key)) {
-            applyPurchaseOrderCustomerProfile(purchaseOrderCustomerProfileCache.get(key), customerCode);
+            applyPurchaseOrderCustomerProfile(purchaseOrderCustomerProfileCache.get(key), customerCode, lookupSession);
             return;
         }
         if (purchaseOrderCustomerProfileInFlight === key) return;
         purchaseOrderCustomerProfileInFlight = key;
-        setAddressLoadingPlaceholder(true);
         try {
             const response = await fetch(appUrl('/api/purchase-order-customer-profile'), {
                 method: 'POST',
@@ -1724,11 +2023,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json().catch(() => ({ ok: false }));
             const profile = data && data.ok && data.profile ? data.profile : {};
             purchaseOrderCustomerProfileCache.set(key, profile);
-            applyPurchaseOrderCustomerProfile(profile, customerCode);
+            if (!isCurrentCustomerProfileLookupSession(lookupSession, customerCode)) return;
+            applyPurchaseOrderCustomerProfile(profile, customerCode, lookupSession);
         } catch (error) {
             purchaseOrderCustomerProfileCache.set(key, {});
         } finally {
-            setAddressLoadingPlaceholder(false);
             if (purchaseOrderCustomerProfileInFlight === key) purchaseOrderCustomerProfileInFlight = '';
         }
     }
@@ -1893,10 +2192,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // lưu/in phiếu luôn nhận cùng một mã E01... viết hoa.
         const normalized = input.value.toUpperCase();
         if (input.value !== normalized) input.value = normalized;
-        const key = input.value.trim().replace(/^0+/, '');
+        const key = customerProfileLookupKey(input.value);
         if (key !== lastCustomerCodeLookupKey) {
-            lastCustomerCodeLookupKey = key;
-            customerSuggestionCache.clear();
+            clearCustomerInfoFields({ preserveCustomerCode: !!key });
+            resetCustomerLookupState({ preserveCustomerCode: !!key });
             billingSuggestionCache.clear();
             purchaseOrderSuggestionCache.clear();
             purchaseOrderReferenceCache.clear();
@@ -1905,17 +2204,10 @@ document.addEventListener('DOMContentLoaded', function() {
             autoFilledTransactionCacheKeys.clear();
             autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
-            erpBusinessPartnerProfileCache.clear();
-            purchaseOrderCustomerProfileCache.clear();
-            clearTimeout(customerLocalProfileTimer);
-            clearTimeout(erpBusinessPartnerProfileTimer);
-            clearTimeout(purchaseOrderCustomerProfileTimer);
             clearTimeout(billingPrefetchTimer);
             purchaseOrderReferenceInFlight = '';
             purchaseOrderReferencePromise = null;
-            setAddressLoadingPlaceholder(false);
             setTransactionAutoLoadStage('');
-            hideCustomerSuggestions();
             hideDocumentSuggestions();
             updateSapTransactionDocumentNote();
         }
@@ -1924,6 +2216,9 @@ document.addEventListener('DOMContentLoaded', function() {
         scheduleErpBusinessPartnerProfile();
         scheduleDocumentPrefetch();
     }
+
+    initializeCustomerProfilePlaceholders();
+    attachCustomerProfileDirtyTracking();
 
     if (customerLookupEnabled) {
         Object.entries(customerSuggestionTargets).forEach(([field, target]) => {
@@ -1948,7 +2243,24 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+    document.getElementById('btnAcceptCustomerProfileField')?.addEventListener('click', function() {
+        customerProfileConflictResolution = 'accept';
+        customerProfileConflictModal?.hide();
+    });
+    customerProfileConflictElement?.addEventListener('hidden.bs.modal', function() {
+        const acceptChange = customerProfileConflictResolution === 'accept';
+        customerProfileConflictResolution = null;
+        if (activeCustomerProfileConflictPrompt) {
+            resolveActiveCustomerProfileConflictPrompt(acceptChange);
+        } else {
+            showNextCustomerProfileConflictPrompt();
+        }
+    });
     document.getElementById('ma_kh').addEventListener('input', handleCustomerCodeLookupChange);
+    document.getElementById('btnClearCustomerBlock')?.addEventListener('click', function() {
+        clearCustomerInfoFields({ preserveCustomerCode: false });
+        resetCustomerLookupState({ preserveCustomerCode: false });
+    });
 
     document.querySelectorAll('.customer-field-clear').forEach(function(button) {
         button.addEventListener('click', function(event) {
@@ -1960,8 +2272,8 @@ document.addEventListener('DOMContentLoaded', function() {
             target.dispatchEvent(new Event('change', { bubbles: true }));
             target.focus({ preventScroll: true });
             if (target.id === 'ma_kh') {
-                lastCustomerCodeLookupKey = '';
-                customerSuggestionCache.clear();
+                clearCustomerInfoFields({ preserveCustomerCode: false });
+                resetCustomerLookupState({ preserveCustomerCode: false });
                 billingSuggestionCache.clear();
                 purchaseOrderSuggestionCache.clear();
                 purchaseOrderReferenceCache.clear();
@@ -1970,17 +2282,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 autoFilledTransactionCacheKeys.clear();
                 autoFilledTransactionSources.clear();
                 manualTransactionInputKeys.clear();
-                erpBusinessPartnerProfileCache.clear();
-                purchaseOrderCustomerProfileCache.clear();
-                clearTimeout(customerLocalProfileTimer);
-                clearTimeout(erpBusinessPartnerProfileTimer);
-                clearTimeout(purchaseOrderCustomerProfileTimer);
                 clearTimeout(billingPrefetchTimer);
                 purchaseOrderReferenceInFlight = '';
                 purchaseOrderReferencePromise = null;
-                setAddressLoadingPlaceholder(false);
                 setTransactionAutoLoadStage('');
-                hideCustomerSuggestions();
                 hideDocumentSuggestions();
                 updateSapTransactionDocumentNote();
             } else if (target.id === 'ten_kh') {
@@ -2081,68 +2386,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('ten_kh').addEventListener('blur', function() {
         this.value = this.value.toUpperCase();
     });
-
-    {% if admin %}
-    // ===== QUÉT BK TỪ CLIPBOARD — ADMIN ONLY =====
-    document.getElementById('btnOcrClip').addEventListener('click', async function() {
-        const btn = this;
-        try {
-            const items = await navigator.clipboard.read();
-            let blob = null;
-            for (const item of items) {
-                for (const type of item.types) {
-                    if (type.startsWith('image/')) {
-                        blob = await item.getType(type);
-                        break;
-                    }
-                }
-                if (blob) break;
-            }
-            if (!blob) { alert('Clipboard không có ảnh. Hãy chụp/copy ảnh BK trước.'); return; }
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang quét...';
-
-            const formData = new FormData();
-            formData.append('image', blob, 'clipboard.png');
-
-            const resp = await fetch(appUrl('/api/ocr-bk'), { method: 'POST', body: formData });
-            const data = await resp.json();
-
-            if (data.ok) {
-                // Fill so_bk into first BK row in section 3 table
-                if (data.so_bk) {
-                    const bkRow = sapItems.find(i => i.loai === 'Bảng kê' && !i.so_ct);
-                    if (bkRow) { bkRow.so_ct = data.so_bk; }
-                    document.getElementById('so_bk').value = data.so_bk;
-                    renderSapTable(sapItems);
-                }
-                if (data.ma_kh) document.getElementById('ma_kh').value = data.ma_kh;
-                if (data.cccd) document.getElementById('cccd').value = data.cccd;
-                if (data.sdt) document.getElementById('sdt').value = data.sdt;
-                if (data.ten_kh) document.getElementById('ten_kh').value = data.ten_kh.toUpperCase();
-                // Trigger preview update
-                ['ma_kh','cccd','sdt','ten_kh'].forEach(f => {
-                    document.getElementById(f).dispatchEvent(new Event('input'));
-                });
-                btn.innerHTML = '<i class="bi bi-check-lg"></i> Đã quét!';
-                btn.classList.replace('btn-outline-success', 'btn-success');
-                setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard-pulse"></i> Quét BK'; btn.classList.replace('btn-success', 'btn-outline-success'); }, 2000);
-            } else {
-                alert('Lỗi OCR: ' + (data.error || 'Không đọc được'));
-            }
-        } catch (err) {
-            if (err.name === 'NotAllowedError') {
-                alert('Trình duyệt chặn đọc clipboard. Hãy cho phép quyền clipboard.');
-            } else {
-                alert('Lỗi: ' + err.message);
-            }
-        } finally {
-            btn.disabled = false;
-            if (!btn.innerHTML.includes('check')) btn.innerHTML = '<i class="bi bi-clipboard-pulse"></i> Quét BK';
-        }
-    });
-    {% endif %}
 
     // ===== BANK DROPDOWN SEARCHABLE =====
     let allBanks = [];
@@ -4497,8 +4740,10 @@ document.addEventListener('DOMContentLoaded', function() {
             autoFilledTransactionCacheKeys.clear();
             autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
+            lastCustomerCodeLookupKey = '';
+            customerProfileLookupSession += 1;
+            resetCustomerProfileAutofillState(false);
             setGreenFlowEnabled(false);
-            setAddressLoadingPlaceholder(false);
             setTransactionAutoLoadStage('');
             updateSapTransactionDocumentNote();
             document.getElementById('summaryBox').style.display = 'none';
