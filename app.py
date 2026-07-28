@@ -712,6 +712,7 @@ def init_db():
         "use_bk_ref_default": "0",
         "show_payment_dates_default": "1",
         "payment_planning_title_bg": "0",
+        "manual_zfie0029_enabled": "0",
     }
     for k, v in defaults.items():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
@@ -2928,7 +2929,7 @@ def api_deposit_suggestions():
         return _customer_lookup_json({"ok": True, "suggestions": []})
 
     try:
-        suggestions = erp_deposits.deposit_suggestions(
+        result = erp_deposits.deposit_lookup(
             customer_code=customer_code,
             target_date=data.get("deposit_date"),
             lookback_days=data.get("lookback_days", erp_deposits.DEFAULT_LOOKBACK_DAYS),
@@ -2939,7 +2940,13 @@ def api_deposit_suggestions():
         return _customer_lookup_json(
             {"ok": False, "error": "KhÃ´ng thá»ƒ láº¥y gá»£i Ã½ BN cá»c lÃºc nÃ y."}, 503
         )
-    return _customer_lookup_json({"ok": True, "suggestions": suggestions})
+    return _customer_lookup_json(
+        {
+            "ok": True,
+            "suggestions": result.get("suggestions", []),
+            "sap_transaction_document": result.get("sap_transaction_document", ""),
+        }
+    )
 
 
 @app.route("/api/purchase-order-customer-profile", methods=["POST"])
@@ -4155,6 +4162,7 @@ def api_save_settings():
         "use_bk_ref_default",
         "show_payment_dates_default",
         "payment_planning_title_bg",
+        "manual_zfie0029_enabled",
     ):
         if flag_key in data:
             data[flag_key] = str(settings_flag(data, flag_key, "0"))
@@ -4259,6 +4267,11 @@ def api_save():
     cccd = remove_all_whitespace(data.get("cccd", ""))
     dia_chi = str(data.get("dia_chi", "") or "").strip()
     so_bk = remove_all_whitespace(data.get("so_bk", ""))
+    sap_document_override = re.sub(r"\s+", "", str(data.get("sap_document", "") or "")).strip(" ,")
+    if len(sap_document_override) > 200 or (
+        sap_document_override and not re.fullmatch(r"[0-9A-Za-z,._/-]+", sap_document_override)
+    ):
+        return jsonify({"ok": False, "error": "Số chứng từ SAP chỉ được gồm chữ/số và dấu , . _ / -."}), 400
     use_bk_ref = settings_flag(
         data, "use_bk_ref", settings.get("use_bk_ref_default", "0")
     )
@@ -4325,6 +4338,7 @@ def api_save():
                 qr_url = ?,
                 noi_dung = ?,
                 nguoi_ki = ?,
+                sap_document_override = ?,
                 use_bk_ref = ?,
                 show_payment_dates = ?,
                 payment_time_mode = ?,
@@ -4352,6 +4366,7 @@ def api_save():
             qr_url,
             noi_dung,
             nguoi_ki,
+            sap_document_override,
             use_bk_ref,
             show_payment_dates,
             payment_time_mode,
@@ -4378,8 +4393,8 @@ def api_save():
     if duplicate:
         if requested_status == "printed":
             db.execute(
-                "UPDATE phieu SET status = 'printed' WHERE id = ? AND user_id = ?",
-                (duplicate["id"], user_id),
+                "UPDATE phieu SET status = 'printed', sap_document_override = ? WHERE id = ? AND user_id = ?",
+                (sap_document_override, duplicate["id"], user_id),
             )
             db.commit()
             _record_printed_customer_values(
@@ -4399,8 +4414,8 @@ def api_save():
              so_tk, ten_tk, ngan_hang, so_bk,
              tvv_code, tvv_name, cht_name, plant,
              chung_tu_json, tong_ck, ngay_tt, status, qr_url, noi_dung, nguoi_ki,
-             user_id, use_bk_ref, show_payment_dates, payment_time_mode, green_flow)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             sap_document_override, user_id, use_bk_ref, show_payment_dates, payment_time_mode, green_flow)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         created_at,
         ma_kh,
@@ -4423,6 +4438,7 @@ def api_save():
         qr_url,
         noi_dung,
         nguoi_ki,
+        sap_document_override,
         user_id,
         use_bk_ref,
         show_payment_dates,
@@ -5403,6 +5419,11 @@ def api_delete(phieu_id):
 @app.route("/api/parse-sap", methods=["POST"])
 def api_parse_sap():
     """Parse SAP paste text and return structured chung_tu + calculated totals."""
+    if not is_admin():
+        return jsonify({"ok": False, "error": "Bạn không có quyền sử dụng tính năng này."}), 403
+    settings = get_settings()
+    if not settings_flag(settings, "manual_zfie0029_enabled", "0"):
+        return jsonify({"ok": False, "error": "Tính năng nhập thủ công dữ liệu ZFIE0029 đang tắt."}), 403
     data = request.get_json(force=True)
     raw = data.get("sap_text", "") or data.get("raw_text", "")
     records = parse_sap_paste(raw)

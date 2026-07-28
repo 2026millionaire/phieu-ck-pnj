@@ -149,6 +149,11 @@ def normalize_deposit_document(value: Any) -> str:
     return document if re.fullmatch(r"16\d{8}", document) else ""
 
 
+def normalize_sap_transaction_document(value: Any) -> str:
+    document = re.sub(r"\D+", "", str(value or ""))
+    return document if re.fullmatch(r"25\d{8}", document) else ""
+
+
 def public_deposit_record(record: dict[str, Any]) -> dict[str, Any] | None:
     document = normalize_deposit_document(
         record.get("DocumentNo")
@@ -233,29 +238,82 @@ def _extract_restgui_value(lsdata: str, inner: str) -> str:
     return _decode_sap_js_text(text).strip()
 
 
+def _iter_restgui_response_candidates(response_text: Any) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, str):
+            if value not in seen:
+                seen.add(value)
+                candidates.append(value)
+            stripped = value.strip()
+            if stripped[:1] in ("{", "[", '"'):
+                try:
+                    parsed = json.loads(stripped)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    return
+                visit(parsed)
+            return
+        if isinstance(value, dict):
+            for nested in value.values():
+                visit(nested)
+            return
+        if isinstance(value, list):
+            for nested in value:
+                visit(nested)
+
+    visit("" if response_text is None else str(response_text))
+    return candidates
+
+
+def _restgui_grid_rows(response_text: str) -> list[dict[str, str]]:
+    """Extract typed row dictionaries from the ZFIE0029 result grid only."""
+    for candidate in _iter_restgui_response_candidates(response_text):
+        headers = _restgui_grid_headers(candidate)
+        if not headers:
+            continue
+        column_by_name = {name: col for col, name in headers.items() if name}
+        cells: dict[int, dict[int, str]] = {}
+        pattern = re.compile(
+            rf'id="grid#{re.escape(RESTGUI_GRID_ID)}#(\d+),(\d+)#if"[^>]*lsdata="([^"]*)"[^>]*>(.*?)</span>',
+            re.S,
+        )
+        for row, col, lsdata, inner in pattern.findall(candidate):
+            row_idx = int(row)
+            col_idx = int(col)
+            if row_idx <= 0:
+                continue
+            cells.setdefault(row_idx, {})[col_idx] = _extract_restgui_value(lsdata, inner)
+        if not cells:
+            continue
+        rows: list[dict[str, str]] = []
+        for row in sorted(cells):
+            values = cells[row]
+            rows.append({name: values.get(col, "") for name, col in column_by_name.items()})
+        if rows:
+            return rows
+    return []
+
+
+def extract_unique_sap_transaction_document(response_text: str) -> str:
+    """Return one unique 25... SAP document from the result grid, or empty if ambiguous."""
+    documents = {
+        normalize_sap_transaction_document(row.get("DocumentNo") or "")
+        for row in _restgui_grid_rows(response_text)
+    }
+    documents.discard("")
+    return next(iter(documents)) if len(documents) == 1 else ""
+
+
 def parse_restgui_deposit_response(response_text: str, customer_code: Any = "") -> list[dict[str, Any]]:
     """Parse ZFIE0029 RESTGUI multipart response and return candidate deposit rows."""
     canonical = normalize_customer_code(customer_code)
-    headers = _restgui_grid_headers(response_text)
-    if not headers:
+    rows = _restgui_grid_rows(response_text)
+    if not rows:
         return []
-    column_by_name = {name: col for col, name in headers.items() if name}
-    cells: dict[int, dict[int, str]] = {}
-    pattern = re.compile(
-        rf'id="grid#{re.escape(RESTGUI_GRID_ID)}#(\d+),(\d+)#if"[^>]*lsdata="([^"]*)"[^>]*>(.*?)</span>',
-        re.S,
-    )
-    for row, col, lsdata, inner in pattern.findall(response_text or ""):
-        row_idx = int(row)
-        col_idx = int(col)
-        if row_idx <= 0:
-            continue
-        cells.setdefault(row_idx, {})[col_idx] = _extract_restgui_value(lsdata, inner)
-
     records: list[dict[str, Any]] = []
-    for row in sorted(cells):
-        values = cells[row]
-        by_name = {name: values.get(col, "") for name, col in column_by_name.items()}
+    for by_name in rows:
         document = normalize_deposit_document(by_name.get("DocumentNo"))
         amount_text = by_name.get("Amount") or by_name.get("Amt.in loc.cur.")
         amount = parse_signed_amount(amount_text)
@@ -429,8 +487,8 @@ def _start_restgui_transaction(session: requests.Session, base_url: str) -> tupl
     return action_url, str(fields.get("moin") or "")
 
 
-def load_erp_deposit_restgui(customer_code: Any, target_date: date) -> list[dict[str, Any]]:
-    """Load deposit rows by posting ZFIE0029 through RESTGUI batch/json."""
+def load_erp_deposit_restgui_snapshot(customer_code: Any, target_date: date) -> dict[str, Any]:
+    """Load ZFIE0029 once and return both deposit rows and a unique 25... SAP document when available."""
     base_url = os.environ.get("PNJ_DEPOSIT_RESTGUI_BASE_URL", DEFAULT_RESTGUI_BASE_URL).rstrip("/")
     session = login_erp_session() if base_url == ERP_BASE_URL else _login_direct_restgui_session(base_url)
     action_url, moin = _start_restgui_transaction(session, base_url)
@@ -448,7 +506,15 @@ def load_erp_deposit_restgui(customer_code: Any, target_date: date) -> list[dict
         timeout=max(ERP_TIMEOUT_SECONDS, 120),
     )
     response.raise_for_status()
-    return parse_restgui_deposit_response(response.text, customer_code=customer_code)
+    return {
+        "records": parse_restgui_deposit_response(response.text, customer_code=customer_code),
+        "sap_transaction_document": extract_unique_sap_transaction_document(response.text),
+    }
+
+
+def load_erp_deposit_restgui(customer_code: Any, target_date: date) -> list[dict[str, Any]]:
+    snapshot = load_erp_deposit_restgui_snapshot(customer_code, target_date)
+    return snapshot.get("records", []) if isinstance(snapshot, dict) else []
 
 
 def load_deposit_fixture() -> list[dict[str, Any]]:
@@ -463,15 +529,15 @@ def load_deposit_fixture() -> list[dict[str, Any]]:
     return records if isinstance(records, list) else []
 
 
-def deposit_suggestions(
+def deposit_lookup(
     customer_code: Any,
     target_date: Any = None,
     lookback_days: Any = DEFAULT_LOOKBACK_DAYS,
     limit: Any = MAX_SUGGESTIONS,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     canonical_customer = normalize_customer_code(customer_code)
     if not canonical_customer:
-        return []
+        return {"suggestions": [], "sap_transaction_document": ""}
     anchor_date = parse_date(target_date) or date.today()
     try:
         lookback = max(0, min(int(lookback_days), 365))
@@ -483,11 +549,15 @@ def deposit_suggestions(
         capped_limit = MAX_SUGGESTIONS
     earliest = anchor_date - timedelta(days=lookback)
 
-    source_records = (
-        load_erp_deposit_restgui(canonical_customer, anchor_date)
-        if erp_credentials()
-        else load_deposit_fixture()
-    )
+    sap_transaction_document = ""
+    if erp_credentials():
+        restgui_snapshot = load_erp_deposit_restgui_snapshot(canonical_customer, anchor_date)
+        source_records = restgui_snapshot.get("records", []) if isinstance(restgui_snapshot, dict) else []
+        sap_transaction_document = str(
+            restgui_snapshot.get("sap_transaction_document", "") if isinstance(restgui_snapshot, dict) else ""
+        ).strip()
+    else:
+        source_records = load_deposit_fixture()
     matches = []
     seen_documents = set()
     for record in source_records:
@@ -518,4 +588,18 @@ def deposit_suggestions(
         matches.append(public_record)
 
     matches.sort(key=lambda item: (item["posting_date"], item["deposit_document"]), reverse=True)
-    return matches[:capped_limit]
+    return {
+        "suggestions": matches[:capped_limit],
+        "sap_transaction_document": normalize_sap_transaction_document(sap_transaction_document),
+    }
+
+
+def deposit_suggestions(
+    customer_code: Any,
+    target_date: Any = None,
+    lookback_days: Any = DEFAULT_LOOKBACK_DAYS,
+    limit: Any = MAX_SUGGESTIONS,
+) -> list[dict[str, Any]]:
+    return deposit_lookup(customer_code, target_date=target_date, lookback_days=lookback_days, limit=limit)[
+        "suggestions"
+    ]

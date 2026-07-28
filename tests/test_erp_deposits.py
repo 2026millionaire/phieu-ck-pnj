@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import app as app_module
@@ -148,6 +149,95 @@ class ErpDepositTests(unittest.TestCase):
         self.assertEqual(public_record["posting_date"], "2026-06-27")
         self.assertEqual(public_record["account_type"], "D")
         self.assertEqual(public_record["special_gl"], "A")
+
+    def test_extracts_unique_sap_transaction_document_from_grid(self):
+        response_text = """
+        <span id="grid#C102#0,4#cp">Type</span>
+        <span id="grid#C102#0,6#cp">DocumentNo</span>
+        <span id="grid#C102#0,8#cp">Amount</span>
+        <span id="grid#C102#1,4#if" lsdata="{5:'DZ',21:{value:'DZ'}}">DZ</span>
+        <span id="grid#C102#1,6#if" lsdata="{5:'2501096664',21:{value:'2501096664'}}">2501096664</span>
+        <span id="grid#C102#1,8#if" lsdata="{5:'2,000,000\\x2d',21:{value:'2,000,000-'}}">2,000,000-</span>
+        """
+
+        self.assertEqual(erp_deposits.extract_unique_sap_transaction_document(response_text), "2501096664")
+
+    def test_does_not_guess_when_multiple_sap_transaction_documents_exist(self):
+        response_text = """
+        <span id="grid#C102#0,4#cp">Type</span>
+        <span id="grid#C102#0,6#cp">DocumentNo</span>
+        <span id="grid#C102#0,8#cp">Amount</span>
+        <span id="grid#C102#1,4#if" lsdata="{5:'DZ',21:{value:'DZ'}}">DZ</span>
+        <span id="grid#C102#1,6#if" lsdata="{5:'2501096664',21:{value:'2501096664'}}">2501096664</span>
+        <span id="grid#C102#1,8#if" lsdata="{5:'2,000,000\\x2d',21:{value:'2,000,000-'}}">2,000,000-</span>
+        <span id="grid#C102#2,4#if" lsdata="{5:'DZ',21:{value:'DZ'}}">DZ</span>
+        <span id="grid#C102#2,6#if" lsdata="{5:'2501096665',21:{value:'2501096665'}}">2501096665</span>
+        <span id="grid#C102#2,8#if" lsdata="{5:'3,000,000\\x2d',21:{value:'3,000,000-'}}">3,000,000-</span>
+        """
+
+        self.assertEqual(erp_deposits.extract_unique_sap_transaction_document(response_text), "")
+
+    def test_returns_empty_when_no_sap_transaction_document_exists(self):
+        response_text = """
+        <span id="grid#C102#0,4#cp">Type</span>
+        <span id="grid#C102#0,6#cp">DocumentNo</span>
+        <span id="grid#C102#0,8#cp">Amount</span>
+        <span id="grid#C102#1,4#if" lsdata="{5:'DZ',21:{value:'DZ'}}">DZ</span>
+        <span id="grid#C102#1,6#if" lsdata="{5:'1601096664',21:{value:'1601096664'}}">1601096664</span>
+        <span id="grid#C102#1,8#if" lsdata="{5:'2,000,000\\x2d',21:{value:'2,000,000-'}}">2,000,000-</span>
+        """
+
+        self.assertEqual(erp_deposits.extract_unique_sap_transaction_document(response_text), "")
+
+    def test_extracts_sap_transaction_document_from_nested_json_response(self):
+        grid_html = """
+        <span id="grid#C102#0,4#cp">Type</span>
+        <span id="grid#C102#0,6#cp">DocumentNo</span>
+        <span id="grid#C102#0,8#cp">Amount</span>
+        <span id="grid#C102#1,4#if" lsdata="{5:'DZ',21:{value:'DZ'}}">DZ</span>
+        <span id="grid#C102#1,6#if" lsdata="{5:'2501098888',21:{value:'2501098888'}}">2501098888</span>
+        <span id="grid#C102#1,8#if" lsdata="{5:'2,000,000\\x2d',21:{value:'2,000,000-'}}">2,000,000-</span>
+        """
+        response_text = json.dumps({"batch": {"payload": grid_html}})
+
+        self.assertEqual(erp_deposits.extract_unique_sap_transaction_document(response_text), "2501098888")
+
+    def test_returns_empty_for_login_or_error_html(self):
+        response_text = """
+        <html>
+            <head><title>Log On</title></head>
+            <body>
+                <form><input name="sap-user"><input name="sap-password"></form>
+            </body>
+        </html>
+        """
+
+        self.assertEqual(erp_deposits.extract_unique_sap_transaction_document(response_text), "")
+        self.assertEqual(erp_deposits.parse_restgui_deposit_response(response_text, customer_code="102030577"), [])
+
+    def test_deposit_lookup_returns_sap_transaction_document_metadata(self):
+        os.environ["PNJ_ERP_USER"] = "demo-user"
+        os.environ["PNJ_ERP_PASSWORD"] = "demo-pass"
+        snapshot = {
+            "records": [
+                {
+                    "Customer": "1005320208",
+                    "CompanyCode": "1000",
+                    "ProfitCenter": "0010241305",
+                    "PostingDate": "2026-03-04",
+                    "DocumentNo": "1600524502",
+                    "DocumentType": "DZ",
+                    "Amount": "2,000,000-",
+                    "source": "restgui",
+                }
+            ],
+            "sap_transaction_document": "2501099999",
+        }
+        with mock.patch.object(erp_deposits, "load_erp_deposit_restgui_snapshot", return_value=snapshot):
+            result = erp_deposits.deposit_lookup("1005320208", "2026-03-04", lookback_days=0)
+
+        self.assertEqual(result["sap_transaction_document"], "2501099999")
+        self.assertEqual(result["suggestions"][0]["deposit_document"], "1600524502")
 
     def test_builds_restgui_post_payload(self):
         payload = erp_deposits.build_restgui_deposit_payload("102030577", erp_deposits.parse_date("2026-07-24"))

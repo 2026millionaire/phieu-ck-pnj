@@ -276,6 +276,13 @@
                                 Màu nền PL1: Thoả thuận thu đổi
                             </label>
                         </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="s_manual_zfie0029_enabled"
+                                   {% if settings.get('manual_zfie0029_enabled', '0') == '1' %}checked{% endif %}>
+                            <label class="form-check-label" for="s_manual_zfie0029_enabled">
+                                Nhập thủ công dữ liệu ZFIE0029
+                            </label>
+                        </div>
                         <small class="text-muted">Các tuỳ chọn Thoả thuận thu đổi áp dụng cho phiếu lưu/in sau khi thay đổi.</small>
                     </div>
                 </div>
@@ -550,6 +557,7 @@ document.getElementById('btnSaveSettings').addEventListener('click', function() 
         use_bk_ref_default: document.getElementById('s_use_bk_ref_default').checked ? '1' : '0',
         show_payment_dates_default: document.getElementById('s_show_payment_dates_default').checked ? '1' : '0',
         payment_planning_title_bg: document.getElementById('s_payment_planning_title_bg').checked ? '1' : '0',
+        manual_zfie0029_enabled: document.getElementById('s_manual_zfie0029_enabled').checked ? '1' : '0',
         plant: document.getElementById('s_plant').value.trim(),
     };
     // Admin-only fields

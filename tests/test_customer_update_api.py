@@ -467,13 +467,15 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertIn('href="/settings"', admin_html)
         self.assertIn('id="btnOcrClip"', admin_html)
         self.assertIn("appUrl('/api/ocr-bk')", admin_html)
-        self.assertIn('aria-expanded="true" aria-controls="sapDataCollapse"', admin_html)
-        self.assertIn('<div class="collapse show" id="sapDataCollapse">', admin_html)
+        self.assertNotIn('aria-expanded="true" aria-controls="sapDataCollapse"', admin_html)
+        self.assertNotIn('<div class="collapse show" id="sapDataCollapse">', admin_html)
+        self.assertNotIn("Tá»± nháº­p dá»¯ liá»‡u SAP", admin_html)
 
         settings_page = self.client.get("/settings")
         self.assertEqual(settings_page.status_code, 200)
         self.assertEqual(settings_page.headers.get("Cache-Control"), "no-store, max-age=0")
         self.assertIn(b"customerImportFiles", settings_page.data)
+        self.assertIn(b"s_manual_zfie0029_enabled", settings_page.data)
         self.assertIn(b"settingsAppUrl", settings_page.data)
         self.assertIn(b"readIdentityImportResponse", settings_page.data)
         self.assertIn(
@@ -520,6 +522,70 @@ class CustomerUpdateApiTests(unittest.TestCase):
         self.assertTrue(
             any("eoffice" in bank for bank in response.get_json()["data"])
         )
+
+    def test_manual_zfie0029_setting_controls_admin_block_and_parse_api(self):
+        self.login(role="admin", user_id=1)
+
+        settings_json = self.client.get("/api/settings").get_json()["data"]
+        self.assertEqual(settings_json["manual_zfie0029_enabled"], "0")
+
+        admin_html = self.client.get("/").get_data(as_text=True)
+        self.assertNotIn("Tự nhập dữ liệu SAP", admin_html)
+        self.assertNotIn('id="sap_data"', admin_html)
+        self.assertNotIn('id="btnParseSap"', admin_html)
+        self.assertIn("manual_zfie0029_enabled: '0'", admin_html)
+
+        parse_off = self.client.post(
+            "/api/parse-sap",
+            json={"sap_text": "2500000001\t123456/07_1305\t1.000-"},
+        )
+        self.assertEqual(parse_off.status_code, 403)
+        self.assertIn("tắt", parse_off.get_json()["error"])
+
+        saved = self.client.post(
+            "/api/settings",
+            json={"manual_zfie0029_enabled": "1"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(self.client.get("/api/settings").get_json()["data"]["manual_zfie0029_enabled"], "1")
+
+        enabled_html = self.client.get("/").get_data(as_text=True)
+        self.assertIn("Tự nhập dữ liệu SAP", enabled_html)
+        self.assertIn('id="sap_data"', enabled_html)
+        self.assertIn('id="btnParseSap"', enabled_html)
+        self.assertIn('aria-expanded="true" aria-controls="sapDataCollapse"', enabled_html)
+        self.assertIn('<div class="collapse show" id="sapDataCollapse">', enabled_html)
+        self.assertIn("manual_zfie0029_enabled: '1'", enabled_html)
+
+        parse_on = self.client.post(
+            "/api/parse-sap",
+            json={"sap_text": "2500000001\t123456/07_1305\t1.000-"},
+        )
+        self.assertEqual(parse_on.status_code, 200)
+        payload = parse_on.get_json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["chung_tu"][0]["loai"], "Bảng kê")
+
+        reloaded_settings = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn('id="s_manual_zfie0029_enabled"', reloaded_settings)
+
+    def test_manual_zfie0029_parse_api_is_admin_only_even_when_enabled(self):
+        self.login(role="admin", user_id=1)
+        saved = self.client.post(
+            "/api/settings",
+            json={"manual_zfie0029_enabled": "1"},
+            headers={"Origin": "http://localhost"},
+        )
+        self.assertEqual(saved.status_code, 200)
+
+        self.login(role="user", user_id=2)
+        response = self.client.post(
+            "/api/parse-sap",
+            json={"sap_text": "2500000001\t123456/07_1305\t1.000-"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("quyền", response.get_json()["error"])
 
 
 if __name__ == "__main__":

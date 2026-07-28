@@ -44,7 +44,7 @@ class EofficeQt82Tests(unittest.TestCase):
             session["user_name"] = "ADMIN TEST"
             session["role"] = role
 
-    def create_phieu(self, doc_num="", amount=1500000):
+    def create_phieu(self, doc_num="", amount=1500000, sap_document=""):
         payload = {
             "status": "draft",
             "ngay_lap": "2026-07-16",
@@ -58,6 +58,7 @@ class EofficeQt82Tests(unittest.TestCase):
             "so_bk": "4403000001",
             "plant": "1305",
             "tong_ck": amount,
+            "sap_document": sap_document,
             "chung_tu": [
                 {
                     "loai": "Bảng kê",
@@ -578,9 +579,11 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("autoFillBillingSuggestions", index_html)
         self.assertIn("autoFillDepositSuggestions", index_html)
         self.assertIn("autoFilledTransactionSources", index_html)
-        self.assertIn("showSuggestions: false", index_html)
+        self.assertIn("await requestBillingSuggestionsForKey(loadingKey, customerCode);", index_html)
+        self.assertIn("await requestPurchaseOrderSuggestionsForKey(loadingKey, customerCode);", index_html)
         self.assertIn("auto_fill_transactions_default", index_html)
         self.assertIn("transactionLoadingStatus", index_html)
+        self.assertIn('id="sapTransactionDocumentNote"', transaction_block)
         self.assertIn("<Đang tải bảng kê...>", index_html)
         self.assertIn("<Đang tải hoá đơn...>", index_html)
         self.assertIn("<Đang tải số hiệu BK...>", index_html)
@@ -622,6 +625,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn('id="s_show_payment_dates_default"', settings_html)
         self.assertIn('id="s_auto_fill_transactions_default"', settings_html)
         self.assertIn('id="s_payment_planning_title_bg"', settings_html)
+        self.assertIn('id="s_manual_zfie0029_enabled"', settings_html)
         saved_settings = self.client.post(
             "/api/settings",
             json={
@@ -629,6 +633,7 @@ class EofficeQt82Tests(unittest.TestCase):
                 "use_bk_ref_default": "0",
                 "show_payment_dates_default": "1",
                 "payment_planning_title_bg": "1",
+                "manual_zfie0029_enabled": "1",
             },
             headers={"Origin": "http://localhost"},
         )
@@ -638,6 +643,144 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(settings_json["use_bk_ref_default"], "0")
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
         self.assertEqual(settings_json["payment_planning_title_bg"], "1")
+        self.assertEqual(settings_json["manual_zfie0029_enabled"], "1")
+
+    def test_transaction_autoload_orchestration_runs_billing_then_bk_then_refs_then_deposits(self):
+        template_text = (Path(app_module.app.root_path) / "templates" / "index.html").read_text(
+            encoding="utf-8",
+            errors="replace",
+        )
+        billing_idx = template_text.rfind("await requestBillingSuggestionsForKey(loadingKey, customerCode);")
+        purchase_idx = template_text.rfind("await requestPurchaseOrderSuggestionsForKey(loadingKey, customerCode);")
+        reference_idx = template_text.rfind(
+            "await fetchPurchaseOrderReferencesForCustomer(purchaseOrderSuggestionCache.get(loadingKey) || []);"
+        )
+        deposit_idx = template_text.rfind("await requestDepositSuggestionsForKey(loadingKey, customerCode);")
+        fill_idx = template_text.rfind("autoFillTransactionSuggestions();")
+
+        self.assertGreater(billing_idx, -1)
+        self.assertGreater(purchase_idx, billing_idx)
+        self.assertGreater(reference_idx, purchase_idx)
+        self.assertGreater(deposit_idx, reference_idx)
+        self.assertGreater(fill_idx, deposit_idx)
+        self.assertIn("purchaseOrderReferenceCache.has(key)", template_text)
+        self.assertIn("showTransactionLoadError('Lỗi tải hoá đơn', loadingKey);", template_text)
+        self.assertIn("showTransactionLoadError('Lỗi tải bảng kê', loadingKey);", template_text)
+        self.assertIn("showTransactionLoadError('Lỗi tải số hiệu BK', loadingKey);", template_text)
+        self.assertIn("showTransactionLoadError('Lỗi tải BN cọc', loadingKey);", template_text)
+
+    def test_transaction_autoload_uses_stale_response_guards_and_reuses_inflight_requests(self):
+        template_text = (Path(app_module.app.root_path) / "templates" / "index.html").read_text(
+            encoding="utf-8",
+            errors="replace",
+        )
+        self.assertIn("function isCurrentTransactionKey(key)", template_text)
+        self.assertIn("if (isCurrentTransactionKey(key)) applyPurchaseOrderReferenceResult(result, rows);", template_text)
+        self.assertIn("if (sapItems[idx] && sapItems[idx].loai === 'HÃ³a Ä‘Æ¡n' && isCurrentTransactionKey(key))", template_text)
+        self.assertIn("if (sapItems[idx] && sapItems[idx].loai === 'Báº£ng kÃª' && isCurrentTransactionKey(key))", template_text)
+        self.assertIn("if (billingSuggestionRequests.has(key)) return billingSuggestionRequests.get(key);", template_text)
+        self.assertIn(
+            "if (purchaseOrderSuggestionRequests.has(key)) return purchaseOrderSuggestionRequests.get(key);",
+            template_text,
+        )
+        self.assertIn("if (depositSuggestionRequests.has(key)) return depositSuggestionRequests.get(key);", template_text)
+        self.assertIn("depositSapTransactionCache.clear();", template_text)
+        self.assertIn("updateSapTransactionDocumentNote();", template_text)
+
+    def test_transaction_autoload_sap_note_waits_for_completion_and_uses_single_bk_gate(self):
+        template_text = (Path(app_module.app.root_path) / "templates" / "index.html").read_text(
+            encoding="utf-8",
+            errors="replace",
+        )
+        self.assertIn("function resolveSapTransactionDocumentNote(key)", template_text)
+        self.assertIn("!autoFilledTransactionCacheKeys.has(key)", template_text)
+        self.assertIn("const counts = currentAutoLoadedTransactionCounts();", template_text)
+        self.assertIn("if (counts.bangKe !== 1) return '';", template_text)
+        self.assertIn("if (counts.hoaDon !== 0) return '';", template_text)
+        self.assertIn("if (counts.bienNhanCoc !== 0) return '';", template_text)
+        self.assertIn("if (counts.other !== 0) return '';", template_text)
+        self.assertIn("Số chứng từ SAP: ", template_text)
+        self.assertIn("normalizeSapTransactionDocumentNumber(data.sap_transaction_document || '')", template_text)
+
+    def test_sap_transaction_note_is_ui_only_and_not_printed(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "force_create": True,
+            "ngay_lap": "2026-07-28",
+            "ma_kh": "100000128",
+            "ten_kh": "KHACH HANG UI NOTE",
+            "dia_chi": "HUE",
+            "sdt": "0900000128",
+            "cccd": "012345678928",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG UI NOTE",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000128",
+            "plant": "1305",
+            "tong_ck": 1280000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000128", "gia_tri": 1280000, "gio": "28/07/2026 10:00"},
+            ],
+        }
+        saved = self.client.post("/api/save", json=payload).get_json()
+        print_html = self.client.get(f"/api/print/{saved['id']}").get_data(as_text=True)
+
+        self.assertNotIn("Số chứng từ SAP:", print_html)
+        self.assertNotIn("sapTransactionDocumentNote", print_html)
+
+    def test_save_persists_sap_document_override_for_eoffice(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(doc_num="", sap_document="2500000128")
+
+        phieu = self.client.get(f"/api/phieu/{phieu_id}").get_json()["phieu"]
+        self.assertEqual(phieu["sap_document_override"], "2500000128")
+
+        payload = self.payload_from_html(self.client.get(f"/eoffice/{phieu_id}").get_data(as_text=True))
+        self.assertEqual(payload["sapDocument"], "2500000128")
+        self.assertFalse(payload["sapPlaceholder"])
+
+    def test_save_clears_sap_document_override_when_gate_no_longer_matches(self):
+        self.login(role="admin")
+        phieu_id = self.create_phieu(doc_num="", sap_document="2500000456")
+        update_payload = {
+            "phieu_id": phieu_id,
+            "status": "draft",
+            "ngay_lap": "2026-07-16",
+            "ma_kh": "100000000",
+            "ten_kh": "KHACH HANG TEST",
+            "sdt": "0900000000",
+            "cccd": "012345678901",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG TEST",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000001,9010000001",
+            "plant": "1305",
+            "tong_ck": 1500000,
+            "sap_document": "",
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000001", "gia_tri": 1000000, "gio": "16/07/2026 10:00"},
+                {"loai": "Hóa đơn", "so_ct": "9010000001", "gia_tri": 500000, "gio": "16/07/2026 10:05"},
+            ],
+        }
+        response = self.client.post("/api/save", json=update_payload)
+        self.assertEqual(response.status_code, 200)
+
+        phieu = self.client.get(f"/api/phieu/{phieu_id}").get_json()["phieu"]
+        self.assertEqual(phieu["sap_document_override"], "")
+
+        payload = self.payload_from_html(self.client.get(f"/eoffice/{phieu_id}").get_data(as_text=True))
+        self.assertEqual(payload["sapDocument"], "1234")
+        self.assertTrue(payload["sapPlaceholder"])
+
+    def test_source_includes_sap_document_in_save_payload_without_creating_transaction_row(self):
+        template_text = (Path(app_module.app.root_path) / "templates" / "index.html").read_text(
+            encoding="utf-8",
+            errors="replace",
+        )
+        self.assertIn("sap_document: resolvedSapTransactionDocumentForSave()", template_text)
+        self.assertIn("function resolvedSapTransactionDocumentForSave()", template_text)
+        self.assertNotIn("loai: 'Số chứng từ SAP'", template_text)
 
     def test_green_flow_print_hides_payment_schedule_and_uses_credit_notice_label(self):
         self.login(role="admin")
