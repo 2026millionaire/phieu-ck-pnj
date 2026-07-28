@@ -6,3 +6,5 @@ ocr_debug.txt
 *.dpapi
 customer_lookup.db*
 customer_identity.db*
+.env.local
+.env.local.bat

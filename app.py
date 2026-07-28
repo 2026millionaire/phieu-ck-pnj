@@ -1858,6 +1858,7 @@ def prepare_phieu_for_output(row, settings=None):
     d["green_flow"] = settings_flag(d, "green_flow", "0")
     d["payment_time_mode"] = normalize_payment_time_mode(d.get("payment_time_mode"))
     d["payment_time_label"] = "T/T+1 ngày" if d["green_flow"] else "T+120 ngày"
+    d["show_customer_address"] = settings.get("show_customer_address", "0") == "1"
     d["show_payment_time"] = (
         d["payment_time_mode"] == "T120"
         and settings.get("show_payment_time", "1") == "1"
@@ -1989,7 +1990,7 @@ def make_phieu_pdf(p):
         [Paragraph(f"Số điện thoại: <b>{p.get('sdt_fmt') or ''}</b>", normal), Paragraph(f"Số CCCD: <b>{p.get('cccd_fmt') or ''}</b>", normal)],
     ], colWidths=[70 * mm, 64 * mm]))
 
-    if p.get("dia_chi"):
+    if p.get("show_customer_address") and p.get("dia_chi"):
         story.append(Paragraph(f"Địa chỉ: <b>{p.get('dia_chi') or ''}</b>", normal))
 
     story.append(Paragraph("<b>2. Thông tin thanh toán / Ủy Quyền chuyển khoản</b>", bold_style))

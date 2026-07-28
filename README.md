@@ -29,6 +29,15 @@ python app.py
 
 Hoặc double-click `start.bat` → tự mở http://localhost:5050
 
+## Kết nối ERP khi chạy local
+
+- Production và local đều dùng provider server-side để gọi `https://erp.pnj.com.vn`; JavaScript không gọi ERP trực tiếp.
+- Local chỉ kết nối ERP thật khi process có đủ biến môi trường `PNJ_ERP_BASE_URL`, `PNJ_ERP_USER`, `PNJ_ERP_PASSWORD`.
+- Có thể sao chép `.env.local.example.bat` thành `.env.local.bat`, điền biến môi trường tại máy local, rồi chạy `start.bat`.
+- Nếu chưa có credential/quyền ERP, dùng fixture giả qua `PNJ_ERP_BP_FIXTURE_PATH`, `PNJ_BILLING_FIXTURE_PATH`, `PNJ_PURCHASE_ORDER_FIXTURE_PATH`. Đây chỉ là dữ liệu phát triển, không phải ERP thật.
+- Khi kiểm tra ERP, provider phải nhận JSON OData. Nếu nhận HTML có `Log On` hoặc trường `sap-password` thì đó là trang login/hết phiên, không phải dữ liệu Business Partner.
+- Không đưa mật khẩu ERP, cookie, token, CCCD hay địa chỉ khách hàng thật vào repository, log, ảnh chụp hay file fixture.
+
 ## Tra cứu khách hàng local
 
 - CSDL dẫn xuất được lưu ngoài repository tại `%LOCALAPPDATA%\PNJCustomerLookup\customer_lookup.db`.

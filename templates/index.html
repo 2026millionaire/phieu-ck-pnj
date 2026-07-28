@@ -1531,15 +1531,54 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function applyCustomerLocalProfile(profile, requestedCode) {
+        if (!profile || typeof profile !== 'object') return;
+        const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
+        if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
+        const nameInput = document.getElementById('ten_kh');
+        const phoneInput = document.getElementById('sdt');
+        const cccdInput = document.getElementById('cccd');
+        const profileName = profile.name || profile.full_name || '';
         cacheCustomerProfileSuggestions(profile, requestedCode, 'local');
+        if (nameInput && !nameInput.value.trim() && profileName) {
+            nameInput.value = profileName;
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (phoneInput && !phoneInput.value.trim() && profile.phone) {
+            phoneInput.value = profile.phone;
+            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (cccdInput && !cccdInput.value.trim() && profile.cccd) {
+            cccdInput.value = profile.cccd;
+            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
     }
 
     function applyErpBusinessPartnerProfile(profile, requestedCode) {
         if (!profile || typeof profile !== 'object') return;
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
+        const nameInput = document.getElementById('ten_kh');
+        const phoneInput = document.getElementById('sdt');
+        const cccdInput = document.getElementById('cccd');
         const addressInput = document.getElementById('dia_chi');
+        const profileName = profile.name || profile.full_name || '';
         cacheCustomerProfileSuggestions(profile, requestedCode, 'bp');
+        if (nameInput && !nameInput.value.trim() && profileName) {
+            nameInput.value = profileName;
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (phoneInput && !phoneInput.value.trim() && profile.phone) {
+            phoneInput.value = profile.phone;
+            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (cccdInput && !cccdInput.value.trim() && profile.cccd) {
+            cccdInput.value = profile.cccd;
+            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (addressInput && !addressInput.value.trim() && profile.address) {
+            addressInput.value = profile.address;
+            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         if (addressInput && !addressInput.value.trim()) setAddressLoadingPlaceholder(false);
     }
 
@@ -1547,8 +1586,28 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!profile || typeof profile !== 'object') return;
         const currentCode = document.getElementById('ma_kh').value.trim().replace(/^0+/, '');
         if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;
+        const nameInput = document.getElementById('ten_kh');
+        const phoneInput = document.getElementById('sdt');
+        const cccdInput = document.getElementById('cccd');
         const addressInput = document.getElementById('dia_chi');
+        const profileName = profile.name || profile.full_name || '';
         cacheCustomerProfileSuggestions(profile, requestedCode, 'po');
+        if (nameInput && !nameInput.value.trim() && profileName) {
+            nameInput.value = profileName;
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (phoneInput && !phoneInput.value.trim() && profile.phone) {
+            phoneInput.value = profile.phone;
+            phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (cccdInput && !cccdInput.value.trim() && profile.cccd) {
+            cccdInput.value = profile.cccd;
+            cccdInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (addressInput && !addressInput.value.trim() && profile.address) {
+            addressInput.value = profile.address;
+            addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         if (addressInput && !addressInput.value.trim()) setAddressLoadingPlaceholder(false);
     }
 

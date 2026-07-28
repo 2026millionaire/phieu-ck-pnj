@@ -562,7 +562,10 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("'Phải CK khác'", index_html)
         self.assertIn("Giấy Báo Có\\n(KH CK thanh toán)", index_html)
         self.assertNotIn("sap-other-transfer-label-input", index_html)
-        self.assertNotIn("addressInput.value = profile.address", index_html)
+        self.assertIn("nameInput.value = profileName", index_html)
+        self.assertIn("phoneInput.value = profile.phone", index_html)
+        self.assertIn("cccdInput.value = profile.cccd", index_html)
+        self.assertIn("addressInput.value = profile.address", index_html)
         self.assertIn("use_bk_ref_default", index_html)
         self.assertIn("show_payment_dates_default", index_html)
         self.assertIn("sap-bk-ref-status", index_html)
@@ -674,6 +677,39 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertNotIn("Thời gian thanh toán:", print_html)
         self.assertNotIn("T+30: 20%", print_html)
         self.assertNotIn("0234 3847 588", print_html)
+
+        self.assertNotIn("Äá»‹a chá»‰:", print_html)
+        self.assertNotIn(">HUE<", print_html)
+
+    def test_print_keeps_customer_address_data_but_hides_it_by_default(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "force_create": True,
+            "ngay_lap": "2026-07-28",
+            "ma_kh": "100000028",
+            "ten_kh": "KHACH HANG DIA CHI",
+            "dia_chi": "18A TRAN BINH TRONG, HUE",
+            "sdt": "0900000028",
+            "cccd": "012345678928",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG DIA CHI",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000028",
+            "plant": "1305",
+            "tong_ck": 2800000,
+            "chung_tu": [
+                {"loai": "Báº£ng kÃª", "so_ct": "4403000028", "gia_tri": 2800000, "gio": "28/07/2026 10:00"},
+            ],
+        }
+        saved = self.client.post("/api/save", json=payload).get_json()
+
+        phieu = self.client.get(f"/api/phieu/{saved['id']}").get_json()["phieu"]
+        self.assertEqual(phieu["dia_chi"], "18A TRAN BINH TRONG, HUE")
+
+        print_html = self.client.get(f"/api/print/{saved['id']}").get_data(as_text=True)
+        self.assertNotIn("Äá»‹a chá»‰:", print_html)
+        self.assertNotIn("18A TRAN BINH TRONG, HUE", print_html)
 
     def test_green_flow_credit_notice_changes_qt82_request_content(self):
         self.login(role="admin")

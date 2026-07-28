@@ -89,6 +89,7 @@ def format_address(record: dict[str, Any]) -> str:
         _first(record, "Ward", "DistrictName3"),
         _district(record),
         _first(record, "CityName", "City"),
+        _first(record, "RegionName", "Region"),
     ]
     seen = set()
     output = []

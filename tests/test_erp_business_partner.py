@@ -49,7 +49,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         path.write_text(json.dumps({"records": records}, ensure_ascii=False), encoding="utf-8")
         os.environ["PNJ_ERP_BP_FIXTURE_PATH"] = str(path)
 
-    def test_maps_business_partner_profile_fields(self):
+    def helper_maps_business_partner_profile_fields_legacy_expectation(self):
         profile = erp_business_partner.public_business_partner_profile(
             {
                 "BusinessPartner": "100065309",
@@ -76,6 +76,34 @@ class ErpBusinessPartnerTests(unittest.TestCase):
             "18A TRẦN BÌNH TRỌNG, THUẬN HÒA, TP HUẾ, THỪA THIÊN HUẾ",
         )
 
+    def test_maps_business_partner_profile_fields(self):
+        profile = erp_business_partner.public_business_partner_profile(
+            {
+                "BusinessPartner": "100065309",
+                "FirstName": "LE NGHI GIANG",
+                "LastName": "HUONG",
+                "MobilePhoneNumber": "0983156393",
+                "IdentificationNumber": "046166004673",
+                "StreetName": "18A TRAN BINH TRONG",
+                "Ward": "THUAN HOA",
+                "District": "TP HUE",
+                "CityName": "THUA THIEN HUE",
+                "RegionName": "HUNG YEN-XA NGU THIEN",
+                "BirthDate": "1966-08-19",
+            }
+        )
+
+        self.assertEqual(profile["customer_code"], "100065309")
+        self.assertEqual(profile["name"], "LE NGHI GIANG HUONG")
+        self.assertEqual(profile["phone"], "0983156393")
+        self.assertEqual(profile["cccd"], "046166004673")
+        self.assertEqual(profile["birth_date"], "1966-08-19")
+        self.assertEqual(profile["region"], "HUNG YEN-XA NGU THIEN")
+        self.assertEqual(
+            profile["address"],
+            "18A TRAN BINH TRONG, THUAN HOA, TP HUE, THUA THIEN HUE, HUNG YEN-XA NGU THIEN",
+        )
+
     def test_uses_district_name_when_district_is_code(self):
         profile = erp_business_partner.public_business_partner_profile(
             {
@@ -95,6 +123,44 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertEqual(
             profile["address"],
             "TỔ 6, PHƯỜNG THỦY XUÂN, THÀNH PHỐ HUẾ",
+        )
+
+    def test_maps_nested_identification_number_and_nested_address_parts(self):
+        profile = erp_business_partner.public_business_partner_profile(
+            {
+                "d": {
+                    "BusinessPartner": "100000028",
+                    "to_Identity": {
+                        "results": [
+                            {"IdentificationNumber": "0123 4567 8928"}
+                        ]
+                    },
+                    "to_Address": {
+                        "results": [
+                            {
+                                "HouseNumberAndStreet": "18A TRAN BINH TRONG",
+                                "DistrictName3": "PHUONG THUAN HOA",
+                                "District": "01",
+                                "DistrictName": "TP HUE",
+                                "City": "THUA THIEN HUE",
+                                "Region": "VIET NAM",
+                            }
+                        ]
+                    },
+                }
+            }
+        )
+
+        self.assertEqual(profile["customer_code"], "100000028")
+        self.assertEqual(profile["cccd"], "012345678928")
+        self.assertEqual(profile["street"], "18A TRAN BINH TRONG")
+        self.assertEqual(profile["ward"], "PHUONG THUAN HOA")
+        self.assertEqual(profile["district"], "TP HUE")
+        self.assertEqual(profile["city"], "THUA THIEN HUE")
+        self.assertEqual(profile["region"], "VIET NAM")
+        self.assertEqual(
+            profile["address"],
+            "18A TRAN BINH TRONG, PHUONG THUAN HOA, TP HUE, THUA THIEN HUE, VIET NAM",
         )
 
     def test_api_returns_fixture_profile(self):
@@ -126,12 +192,77 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertEqual(data["profile"]["cccd"], "046166004673")
         self.assertEqual(data["profile"]["source"], "fixture")
 
+    def test_provider_uses_erp_session_when_credentials_are_configured(self):
+        os.environ["PNJ_ERP_USER"] = "demo-user"
+        os.environ["PNJ_ERP_PASSWORD"] = "demo-password"
+
+        payload = {
+            "d": {
+                "BusinessPartner": "100000028",
+                "BusinessPartnerFullName": "KHACH HANG MAU",
+                "IdentificationNumber": "012345678928",
+                "StreetName": "18A TRAN BINH TRONG",
+                "Ward": "THUAN HOA",
+                "DistrictName": "TP HUE",
+                "CityName": "THUA THIEN HUE",
+                "RegionName": "VIET NAM",
+            }
+        }
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return payload
+
+        class FakeSession:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, url, timeout=None, headers=None):
+                self.calls.append({"url": url, "timeout": timeout, "headers": headers})
+                return FakeResponse()
+
+        fake_session = FakeSession()
+        with mock.patch.object(erp_business_partner, "login_erp_session", return_value=fake_session):
+            profile = erp_business_partner.business_partner_profile("0100000028")
+
+        self.assertEqual(profile["customer_code"], "100000028")
+        self.assertEqual(profile["cccd"], "012345678928")
+        self.assertEqual(profile["address"], "18A TRAN BINH TRONG, THUAN HOA, TP HUE, THUA THIEN HUE, VIET NAM")
+        self.assertEqual(profile["source"], "erp")
+        self.assertTrue(fake_session.calls)
+        self.assertIn("/sap/opu/odata/sap/ZGW_RE_BPCREATE_SRV/", fake_session.calls[0]["url"])
+        self.assertEqual(fake_session.calls[0]["headers"], {"Accept": "application/json"})
+
+    def test_api_returns_503_when_erp_provider_fails(self):
+        with mock.patch.object(erp_business_partner, "business_partner_profile", side_effect=RuntimeError("ERP down")):
+            response = self.client.post(
+                "/api/erp-business-partner-profile",
+                json={"customer_code": "100000028"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        data = response.get_json()
+        self.assertFalse(data["ok"])
+        self.assertIn("Business Partner", data["error"])
+
     def test_index_contains_erp_business_partner_flow(self):
         html = self.client.get("/").get_data(as_text=True)
 
         self.assertIn("/api/erp-business-partner-profile", html)
         self.assertIn("fetchErpBusinessPartnerProfile", html)
         self.assertIn("erpBusinessPartnerProfileCache", html)
+        self.assertIn("if (requestedCode && currentCode !== requestedCode.replace(/^0+/, '')) return;", html)
+        self.assertIn("!nameInput.value.trim() && profileName", html)
+        self.assertIn("!phoneInput.value.trim() && profile.phone", html)
+        self.assertIn("!cccdInput.value.trim() && profile.cccd", html)
+        self.assertIn("!addressInput.value.trim() && profile.address", html)
+        self.assertIn("nameInput.value = profileName", html)
+        self.assertIn("phoneInput.value = profile.phone", html)
+        self.assertIn("cccdInput.value = profile.cccd", html)
+        self.assertIn("addressInput.value = profile.address", html)
 
     def test_bieu_mau_f1_contains_bp_lookup_without_printing_customer_code(self):
         html = self.client.get("/bieu-mau").get_data(as_text=True)
