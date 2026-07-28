@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 12mm 15mm 12mm 30mm;
+            margin: 7mm 10.5mm 7mm 25mm;
         }
         * {
             box-sizing: border-box;
@@ -22,7 +22,7 @@
             background: #fff;
             font-family: "Times New Roman", "Noto Serif", serif;
             font-size: 11.2px;
-            line-height: 1.04;
+            line-height: 1.08;
         }
         .no-print {
             margin: 0 0 10px;
@@ -83,7 +83,7 @@
         th,
         td {
             border: 1px solid #000;
-            padding: 1.2px 3.2px;
+            padding: 1.6px 3.6px;
             vertical-align: middle;
             overflow-wrap: anywhere;
         }
@@ -92,7 +92,7 @@
             text-align: center;
         }
         .section-title {
-            margin: 4px 0 2px;
+            margin: 5px 0 2px;
             font-size: 11.2px;
             font-weight: 700;
             text-transform: uppercase;
@@ -142,6 +142,10 @@
         .schedule .money {
             text-align: right;
         }
+        .checkbox-mark {
+            font-family: "DejaVu Sans", "Segoe UI Symbol", "Times New Roman", serif;
+            font-weight: 700;
+        }
         .option-line {
             display: block;
         }
@@ -153,35 +157,30 @@
             page-break-after: always;
         }
         .page-one table {
-            line-height: 1.02;
+            line-height: 1.1;
         }
         .page-one td,
         .page-one th {
-            padding-top: 1px;
-            padding-bottom: 1px;
+            padding-top: 2px;
+            padding-bottom: 2px;
         }
         .page-one .section-title {
-            margin-top: 3px;
-            margin-bottom: 1px;
+            margin-top: 5px;
+            margin-bottom: 2px;
         }
         .page-one .section-title:first-child {
             margin-top: 0;
-        }
-        .page-one .payment-principles td {
-            padding-top: 0.8px;
-            padding-bottom: 0.8px;
-            line-height: 1.01;
         }
         .page-two {
             padding-top: 0;
         }
         .page-two .section-title {
-            margin: 7px 0 3px;
+            margin: 5px 0 2.5px;
             font-size: 12px;
         }
         .page-two td {
-            padding: 5px 4px;
-            line-height: 1.34;
+            padding: 3px 4px;
+            line-height: 1.18;
         }
         .signature td {
             height: 104px;
@@ -191,9 +190,9 @@
             padding: 5px 4px 4px;
         }
         .page-two .signature td {
-            height: 162px;
-            padding: 7px 4px 5px;
-            line-height: 1.22;
+            height: 104px;
+            padding: 5px 4px 4px;
+            line-height: 1.16;
         }
         .signature-block {
             display: grid;
@@ -202,7 +201,7 @@
             align-items: start;
         }
         .page-two .signature-block {
-            grid-template-rows: 46px 68px 24px;
+            grid-template-rows: 38px 42px 20px;
         }
         .signature-role {
             line-height: 1.35;
@@ -237,23 +236,54 @@
         .page-two .date-row td {
             height: 30px;
         }
+        .planning-title-bg .title,
+        .planning-title-bg .subtitle {
+            padding-top: 1px;
+            padding-bottom: 1px;
+        }
+        .planning-title-bg .page-one .section-title {
+            padding-top: 1px;
+            padding-bottom: 1px;
+            margin-top: 4px;
+            margin-bottom: 1px;
+        }
+        .planning-title-bg .page-one .section-title:first-child {
+            margin-top: 0;
+        }
+        .planning-title-bg .page-two .section-title {
+            padding-top: 1px;
+            padding-bottom: 1px;
+            margin: 3px 0 1px;
+            font-size: 11.8px;
+        }
+        .planning-title-bg .page-two td {
+            padding-top: 2px;
+            padding-bottom: 2px;
+            line-height: 1.12;
+        }
+        .planning-title-bg .page-two .signature td {
+            height: 108px;
+            padding-top: 4px;
+            padding-bottom: 3px;
+        }
+        .planning-title-bg .page-two .signature-block {
+            grid-template-rows: 34px 46px 18px;
+        }
+        .planning-title-bg .page-two .date-row td {
+            height: 24px;
+        }
         @media print {
             html,
             body {
-                width: 185mm;
+                width: auto;
                 padding: 0;
                 background: #fff !important;
                 color: #000;
                 font-family: "Times New Roman", "Noto Serif", "DejaVu Serif", serif !important;
                 font-size: 11.2px;
-                line-height: 1.04;
+                line-height: 1.08;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-            }
-            .doc {
-                width: 185mm;
-                transform: scale(0.892);
-                transform-origin: top left;
             }
             .planning-title-bg .title,
             .planning-title-bg .section-title,
@@ -430,11 +460,11 @@
         <div class="section-title">IV. Kế hoạch thanh toán</div>
         <table class="schedule">
             <colgroup>
-                <col style="width: 12%;">
+                <col style="width: 15%;">
                 <col style="width: 24%;">
                 <col style="width: 22%;">
-                <col style="width: 14%;">
-                <col style="width: 28%;">
+                <col style="width: 17.5%;">
+                <col style="width: 21.5%;">
             </colgroup>
             <tr>
                 <th>Đợt</th>
@@ -471,13 +501,16 @@
             </colgroup>
             <tr>
                 <td class="label">Hình thức</td>
-                <td colspan="3">☐ Chuyển khoản &nbsp;&nbsp;&nbsp; ☐ Khác</td>
+                <td colspan="3"><span class="checkbox-mark">&#9745;</span> Chuyển khoản &nbsp;&nbsp;&nbsp; <span class="checkbox-mark">&#9744;</span> Khác</td>
             </tr>
             <tr>
                 <td class="label">Nội dung chuyển khoản</td>
                 <td colspan="3"></td>
             </tr>
         </table>
+        </div>
+
+        <div class="page-two">
         <div class="section-title">VI. Nguyên tắc thanh toán</div>
         <table class="payment-principles">
             <colgroup>
@@ -488,9 +521,6 @@
             <tr><td class="stt">{{ loop.index }}</td><td>{{ item | replace('\n', '<br>') | safe }}</td></tr>
             {% endfor %}
         </table>
-        </div>
-
-        <div class="page-two">
         <div class="section-title">VII. Xác nhận và cam kết của Khách Hàng</div>
         <table>
             <colgroup>
