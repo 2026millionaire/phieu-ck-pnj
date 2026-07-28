@@ -1227,7 +1227,15 @@ textarea#sap_data {
                             Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản.
                         </div>
                         <div id="previewPaymentSchedule" style="font-size:0.42rem;">
-                            <strong>Thời gian thanh toán:</strong> <span id="previewPaymentTimeText">T+120 ngày</span>
+                            <strong>Thời gian thanh toán:</strong><br>
+                            1. T/T+1: 10% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="10">0</span> đồng</strong><br>
+                            2. T+30: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong><br>
+                            3. T+60: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
+                            4. T+90: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
+                            5. T+120: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong>
+                        </div>
+                        <div id="previewPaymentNote" style="font-size:0.4rem;">
+                            * Liên hệ: <strong>0234 3847 588</strong>
                         </div>
                         <!-- Ngày ký -->
                         <div style="text-align:right; font-style:italic; font-size:0.42rem; margin:3px 0 1px;">
@@ -2931,13 +2939,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePaymentTimeModePreview() {
         const label = greenFlowEnabled() ? 'T/T+1 ngày' : 'T+120 ngày';
         const displayEl = document.getElementById('paymentTimeDisplay');
-        const previewTextEl = document.getElementById('previewPaymentTimeText');
         const scheduleEl = document.getElementById('previewPaymentSchedule');
         const noteEl = document.getElementById('previewPaymentNote');
+        const showSchedule = !greenFlowEnabled();
         if (displayEl) displayEl.textContent = label;
-        if (previewTextEl) previewTextEl.textContent = label;
-        if (scheduleEl) scheduleEl.classList.remove('d-none');
-        if (noteEl) noteEl.classList.add('d-none');
+        if (scheduleEl) scheduleEl.classList.toggle('d-none', !showSchedule);
+        if (noteEl) noteEl.classList.toggle('d-none', !showSchedule);
     }
 
     function autoFillTransactionsEnabled() {
