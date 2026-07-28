@@ -1002,13 +1002,8 @@ textarea#sap_data {
                             <label class="form-check-label" for="greenFlow">Luồng xanh</label>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
-                            <label class="form-label mb-0">Thời gian thanh toán</label>
-                            <div class="btn-group btn-group-sm" role="group" aria-label="Thời gian thanh toán">
-                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT120" value="T120" checked>
-                                <label class="btn btn-outline-primary" for="paymentTimeT120">T120</label>
-                                <input type="radio" class="btn-check" name="payment_time_mode" id="paymentTimeT0" value="T0">
-                                <label class="btn btn-outline-primary" for="paymentTimeT0">T0</label>
-                            </div>
+                            <span class="form-label mb-0">Thời gian thanh toán:</span>
+                            <strong id="paymentTimeDisplay">T+120 ngày</strong>
                         </div>
                     </div>
 
@@ -1203,17 +1198,8 @@ textarea#sap_data {
                             Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản.
                         </div>
                         <div id="previewPaymentSchedule" style="font-size:0.42rem;">
-                            <strong>Thời gian thanh toán:</strong><br>
-                            1. T+0/1: 10% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="10">0</span> đồng</strong><br>
-                            2. T+30: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong><br>
-                            3. T+60: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
-                            4. T+90: 25% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="25">0</span> đồng</strong><br>
-                            5. T+120: 20% - tương ứng số tiền <strong><span class="pv-payment-schedule-amount" data-pct="20">0</span> đồng</strong>
+                            <strong>Thời gian thanh toán:</strong> <span id="previewPaymentTimeText">T+120 ngày</span>
                         </div>
-                        <div id="previewPaymentNote" style="font-size:0.4rem;">
-                            * Liên hệ: <strong>0234 3847 588</strong>
-                        </div>
-
                         <!-- Ngày ký -->
                         <div style="text-align:right; font-style:italic; font-size:0.42rem; margin:3px 0 1px;">
                             Huế, ngày <span class="pv-ngay">--</span> tháng <span class="pv-thang">--</span> năm <span class="pv-nam">----</span>
@@ -2895,8 +2881,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function selectedPaymentTimeMode() {
-        const checked = document.querySelector('input[name="payment_time_mode"]:checked');
-        return checked ? checked.value : 'T120';
+        return greenFlowEnabled() ? 'T0' : 'T120';
     }
 
     function greenFlowEnabled() {
@@ -2905,18 +2890,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setPaymentTimeMode(mode) {
-        const normalized = mode === 'T0' ? 'T0' : 'T120';
-        const radio = document.querySelector('input[name="payment_time_mode"][value="' + normalized + '"]');
-        if (radio) radio.checked = true;
+        setGreenFlowEnabled(mode === 'T0');
+    }
+
+    function setGreenFlowEnabled(enabled) {
+        const checkbox = document.getElementById('greenFlow');
+        if (checkbox) checkbox.checked = !!enabled;
         updatePaymentTimeModePreview();
     }
 
     function updatePaymentTimeModePreview() {
-        const showSchedule = selectedPaymentTimeMode() !== 'T0';
+        const label = greenFlowEnabled() ? 'T/T+1 ngày' : 'T+120 ngày';
+        const displayEl = document.getElementById('paymentTimeDisplay');
+        const previewTextEl = document.getElementById('previewPaymentTimeText');
         const scheduleEl = document.getElementById('previewPaymentSchedule');
         const noteEl = document.getElementById('previewPaymentNote');
-        if (scheduleEl) scheduleEl.classList.toggle('d-none', !showSchedule);
-        if (noteEl) noteEl.classList.toggle('d-none', !showSchedule);
+        if (displayEl) displayEl.textContent = label;
+        if (previewTextEl) previewTextEl.textContent = label;
+        if (scheduleEl) scheduleEl.classList.remove('d-none');
+        if (noteEl) noteEl.classList.add('d-none');
     }
 
     function autoFillTransactionsEnabled() {
@@ -3690,9 +3682,7 @@ document.addEventListener('DOMContentLoaded', function() {
         scheduleDocumentPrefetch();
     });
 
-    document.querySelectorAll('input[name="payment_time_mode"]').forEach(function(radio) {
-        radio.addEventListener('change', updatePaymentTimeModePreview);
-    });
+    document.getElementById('greenFlow')?.addEventListener('change', updatePaymentTimeModePreview);
 
     // ===== KHỞI TẠO 1 DÒNG BK TRỐNG (cho mobile nhập tay) =====
     sapItems = [{ loai: 'Bảng kê', so_ct: '{{ bk_prefix }}', bk_ref: '', gia_tri: 0, gio: '', sign: '-' }];
@@ -4220,9 +4210,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const radio = document.querySelector('input[name="nguoi_ki"][value="' + p.nguoi_ki + '"]');
                     if (radio) radio.checked = true;
                 }
-                setPaymentTimeMode(p.payment_time_mode || 'T120');
-                const greenFlow = document.getElementById('greenFlow');
-                if (greenFlow) greenFlow.checked = !!Number(p.green_flow || 0);
+                setGreenFlowEnabled(!!Number(p.green_flow || 0) || p.payment_time_mode === 'T0');
                 if (p.created_at && p.created_at.length >= 10) {
                     document.getElementById('ngayLap').value = p.created_at.slice(0, 10);
                 }
@@ -4253,9 +4241,7 @@ document.addEventListener('DOMContentLoaded', function() {
             autoFilledTransactionCacheKeys.clear();
             autoFilledTransactionSources.clear();
             manualTransactionInputKeys.clear();
-            setPaymentTimeMode('T120');
-            const greenFlow = document.getElementById('greenFlow');
-            if (greenFlow) greenFlow.checked = false;
+            setGreenFlowEnabled(false);
             setAddressLoadingPlaceholder(false);
             setTransactionAutoLoadStage('');
             document.getElementById('summaryBox').style.display = 'none';

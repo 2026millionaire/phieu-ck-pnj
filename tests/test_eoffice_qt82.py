@@ -545,13 +545,13 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("use_bk_ref: useBkRefEnabled()", index_html)
         self.assertIn("show_payment_dates: showPaymentDatesEnabled()", index_html)
         self.assertIn("payment_time_mode: selectedPaymentTimeMode()", index_html)
-        self.assertIn('name="payment_time_mode"', index_html)
-        self.assertIn('value="T120"', index_html)
-        self.assertIn('value="T0"', index_html)
         transaction_block = index_html.split("3. Thông tin giao dịch", 1)[1].split("Ngày lập", 1)[0]
         self.assertIn('id="greenFlow"', transaction_block)
-        self.assertIn('id="paymentTimeT120"', transaction_block)
-        self.assertIn('id="paymentTimeT0"', transaction_block)
+        self.assertIn('id="paymentTimeDisplay"', transaction_block)
+        self.assertIn("T+120 ngày", transaction_block)
+        self.assertNotIn('name="payment_time_mode"', transaction_block)
+        self.assertNotIn('id="paymentTimeT120"', transaction_block)
+        self.assertNotIn('id="paymentTimeT0"', transaction_block)
         self.assertIn("green_flow: greenFlowEnabled()", index_html)
         self.assertIn("'Phải CK khác'", index_html)
         self.assertIn("Giấy Báo Có\\n(KH CK thanh toán)", index_html)
@@ -629,12 +629,12 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(settings_json["show_payment_dates_default"], "1")
         self.assertEqual(settings_json["payment_planning_title_bg"], "1")
 
-    def test_t0_print_hides_payment_schedule_and_other_transfer_uses_credit_notice_label(self):
+    def test_green_flow_print_uses_short_payment_time_and_credit_notice_label(self):
         self.login(role="admin")
         payload = {
             "status": "printed",
             "force_create": True,
-            "payment_time_mode": "T0",
+            "green_flow": True,
             "ngay_lap": "2026-07-24",
             "ma_kh": "100000019",
             "ten_kh": "KHACH HANG T0",
@@ -657,6 +657,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(saved["tong_ck"], 1200000)
         phieu = self.client.get(f"/api/phieu/{saved['id']}").get_json()["phieu"]
         self.assertEqual(phieu["payment_time_mode"], "T0")
+        self.assertEqual(phieu["green_flow"], 1)
         self.assertEqual(phieu["chung_tu"][1]["display_loai"], "Giấy Báo Có\n(KH CK thanh toán)")
         self.assertEqual(phieu["chung_tu"][1]["so_ct"], "1600123456")
 
@@ -664,7 +665,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản", print_html)
         self.assertIn("Giấy Báo Có<br>(KH CK thanh toán)", print_html)
         self.assertIn("<td class=\"center\">1600123456</td>", print_html)
-        self.assertNotIn("Thời gian thanh toán:", print_html)
+        self.assertIn("Thời gian thanh toán: T/T+1 ngày", print_html)
+        self.assertNotIn("T+30: 20%", print_html)
         self.assertNotIn("0234 3847 588", print_html)
 
     def test_green_flow_credit_notice_changes_qt82_request_content(self):
@@ -1081,20 +1083,15 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn(f'href="/api/pdf/{phieu_id}?token=', html)
         self.assertNotIn(f"/api/print/{phieu_id}", f"/p/{token}?print=1")
 
-    def test_print_uses_five_stage_payment_schedule(self):
+    def test_print_uses_short_default_t120_payment_time(self):
         self.login(role="admin")
         phieu_id = self.create_phieu(amount=143271123)
 
         html = self.client.get(f"/api/print/{phieu_id}").get_data(as_text=True)
 
-        self.assertIn("1. T/T+1: 10% - tương ứng số tiền", html)
-        self.assertIn("<strong>14,327,112 đồng</strong>", html)
-        self.assertIn("2. T+30: 20% - tương ứng số tiền", html)
-        self.assertIn("<strong>28,654,225 đồng</strong>", html)
-        self.assertIn("3. T+60: 25% - tương ứng số tiền", html)
-        self.assertIn("<strong>35,817,781 đồng</strong>", html)
-        self.assertIn("4. T+90: 25% - tương ứng số tiền", html)
-        self.assertIn("5. T+120: 20% - tương ứng số tiền", html)
+        self.assertIn("Thời gian thanh toán: T+120 ngày", html)
+        self.assertNotIn("1. T/T+1: 10% - tương ứng số tiền", html)
+        self.assertNotIn("2. T+30: 20% - tương ứng số tiền", html)
         self.assertNotIn("Thanh toán trong ngày (T)", html)
         self.assertNotIn("Thanh toán vào ngày kế tiếp (T+1)", html)
 

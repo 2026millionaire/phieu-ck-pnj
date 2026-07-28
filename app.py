@@ -1855,11 +1855,10 @@ def prepare_phieu_for_output(row, settings=None):
         "kt2": settings.get("kt2_name", ""),
     }
     d["nguoi_ki_name"] = nguoi_ki_map.get(nguoi_ki, d.get("tvv_name", ""))
+    d["green_flow"] = settings_flag(d, "green_flow", "0")
     d["payment_time_mode"] = normalize_payment_time_mode(d.get("payment_time_mode"))
-    d["show_payment_time"] = (
-        d["payment_time_mode"] == "T120"
-        and settings.get("show_payment_time", "1") == "1"
-    )
+    d["payment_time_label"] = "T/T+1 ngày" if d["green_flow"] else "T+120 ngày"
+    d["show_payment_time"] = settings.get("show_payment_time", "1") == "1"
     d["payment_schedule"] = build_payment_schedule(d.get("tong_ck", 0))
     d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
@@ -2038,14 +2037,7 @@ def make_phieu_pdf(p):
     story.append(ct_table)
     story.append(Paragraph("Giấy xác nhận thông tin thanh toán có hiệu lực cho đến khi khách nhận được tiền vào tài khoản.", normal))
     if p.get("show_payment_time"):
-        schedule_html = ["<b>Thời gian thanh toán:</b>"]
-        for index, item in enumerate(p.get("payment_schedule") or build_payment_schedule(p.get("tong_ck", 0)), start=1):
-            schedule_html.append(
-                f"{index}. {item['label']}: {item['percent']}% - tương ứng số tiền "
-                f"<b>{int(item['amount']):,} đồng</b>"
-            )
-        story.append(Paragraph("<br/>".join(schedule_html), normal))
-        story.append(Paragraph("* Thông tin liên hệ sau thời hạn thanh toán khách hàng chưa nhận được tiền: <b>0234 3847 588</b>", normal))
+        story.append(Paragraph(f"<b>Thời gian thanh toán:</b> {p.get('payment_time_label') or 'T+120 ngày'}", normal))
     story.append(Paragraph(f"Huế, ngày {p.get('ngay') or ''} tháng {p.get('thang') or ''} năm {p.get('nam') or ''}", right_italic))
     story.append(Spacer(1, 4 * mm))
     story.append(Table([
@@ -4262,8 +4254,8 @@ def api_save():
     show_payment_dates = settings_flag(
         data, "show_payment_dates", settings.get("show_payment_dates_default", "1")
     )
-    payment_time_mode = normalize_payment_time_mode(data.get("payment_time_mode"))
     green_flow = settings_flag(data, "green_flow", "0")
+    payment_time_mode = "T0" if green_flow else "T120"
 
     # Build QR URL (only BIN + account, no amount)
     qr_url = build_qr_url(ngan_hang, so_tk)
