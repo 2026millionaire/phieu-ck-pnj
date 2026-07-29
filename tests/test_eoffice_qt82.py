@@ -569,6 +569,8 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("green_flow: greenFlowEnabled()", index_html)
         self.assertIn("'Phải CK khác'", index_html)
         self.assertIn("Giấy Báo Có\\n(KH CK thanh toán)", index_html)
+        self.assertIn("GBC - Giấy báo có", index_html)
+        self.assertNotIn("Chi - Phải CK khác", index_html)
         self.assertNotIn("sap-other-transfer-label-input", index_html)
         self.assertIn("applyCustomerLocalProfile(profile, customerCode, lookupSession);", index_html)
         self.assertIn("applyErpBusinessPartnerProfile(profile, customerCode, lookupSession);", index_html)
@@ -723,6 +725,9 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("resetCustomerLookupState({ preserveCustomerCode: !!key });", template_text)
         self.assertIn("clearCustomerInfoFields({ preserveCustomerCode: false });", template_text)
         self.assertIn("document.getElementById('btnClearCustomerBlock')?.addEventListener('click'", template_text)
+        self.assertIn("function buildTotalPaymentLabel(items)", template_text)
+        self.assertIn("previewTotalPaymentLabel", template_text)
+        self.assertIn("TỔNG THANH TOÁN (Bảng Kê-Hoá Đơn)", template_text)
         self.assertIn("function renderAmountInput(item, idx)", template_text)
         self.assertIn("sap-docno-status", template_text)
         self.assertIn("(Doc. No: ", template_text)
@@ -986,6 +991,144 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertIn("☑ Phương án 3 (lựa chọn kết hợp linh hoạt)", sheet["B17"].value)
         self.assertIn("Cửa Hàng Trưởng", sheet["C64"].value)
         self.assertIn("ĐẠI DIỆN CAF/NGƯỜI ĐƯỢC ỦY QUYỀN", sheet["C64"].value)
+
+    def test_template_tt_uses_kh_da_thanh_toan_label_for_gbc(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "ngay_lap": "2026-07-29",
+            "ma_kh": "100000029",
+            "ten_kh": "KHACH HANG GBC",
+            "dia_chi": "HUE",
+            "sdt": "0900000029",
+            "cccd": "012345678929",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG GBC",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000029",
+            "tvv_code": "11358",
+            "tvv_name": "NGUYEN TVV",
+            "plant": "1305",
+            "tong_ck": 1200000,
+            "nguoi_ki": "cht",
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000029", "gia_tri": 1400000, "gio": "29/07/2026 09:00"},
+                {"loai": "Phải CK khác", "so_ct": "1600123456", "gia_tri": 200000, "gio": "29/07/2026 09:05"},
+                {"loai": "Hóa đơn", "so_ct": "9010000029", "gia_tri": 400000, "gio": "29/07/2026 09:10"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        response = self.client.get(f"/api/template-tt/{created['id']}")
+        workbook = load_workbook(io.BytesIO(response.data), data_only=False)
+        sheet = workbook["Sheet1"]
+        self.assertEqual(sheet.cell(row=6, column=2).value, "KH đã thanh toán")
+
+    def test_total_payment_label_uses_full_text_for_bk_and_invoice_only(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "ngay_lap": "2026-07-29",
+            "ma_kh": "100000030",
+            "ten_kh": "KHACH HANG BK HD",
+            "dia_chi": "HUE",
+            "sdt": "0900000030",
+            "cccd": "012345678930",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG BK HD",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000030",
+            "plant": "1305",
+            "tong_ck": 600000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000030", "gia_tri": 1000000, "gio": "29/07/2026 10:00"},
+                {"loai": "Hóa đơn", "so_ct": "9010000030", "gia_tri": 400000, "gio": "29/07/2026 10:05"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        print_html = self.client.get(f"/api/print/{created['id']}").get_data(as_text=True)
+        self.assertIn("TỔNG THANH TOÁN (Bảng Kê-Hoá Đơn)", print_html)
+        self.assertIn("total-payment-label-cell", print_html)
+
+    def test_total_payment_label_uses_abbreviation_for_bk_gbc_invoice(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "ngay_lap": "2026-07-29",
+            "ma_kh": "100000031",
+            "ten_kh": "KHACH HANG BK GBC HD",
+            "dia_chi": "HUE",
+            "sdt": "0900000031",
+            "cccd": "012345678931",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG BK GBC HD",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000031",
+            "plant": "1305",
+            "tong_ck": 800000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000031", "gia_tri": 1000000, "gio": "29/07/2026 10:10"},
+                {"loai": "Phải CK khác", "so_ct": "1600123457", "gia_tri": 200000, "gio": "29/07/2026 10:12"},
+                {"loai": "Hóa đơn", "so_ct": "9010000031", "gia_tri": 400000, "gio": "29/07/2026 10:15"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        print_html = self.client.get(f"/api/print/{created['id']}").get_data(as_text=True)
+        self.assertIn("TỔNG THANH TOÁN (BK+GBC-HĐ)", print_html)
+
+    def test_total_payment_label_uses_actual_components_only(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "ngay_lap": "2026-07-29",
+            "ma_kh": "100000032",
+            "ten_kh": "KHACH HANG DU 4 LOAI",
+            "dia_chi": "HUE",
+            "sdt": "0900000032",
+            "cccd": "012345678932",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG DU 4 LOAI",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000032",
+            "plant": "1305",
+            "tong_ck": 1100000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000032", "gia_tri": 1500000, "gio": "29/07/2026 10:20"},
+                {"loai": "Biên nhận cọc", "so_ct": "1600000032", "gia_tri": 200000, "gio": "29/07/2026 10:21"},
+                {"loai": "HBTL", "so_ct": "9900000032", "gia_tri": 100000, "gio": "29/07/2026 10:22"},
+                {"loai": "Hóa đơn", "so_ct": "9010000032", "gia_tri": 700000, "gio": "29/07/2026 10:23"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        print_html = self.client.get(f"/api/print/{created['id']}").get_data(as_text=True)
+        self.assertIn("TỔNG THANH TOÁN (BK+Cọc+HBTL-HĐ)", print_html)
+        self.assertNotIn("GBC", print_html)
+
+    def test_legacy_chi_type_renders_as_gbc(self):
+        self.login(role="admin")
+        payload = {
+            "status": "printed",
+            "ngay_lap": "2026-07-29",
+            "ma_kh": "100000033",
+            "ten_kh": "KHACH HANG CHI CU",
+            "dia_chi": "HUE",
+            "sdt": "0900000033",
+            "cccd": "012345678933",
+            "so_tk": "123456789",
+            "ten_tk": "KHACH HANG CHI CU",
+            "ngan_hang": "OCB",
+            "so_bk": "4403000033",
+            "plant": "1305",
+            "tong_ck": 800000,
+            "chung_tu": [
+                {"loai": "Bảng kê", "so_ct": "4403000033", "gia_tri": 1000000, "gio": "29/07/2026 10:30"},
+                {"loai": "Chi", "so_ct": "1600123458", "gia_tri": 200000, "gio": "29/07/2026 10:31"},
+                {"loai": "Hóa đơn", "so_ct": "9010000033", "gia_tri": 400000, "gio": "29/07/2026 10:32"},
+            ],
+        }
+        created = self.client.post("/api/save", json=payload).get_json()
+        print_html = self.client.get(f"/api/print/{created['id']}").get_data(as_text=True)
+        self.assertIn("Giấy Báo Có<br>(KH CK thanh toán)", print_html)
+        self.assertIn("TỔNG THANH TOÁN (BK+GBC-HĐ)", print_html)
 
     def test_bank_eoffice_code_is_admin_only_on_create_forms(self):
         self.login(role="user", user_id=2)

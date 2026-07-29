@@ -1099,6 +1099,53 @@ PAYMENT_TIME_MODE_DEFAULT = "T120"
 PAYMENT_TIME_MODES = {"T0", "T120"}
 OTHER_TRANSFER_TYPE = "Phải CK khác"
 OTHER_TRANSFER_DEFAULT_LABEL = "Giấy Báo Có\n(KH CK thanh toán)"
+OTHER_TRANSFER_EXCEL_LABEL = "KH đã thanh toán"
+LEGACY_OTHER_TRANSFER_TYPES = {"Chi"}
+
+
+def canonical_transaction_type(value):
+    loai = str(value or "").strip()
+    if loai in LEGACY_OTHER_TRANSFER_TYPES:
+        return OTHER_TRANSFER_TYPE
+    return loai
+
+
+def is_other_transfer_type(value):
+    return canonical_transaction_type(value) == OTHER_TRANSFER_TYPE
+
+
+def build_total_payment_label(chung_tu_list):
+    component_order = ["Bảng kê", OTHER_TRANSFER_TYPE, "Biên nhận cọc", "HBTL", "Hóa đơn"]
+    short_labels = {
+        "Bảng kê": "BK",
+        OTHER_TRANSFER_TYPE: "GBC",
+        "Biên nhận cọc": "Cọc",
+        "HBTL": "HBTL",
+        "Hóa đơn": "HĐ",
+    }
+    present = []
+    for item in chung_tu_list or []:
+        loai = canonical_transaction_type(item.get("loai") if isinstance(item, dict) else "")
+        if loai in component_order and loai not in present:
+            present.append(loai)
+
+    if present == ["Bảng kê", "Hóa đơn"]:
+        return "TỔNG THANH TOÁN (Bảng Kê-Hoá Đơn)"
+
+    positives = [loai for loai in component_order[:-1] if loai in present]
+    negatives = [loai for loai in component_order[-1:] if loai in present]
+    positive_text = "+".join(short_labels[loai] for loai in positives)
+    negative_text = "-".join(short_labels[loai] for loai in negatives)
+
+    suffix = ""
+    if positive_text and negative_text:
+        suffix = f"{positive_text}-{negative_text}"
+    elif positive_text:
+        suffix = positive_text
+    elif negative_text:
+        suffix = negative_text
+
+    return f"TỔNG THANH TOÁN ({suffix})" if suffix else "TỔNG THANH TOÁN"
 
 
 def normalize_payment_time_mode(value):
@@ -1109,7 +1156,7 @@ def normalize_payment_time_mode(value):
 def transaction_display_label(item):
     if not isinstance(item, dict):
         return ""
-    loai = str(item.get("loai", "")).strip()
+    loai = canonical_transaction_type(item.get("loai", ""))
     if loai == OTHER_TRANSFER_TYPE:
         return OTHER_TRANSFER_DEFAULT_LABEL
     return loai
@@ -1156,13 +1203,13 @@ def sanitize_chung_tu_list(chung_tu_list):
         if not isinstance(item, dict):
             continue
         row = dict(item)
-        row["loai"] = str(row.get("loai", "")).strip()
+        row["loai"] = canonical_transaction_type(row.get("loai", ""))
         row["doc_num"] = remove_all_whitespace(row.get("doc_num", ""))
         row["so_ct"] = remove_all_whitespace(row.get("so_ct", ""))
         row["bk_ref"] = remove_all_whitespace(row.get("bk_ref", ""))
         row["gio"] = str(row.get("gio", "")).strip()
         row["label"] = str(row.get("label", "")).strip()
-        if row["loai"] == OTHER_TRANSFER_TYPE and not row["label"]:
+        if is_other_transfer_type(row["loai"]) and not row["label"]:
             row["label"] = OTHER_TRANSFER_DEFAULT_LABEL
         row["display_loai"] = transaction_display_label(row)
         cleaned.append(row)
@@ -1865,6 +1912,7 @@ def prepare_phieu_for_output(row, settings=None):
         and settings.get("show_payment_time", "1") == "1"
     )
     d["payment_schedule"] = build_payment_schedule(d.get("tong_ck", 0))
+    d["total_payment_label"] = build_total_payment_label(d["chung_tu"])
     d["file_title"] = f"CK {ascii_filename_part(d.get('ten_kh'), 30)} {d.get('id')}"
     return d
 
@@ -2023,7 +2071,7 @@ def make_phieu_pdf(p):
             f"{abs(float(ct.get('gia_tri') or 0)):,.0f}",
             ct.get("gio", ""),
         ])
-    table_data.append(["TỔNG THANH TOÁN (BK+CỌC+HBTL-HĐ)", "", f"{float(p.get('tong_ck') or 0):,.0f}", ""])
+    table_data.append([p.get("total_payment_label") or "TỔNG THANH TOÁN", "", f"{float(p.get('tong_ck') or 0):,.0f}", ""])
     ct_table = Table(table_data, colWidths=[35 * mm, 36 * mm, 31 * mm, 32 * mm])
     ct_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), base_font),
@@ -2034,6 +2082,8 @@ def make_phieu_pdf(p):
         ("BACKGROUND", (0, 0), (-1, 0), colors.yellow),
         ("BACKGROUND", (0, -1), (-1, -1), colors.yellow),
         ("SPAN", (0, -1), (1, -1)),
+        ("ALIGN", (0, -1), (1, -1), "CENTER"),
+        ("VALIGN", (0, -1), (1, -1), "MIDDLE"),
         ("ALIGN", (0, 1), (0, -2), "CENTER"),
         ("ALIGN", (2, 1), (2, -1), "RIGHT"),
         ("ALIGN", (3, 1), (3, -2), "CENTER"),
@@ -5687,8 +5737,8 @@ def make_template_tt_response(detail_rows, identity_value, filename_key):
     for i, ct in enumerate(detail_rows):
         r = 5 + i  # Row 5 onwards
         ws.cell(row=r, column=1, value=i + 1)
-        loai = ct.get("loai") or ct.get("label") or ""
-        ws.cell(row=r, column=2, value=loai)
+        loai = canonical_transaction_type(ct.get("loai") or ct.get("label") or "")
+        ws.cell(row=r, column=2, value=OTHER_TRANSFER_EXCEL_LABEL if is_other_transfer_type(loai) else loai)
         gia_tri = ct.get("gia_tri", ct.get("amount", 0))
         if float(gia_tri or 0) < 0:
             ws.cell(row=r, column=3, value=int(gia_tri))

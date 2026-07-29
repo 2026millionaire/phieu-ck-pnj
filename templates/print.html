@@ -195,6 +195,11 @@
 
         .ct-table td.num { text-align: right; }
         .ct-table td.center { text-align: center; }
+        .ct-table td.total-payment-label-cell {
+            text-align: center !important;
+            white-space: normal;
+            word-break: break-word;
+        }
 
         /* ===== TỔNG ROW (yellow) ===== */
         .total-row {
@@ -458,7 +463,7 @@
         </tbody>
         <tfoot>
             <tr style="background:#FFFF00 !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; font-weight:700; font-size:10.5px;">
-                <td colspan="2" style="text-align:left;"><strong>TỔNG THANH TOÁN (BK+CỌC+HBTL-HĐ)</strong></td>
+                <td colspan="2" class="total-payment-label-cell"><strong>{{ p.total_payment_label or 'TỔNG THANH TOÁN' }}</strong></td>
                 <td class="num"><strong>{{ "{:,.0f}".format(p.tong_ck | float) }}</strong></td>
                 <td></td>
             </tr>
