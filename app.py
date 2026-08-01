@@ -38,6 +38,8 @@ import erp_deposits
 import erp_purchase_orders
 import erp_supplier_line_items
 from de_xuat import create_de_xuat_blueprint, initialize_schema
+from dnck_expense_api import create_dnck_expense_blueprint
+from dnck_expense_models import initialize_dnck_expense_schema
 from uq01 import (
     build_uq01_context,
     build_uq01_document_identity,
@@ -718,6 +720,7 @@ def init_db():
         conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
     initialize_uq01_schema(conn)
     initialize_schema(conn)
+    initialize_dnck_expense_schema(conn)
     conn.commit()
     conn.close()
 
@@ -5999,6 +6002,14 @@ app.register_blueprint(create_de_xuat_blueprint(
     is_admin=is_admin,
     send_pdf=send_print_html_pdf,
     pdf_filename=form_pdf_filename,
+))
+app.register_blueprint(create_dnck_expense_blueprint(
+    get_db=get_db,
+    current_user_id=current_user_id,
+    is_admin=is_admin,
+    app_root=os.path.dirname(os.path.abspath(__file__)),
+    static_folder=app.static_folder,
+    get_settings=get_settings,
 ))
 
 # Always init DB when module loads

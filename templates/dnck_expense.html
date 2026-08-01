@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}ĐNCK thanh toán chi phí khác{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-1">Tạo ĐNCK thanh toán chi phí khác</h4>
+            <div class="text-muted small">Phase 1 local: đọc Google Sheet CHI PHI qua adapter, khóa dữ liệu nguồn ND/HD và tạo draft needs_review nếu thiếu điều kiện live/validate.</div>
+        </div>
+        <span class="badge bg-warning text-dark" id="stateBadge">draft_source_selected</span>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">1. Chọn nguồn ND/HD</div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label">Plant</label>
+                        <input class="form-control" id="plant" value="1305" readonly>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Kỳ</label>
+                        <input class="form-control" id="period" value="2026-07">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">STT ND</label>
+                        <input class="form-control" id="nd_stt" value="173">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Nguồn</label>
+                        <select class="form-select" id="source_mode">
+                            <option value="live">Google Sheet CHI PHI live</option>
+                            <option value="schema_173">Fixture test schema STT 173</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary w-100" type="button" id="btnLoadSource">Đọc lại live/fixture + kiểm tra trùng</button>
+                    <div class="small text-muted mt-2">Nếu runtime chưa có credential Google Sheet, live sẽ báo blocker; fixture test luôn bị giữ ở <code>needs_review</code>.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header fw-semibold">4. Bổ sung trường QT82</div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label">Phương thức nhận tiền</label>
+                        <input class="form-control" id="payment_method" value="Chuyển khoản" readonly>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Ngày mong muốn thanh toán</label>
+                        <input class="form-control" id="desired_payment_date" type="date">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">KTPT</label>
+                        <select class="form-select mb-1 d-none" id="ktpt_select"></select>
+                        <input class="form-control" id="ktpt" placeholder="Chọn/nhập danh mục hợp lệ">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Mã chứng từ SAP</label>
+                        <input class="form-control" id="sap_document" placeholder="Bắt buộc nếu eOffice yêu cầu">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Tạm ứng</label>
+                        <input class="form-control" value="0" readonly>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Nhóm chi phí</label>
+                        <select class="form-select" id="cost_group">
+                            <option>Khác</option>
+                            <option>Tiếp khách</option>
+                            <option>Công tác</option>
+                            <option>Hàng hóa(ML)</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Nội dung đề nghị thanh toán</label>
+                        <textarea class="form-control" id="request_content" rows="3"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Ghi chú nội bộ</label>
+                        <textarea class="form-control" id="internal_note" rows="2"></textarea>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="limit_verified">
+                        <label class="form-check-label" for="limit_verified">Đã rà/xác minh định mức</label>
+                    </div>
+                    <button class="btn btn-outline-primary w-100 mb-2" type="button" id="btnValidate">Validate nghiệp vụ</button>
+                    <button class="btn btn-success w-100" type="button" id="btnCreateDraft" disabled>User xác nhận → tạo draft/file</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">2. Preview dữ liệu gốc read-only</div>
+                <div class="card-body">
+                    <div id="sourceMeta" class="small text-muted mb-2">Chưa đọc nguồn.</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr><th>Ngày HĐ</th><th>Diễn giải</th><th class="text-end">Số tiền</th><th>Số HĐ</th><th>MST</th><th>Mã tra cứu/link</th></tr>
+                            </thead>
+                            <tbody id="hdBody"></tbody>
+                            <tfoot><tr><td colspan="2" class="text-end fw-semibold">Tổng HD</td><td class="text-end fw-semibold" id="totalHd">0</td><td colspan="3"></td></tr></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">3. Validation</div>
+                <div class="card-body">
+                    <div id="validationBox" class="small">Chưa validate.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header fw-semibold">5. Preview cuối / sản phẩm</div>
+                <div class="card-body">
+                    <div id="finalPreview" class="small text-muted">Tạo file không đồng nghĩa sẵn sàng trình. Chỉ mở QT82 khi draft đủ điều kiện và vẫn giữ <code>da_trinh=0</code>.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentSource = null;
+let currentValidation = null;
+
+function fmtMoney(value) {
+    return new Intl.NumberFormat('vi-VN').format(Number(value || 0));
+}
+function setState(text, cls='bg-secondary') {
+    const badge = document.getElementById('stateBadge');
+    badge.className = 'badge ' + cls;
+    badge.textContent = text;
+}
+function supplement() {
+    return {
+        payment_method: document.getElementById('payment_method').value,
+        desired_payment_date: document.getElementById('desired_payment_date').value,
+        ktpt: document.getElementById('ktpt').value,
+        sap_document: document.getElementById('sap_document').value,
+        request_content: document.getElementById('request_content').value,
+        internal_note: document.getElementById('internal_note').value,
+        cost_group: document.getElementById('cost_group').value,
+        advance_amount: 0,
+        limit_verified: document.getElementById('limit_verified').checked
+    };
+}
+function renderSource(source) {
+    const nd = source.nd || {};
+    document.getElementById('sourceMeta').innerHTML =
+        `Nguồn: <code>${source.source_type}</code> | Live: <strong>${source.live ? 'Có' : 'Không'}</strong> | ` +
+        `Spreadsheet: <code>${source.spreadsheet_id}</code> | ND: <code>${source.nd_range}</code> | HD: <code>${source.hd_range}</code> | ` +
+        `Hash: <code>${source.source_hash}</code><br>` +
+        `ND: ${nd.stt || ''} | ${nd.description || ''} | Tổng ND: <strong>${fmtMoney(nd.amount)}đ</strong>`;
+    document.getElementById('request_content').value = nd.description || '';
+    if (source.suggested_sap_document && !document.getElementById('sap_document').value) {
+        document.getElementById('sap_document').value = source.suggested_sap_document;
+    }
+    const body = document.getElementById('hdBody');
+    body.innerHTML = '';
+    let total = 0;
+    (source.hd || []).forEach(row => {
+        total += Number(row.amount || 0);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.invoice_date || ''}</td><td>${row.description || ''}</td><td class="text-end">${fmtMoney(row.amount)}</td><td>${row.invoice_no_full || ''}</td><td>${row.supplier_tax_id || ''}</td><td>${row.lookup_code || ''}<br><span class="text-muted">${row.lookup_url || ''}</span></td>`;
+        body.appendChild(tr);
+    });
+    document.getElementById('totalHd').textContent = fmtMoney(total);
+}
+function renderValidation(validation) {
+    const box = document.getElementById('validationBox');
+    const items = validation.results || [];
+    box.innerHTML = `<div class="mb-2">Trạng thái: <strong>${validation.status}</strong> | Tổng ND: ${fmtMoney(validation.total_nd)} | Tổng HD: ${fmtMoney(validation.total_hd)}</div>` +
+        items.map(item => `<div class="${item.status === 'pass' ? 'text-success' : 'text-danger'}">[${item.status}] ${item.rule_key}: ${item.message}</div>`).join('');
+    currentValidation = validation;
+    const hasError = items.some(item => item.status !== 'pass' && item.severity === 'error');
+    document.getElementById('btnCreateDraft').disabled = false;
+    setState(hasError ? 'needs_review' : 'validated', hasError ? 'bg-warning text-dark' : 'bg-success');
+}
+
+document.getElementById('btnLoadSource').addEventListener('click', async () => {
+    setState('source_loaded', 'bg-primary');
+    const params = new URLSearchParams({
+        plant: document.getElementById('plant').value,
+        period: document.getElementById('period').value,
+        nd_stt: document.getElementById('nd_stt').value
+    });
+    const mode = document.getElementById('source_mode').value;
+    if (mode !== 'live') params.set('fixture', mode);
+    const response = await fetch('/api/dnck-expense/source?' + params.toString(), {credentials: 'same-origin'});
+    const data = await response.json();
+    if (!data.ok) {
+        document.getElementById('sourceMeta').textContent = data.message || data.code;
+        setState('needs_review', 'bg-warning text-dark');
+        return;
+    }
+    currentSource = data.source;
+    renderSource(currentSource);
+    renderValidation(data.validation);
+});
+
+document.getElementById('btnValidate').addEventListener('click', async () => {
+    if (!currentSource) return;
+    const response = await fetch('/api/dnck-expense/validate', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({source: currentSource, supplement: supplement()})
+    });
+    const data = await response.json();
+    if (data.ok) renderValidation(data.validation);
+});
+
+document.getElementById('btnCreateDraft').addEventListener('click', async () => {
+    if (!currentSource) return;
+    const response = await fetch('/api/dnck-expense/drafts', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({source: currentSource, supplement: supplement(), user_confirmed: true})
+    });
+    const data = await response.json();
+    const box = document.getElementById('finalPreview');
+    if (!data.ok) {
+        box.innerHTML = `<span class="text-danger">${data.message || data.code}</span>`;
+        return;
+    }
+    setState(data.status, data.status === 'needs_review' ? 'bg-warning text-dark' : 'bg-success');
+    box.innerHTML = `Đã tạo draft #${data.id}, row eOffice DNCK #${data.dnck_id}, da_trinh=${data.da_trinh}.<br>` +
+        (data.outputs || []).map(item => `${item.output_type}: <code>${item.output_path}</code>`).join('<br>') +
+        `<div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="${data.eoffice_url}">Mở /eoffice/dnck/${data.dnck_id}</a></div>`;
+});
+
+fetch('/api/dnck-expense/config', {credentials: 'same-origin'}).then(r => r.json()).then(data => {
+    if (!data.ok) return;
+    document.getElementById('payment_method').value = data.payment_method || 'Chuyển khoản';
+    const options = data.ktpt_options || [];
+    if (options.length) {
+        const select = document.getElementById('ktpt_select');
+        select.classList.remove('d-none');
+        select.innerHTML = '<option value="">Chọn KTPT</option>' + options.map(item => `<option>${item}</option>`).join('');
+        select.addEventListener('change', () => { document.getElementById('ktpt').value = select.value; });
+    }
+});
+</script>
+{% endblock %}
