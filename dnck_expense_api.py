@@ -221,7 +221,7 @@ def create_dnck_expense_blueprint(get_db, current_user_id, is_admin, app_root, s
     def expense_page():
         if not is_admin():
             return "Bạn không có quyền truy cập trang này.", 403
-        return render_template("dnck_expense.html")
+        return render_template("dnck_expense.html", dnck_active_tab="expense")
 
     @bp.route("/api/dnck-expense/config")
     def api_config():
@@ -396,7 +396,7 @@ def create_dnck_expense_blueprint(get_db, current_user_id, is_admin, app_root, s
             "da_trinh": 0,
             "template_error": template_error,
             "outputs": outputs,
-            "eoffice_url": url_for("eoffice_dnck_page", dnck_id=dnck_id),
+            "eoffice_url": f"/bk{url_for('eoffice_dnck_page', dnck_id=dnck_id)}",
             "validation": validation,
         })
 

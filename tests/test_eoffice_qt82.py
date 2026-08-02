@@ -1140,7 +1140,7 @@ class EofficeQt82Tests(unittest.TestCase):
         banks = self.client.get("/api/banks").get_json()["data"]
         self.assertIn("eoffice", banks[0])
         index_html = self.client.get("/").get_data(as_text=True)
-        dnck_html = self.client.get("/dnck").get_data(as_text=True)
+        dnck_html = self.client.get("/dnck/manual").get_data(as_text=True)
         self.assertIn("bankEofficeCode", index_html)
         self.assertIn("bankEofficeCode", dnck_html)
 
@@ -1163,7 +1163,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertTrue(profile["bank_eoffice_code"])
         self.assertEqual(profile["account_name"], "CHÂU ĐĂNG KHOA")
 
-        html = self.client.get("/dnck").get_data(as_text=True)
+        html = self.client.get("/dnck/manual").get_data(as_text=True)
         self.assertIn("/api/dnck/object-lookup?code=", html)
         self.assertIn("objectLookupMessage", html)
         self.assertIn("selectBankFromLookup", html)
@@ -1173,7 +1173,7 @@ class EofficeQt82Tests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/dnck/objects").status_code, 403)
 
         self.login(role="admin")
-        html = self.client.get("/dnck").get_data(as_text=True)
+        html = self.client.get("/dnck/manual").get_data(as_text=True)
         self.assertIn("Dữ liệu đối tượng", html)
         self.assertIn("objectDataModal", html)
         self.assertIn("/api/dnck/objects", html)

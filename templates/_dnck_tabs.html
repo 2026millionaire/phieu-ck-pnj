@@ -1,0 +1,8 @@
+<div class="dnck-tabs mb-3">
+    <a class="dnck-tab {{ 'active' if dnck_active_tab == 'expense' else '' }}" href="{{ url_for('dnck_page') }}">
+        <i class="bi bi-receipt-cutoff"></i> Thanh toán chi phí khác
+    </a>
+    <a class="dnck-tab {{ 'active' if dnck_active_tab == 'manual' else '' }}" href="{{ url_for('dnck_manual_page') }}">
+        <i class="bi bi-pencil-square"></i> Nhập thủ công
+    </a>
+</div>

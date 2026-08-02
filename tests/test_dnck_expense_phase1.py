@@ -82,6 +82,28 @@ class DnckExpensePhase1Tests(unittest.TestCase):
         self.assertEqual(data["validation"]["status"], "needs_review")
         self.assertTrue(any(item["rule_key"] == "live_source" for item in data["validation"]["results"]))
 
+    def test_dnck_default_and_expense_routes_render_expense_tab(self):
+        self.login()
+        for path in ("/dnck", "/dnck/expense"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            html = response.get_data(as_text=True)
+            self.assertIn("Thanh toán chi phí khác", html)
+            self.assertIn('href="/dnck/manual"', html)
+            self.assertIn('dnck-tab active', html)
+            self.assertIn("Google Sheet CHI PHI live", html)
+
+    def test_dnck_manual_routes_keep_old_manual_view(self):
+        self.login()
+        for path in ("/dnck/manual", "/dnck?mode=manual"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            html = response.get_data(as_text=True)
+            self.assertIn("Nhập thủ công", html)
+            self.assertIn('href="/dnck"', html)
+            self.assertIn("Thông tin đề nghị", html)
+            self.assertIn("Dữ liệu đối tượng", html)
+
     def test_validate_requires_qt82_fields_and_limit_review(self):
         source = self.source_payload()
         validation = validate_source_and_supplement(source, {}, require_live=False)
@@ -180,6 +202,7 @@ class DnckExpensePhase1Tests(unittest.TestCase):
             legacy = conn.execute("SELECT * FROM dnck WHERE id = ?", (data["dnck_id"],)).fetchone()
             self.assertEqual(draft["da_trinh"], 0)
             self.assertEqual(legacy["da_trinh"], 0)
+            self.assertEqual(data["eoffice_url"], f"/bk/eoffice/dnck/{data['dnck_id']}")
             self.assertEqual(legacy["source_mode"], "thanh_toan_chi_phi_khac")
             self.assertEqual(legacy["source_id"], data["id"])
             self.assertEqual(legacy["payment_tag"], "Thanh Toán Chi Phí Khác")

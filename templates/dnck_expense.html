@@ -1,8 +1,39 @@
 {% extends "base.html" %}
 {% block title %}ĐNCK thanh toán chi phí khác{% endblock %}
+{% block nav_dnck %}active{% endblock %}
+{% block page_title %}ĐNCK khác{% endblock %}
+
+{% block extra_css %}
+.dnck-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-bottom: 1px solid #dbe3ef;
+}
+.dnck-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #475569;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: .9rem;
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: -1px;
+}
+.dnck-tab:hover { color: #0f172a; background: #f8fafc; }
+.dnck-tab.active {
+    color: #0f172a;
+    background: #fff;
+    border-color: #dbe3ef #dbe3ef #fff;
+}
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
+    {% include "_dnck_tabs.html" %}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h4 class="mb-1">Tạo ĐNCK thanh toán chi phí khác</h4>

@@ -3716,22 +3716,43 @@ def eoffice_dnck_page(dnck_id):
     return response
 
 
-@app.route("/dnck")
-def dnck_page():
-    """Trang tạo đề nghị CK khác, chỉ dành cho ADMIN."""
-    if not is_admin():
-        return "Bạn không có quyền truy cập trang này.", 403
+
+def render_dnck_manual_page(dnck=None, qt82_payload=None):
     settings = get_settings()
     response = app.make_response(render_template(
         "dnck.html",
         settings=settings,
         bank_list=sorted(BANK_BINS.keys()),
-        dnck=None,
-        qt82_payload=None,
+        dnck=dnck,
+        qt82_payload=qt82_payload,
+        dnck_active_tab="manual",
     ))
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+@app.route("/dnck")
+def dnck_page():
+    """Tab shell ĐNCK: mặc định Thanh toán chi phí khác, vẫn hỗ trợ mode manual."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
+    if str(request.args.get("mode") or "").strip().lower() == "manual":
+        return render_dnck_manual_page()
+    response = app.make_response(render_template("dnck_expense.html", dnck_active_tab="expense"))
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@app.route("/dnck/manual")
+def dnck_manual_page():
+    """Luồng nhập tay cũ của ĐNCK khác, tách khỏi luồng chi phí."""
+    if not is_admin():
+        return "Bạn không có quyền truy cập trang này.", 403
+    return render_dnck_manual_page()
 
 
 @app.route("/dnck/<int:dnck_id>")
@@ -3745,18 +3766,7 @@ def dnck_detail_page(dnck_id):
     dnck = dnck_row_to_dict(row)
     settings = get_settings()
     qt82_payload = build_dnck_qt82_payload(dnck, settings)
-    response = app.make_response(render_template(
-        "dnck.html",
-        settings=settings,
-        bank_list=sorted(BANK_BINS.keys()),
-        dnck=dnck,
-        qt82_payload=qt82_payload,
-    ))
-    response.headers["Cache-Control"] = "no-store, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    return response
-
+    return render_dnck_manual_page(dnck=dnck, qt82_payload=qt82_payload)
 
 @app.route("/settings")
 def settings_page():
