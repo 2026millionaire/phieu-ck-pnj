@@ -401,6 +401,11 @@
                                 <span class="form-check-label">.................... (tự ghi)</span>
                             </label>
                         </div>
+                        <div class="mt-2">
+                            <label class="form-label mb-1" for="materialCustomerCode">Mã khách hàng</label>
+                            <input type="text" class="form-control form-control-sm" id="materialCustomerCode" inputmode="numeric" autocomplete="off" placeholder="Nhập mã KH">
+                            <div class="small text-muted mt-1" id="materialCustomerPreview">Mã KH: ....................</div>
+                        </div>
                     </div>
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <label class="form-label mb-0">Các dòng lựa chọn đề xuất</label>
@@ -691,6 +696,9 @@ const materialCatalog = [
 ];
 let materialRows = ['', '', ''];
 let materialQuantities = ['', '', ''];
+let materialCustomerName = '';
+let materialCustomerTimer = null;
+let materialCustomerInFlight = '';
 
 function materialByCode(code) {
     return materialCatalog.find(function(item) { return item.code === code; });
@@ -710,6 +718,85 @@ function normalizeMaterialQuantity(value) {
     const number = Number(match[1] + '.' + (match[2] || ''));
     if (!Number.isFinite(number)) return String(value || '').trim();
     return number.toFixed(3);
+}
+
+function normalizeMaterialCustomerCode(value) {
+    return String(value || '').trim().replace(/^0+/, '').toUpperCase();
+}
+
+function validMaterialCustomerCode(value) {
+    const code = String(value || '').trim().toUpperCase();
+    return /^1\d{8}$/.test(code) || /^0*1\d{8}$/.test(code);
+}
+
+function updateMaterialCustomerPreview(isLoading) {
+    const input = document.getElementById('materialCustomerCode');
+    const preview = document.getElementById('materialCustomerPreview');
+    if (!input || !preview) return;
+    const code = normalizeMaterialCustomerCode(input.value);
+    if (isLoading) {
+        preview.textContent = 'Mã KH: ' + code + ' <Đang tải...>';
+    } else if (code && materialCustomerName) {
+        preview.textContent = 'Mã KH: ' + code + ' - ' + materialCustomerName + ' ....................';
+    } else if (code) {
+        preview.textContent = 'Mã KH: ' + code + '....................';
+    } else {
+        preview.textContent = 'Mã KH: ....................';
+    }
+}
+
+function applyMaterialCustomerProfile(profile, requestedCode) {
+    const currentCode = normalizeMaterialCustomerCode(document.getElementById('materialCustomerCode').value);
+    if (requestedCode && currentCode !== normalizeMaterialCustomerCode(requestedCode)) return;
+    materialCustomerName = String((profile && (profile.name || profile.full_name)) || '').trim().toUpperCase();
+    updateMaterialCustomerPreview(false);
+}
+
+async function fetchMaterialCustomerProfile(customerCode, turnstileToken) {
+    const key = normalizeMaterialCustomerCode(customerCode);
+    if (!key || !validMaterialCustomerCode(customerCode)) return;
+    if (!turnstileToken && f1BpProfileCache.has('local:' + key)) {
+        applyMaterialCustomerProfile(f1BpProfileCache.get('local:' + key), key);
+        return;
+    }
+    if (materialCustomerInFlight === key) return;
+
+    materialCustomerInFlight = key;
+    updateMaterialCustomerPreview(true);
+    try {
+        const response = await fetch(appUrl('/api/customer-local-profile'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            cache: 'no-store',
+            body: JSON.stringify({
+                customer_code: customerCode,
+                turnstile_token: turnstileToken || ''
+            })
+        });
+        const data = await response.json().catch(function() { return { ok: false }; });
+        if (response.status === 403 && data.captcha_required) {
+            openF1BpCaptcha(customerCode, 'material');
+            return;
+        }
+        if (!response.ok && data.error) {
+            return;
+        }
+        const profile = data && data.ok && data.profile ? data.profile : {};
+        f1BpProfileCache.set('local:' + key, profile);
+        applyMaterialCustomerProfile(profile, key);
+    } catch (error) {
+        f1BpProfileCache.set('local:' + key, {});
+        applyMaterialCustomerProfile({}, key);
+    } finally {
+        if (materialCustomerInFlight === key) {
+            materialCustomerInFlight = '';
+            updateMaterialCustomerPreview(false);
+        }
+    }
 }
 
 function materialButtonHtml(selectedCode, rowIdx) {
@@ -782,6 +869,22 @@ document.getElementById('btnAddMaterialRow').addEventListener('click', function(
     materialRows.push('');
     materialQuantities.push('');
     renderMaterialRows();
+});
+
+document.getElementById('materialCustomerCode').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+    clearTimeout(materialCustomerTimer);
+    materialCustomerName = '';
+    updateMaterialCustomerPreview(false);
+
+    if (!validMaterialCustomerCode(this.value)) {
+        return;
+    }
+
+    const customerCode = this.value.trim();
+    materialCustomerTimer = setTimeout(function() {
+        fetchMaterialCustomerProfile(customerCode);
+    }, 350);
 });
 
 renderMaterialRows();
@@ -910,7 +1013,9 @@ function renderF1BpCaptcha() {
         action: 'customer_lookup',
         callback: function(token) {
             if (f1BpCaptchaModal) f1BpCaptchaModal.hide();
-            if (pendingF1BpLookupTarget === 'f2') {
+            if (pendingF1BpLookupTarget === 'material') {
+                fetchMaterialCustomerProfile(pendingF1BpCustomerCode, token);
+            } else if (pendingF1BpLookupTarget === 'f2') {
                 fetchF2BusinessPartnerProfile(pendingF1BpCustomerCode, token);
             } else {
                 fetchF1BusinessPartnerProfile(pendingF1BpCustomerCode, token);
@@ -1140,8 +1245,11 @@ function buildMaterialProposalParams() {
     }
     const d = document.getElementById('ngayLap').value.split('-');
     const purpose = document.querySelector('input[name="materialPurpose"]:checked').value;
+    const customerCode = normalizeMaterialCustomerCode(document.getElementById('materialCustomerCode').value);
     return new URLSearchParams({
         purpose: purpose,
+        customer_code: customerCode,
+        customer_name: materialCustomerName,
         material_codes: codes.join('\n'),
         quantities: materialRows.map(function(code, idx) { return code ? (materialQuantities[idx] || '') : ''; }).filter(function(_value, idx) { return Boolean(materialRows[idx]); }).join('\n'),
         ngay: d[2] || '',
@@ -1180,6 +1288,11 @@ document.getElementById('btnClearCaoHml').addEventListener('click', function() {
     renderHmlRows();
 });
 document.getElementById('btnClearMaterialProposal').addEventListener('click', function() {
+    clearTimeout(materialCustomerTimer);
+    materialCustomerInFlight = '';
+    materialCustomerName = '';
+    document.getElementById('materialCustomerCode').value = '';
+    updateMaterialCustomerPreview(false);
     document.getElementById('materialPurposeXuLy').checked = true;
     materialRows = ['', '', ''];
     materialQuantities = ['', '', ''];

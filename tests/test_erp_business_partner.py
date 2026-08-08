@@ -450,6 +450,9 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("Đề xuất nguyên liệu làm hàng <strong>xử lý</strong>", html)
         self.assertIn("Đề xuất nguyên liệu làm hàng <strong>bảo hành</strong>", html)
         self.assertIn('id="materialPurposeCustom"', html)
+        self.assertIn('id="materialCustomerCode"', html)
+        self.assertIn('id="materialCustomerPreview"', html)
+        self.assertIn("/api/customer-local-profile", html)
         self.assertIn(".................... (tự ghi)", html)
         self.assertIn("normalizeMaterialQuantity", html)
         self.assertIn("material-picker-cell", html)
@@ -478,7 +481,9 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         print_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"
             "purpose=bao_hanh&material_codes=31000425%0A31000204"
-            "&quantities=1.2%0A2.3&ngay=25&thang=07&nam=2026"
+            "&quantities=1.2%0A2.3&customer_code=100393378"
+            "&customer_name=D%C6%AF%C6%A0NG%20TH%E1%BB%8A%20TH%C3%99Y%20LINH"
+            "&ngay=25&thang=07&nam=2026"
         ).get_data(as_text=True)
 
         self.assertIn("size: A5 landscape", print_html)
@@ -491,6 +496,7 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("TRANG : 1/1", print_html)
         self.assertIn("Số: ...../1305-2026", print_html)
         self.assertIn("Đề xuất nguyên liệu làm hàng bảo hành.", print_html)
+        self.assertIn("Mã KH: 100393378 - DƯƠNG THỊ THÙY LINH ....................", print_html)
         self.assertIn("<td class=\"col-unit\">phân</td>", print_html)
         self.assertIn("Căn cứ theo:</span> Nhu cầu thực tế tại cửa hàng", print_html)
         self.assertIn("Xuất tại kho:</span> 1203", print_html)
@@ -522,6 +528,13 @@ class ErpBusinessPartnerTests(unittest.TestCase):
         self.assertIn("Đề xuất nguyên liệu làm hàng xử lý.", xu_ly_html)
         self.assertIn("31000820 - NLT VÀNG ĐÚC R M.VÀNG TUỔI 3330 (hội 334)", xu_ly_html)
         self.assertIn("32000090 - NLT BẠC VHÀN KQT TUỔI 8000", xu_ly_html)
+
+        customer_code_only_html = self.client.get(
+            "/de-xuat-nguyen-lieu/print?"
+            "purpose=xu_ly&customer_code=0100393378&material_codes=31000820"
+            "&quantities=1&ngay=25&thang=07&nam=2026"
+        ).get_data(as_text=True)
+        self.assertIn("Mã KH: 100393378....................", customer_code_only_html)
 
         custom_html = self.client.get(
             "/de-xuat-nguyen-lieu/print?"

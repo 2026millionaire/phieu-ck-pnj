@@ -2630,6 +2630,21 @@ def material_proposal_rows(material_codes, quantities=None, blank_rows=0):
     }
 
 
+def material_customer_line(customer_code, customer_name):
+    code = re.sub(r"\s+", "", str(customer_code or "")).upper()
+    if re.fullmatch(r"0*1[0-9]{8}", code):
+        code = code.lstrip("0")
+    elif not re.fullmatch(r"1[0-9]{8}", code):
+        code = ""
+    name = re.sub(r"\s+", " ", str(customer_name or "")).strip().upper()
+    dots = "...................."
+    if code and name:
+        return f"Mã KH: {code} - {name} {dots}"
+    if code:
+        return f"Mã KH: {code}{dots}"
+    return f"Mã KH: {dots}"
+
+
 def get_accessible_phieu(db, phieu_id):
     """Return a phieu row the current user may read."""
     if is_admin():
@@ -3545,6 +3560,10 @@ def render_de_xuat_nguyen_lieu_html():
         "de_xuat_nguyen_lieu_print.html",
         purpose=purpose,
         custom_purpose=custom_purpose,
+        customer_line=material_customer_line(
+            request.args.get("customer_code", ""),
+            request.args.get("customer_name", ""),
+        ),
         rows=rows,
         totals=totals,
         ngay=request.args.get("ngay", now.strftime("%d")),
